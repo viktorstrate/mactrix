@@ -76,10 +76,6 @@ struct ChatMessageView: View {
         }
     }
     
-    var timestamp: Date {
-        Date(timeIntervalSince1970: Double(event.timestamp))
-    }
-    
     var timeFormat: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
@@ -135,7 +131,7 @@ struct ChatMessageView: View {
                 // Main body
                 HStack(alignment: .top, spacing: 0) {
                     HStack {
-                        Text(timeFormat.string(from: timestamp))
+                        Text(timeFormat.string(from: event.timestamp.date))
                             .foregroundStyle(.gray)
                             .font(.system(.footnote))
                             .padding(.trailing, 5)

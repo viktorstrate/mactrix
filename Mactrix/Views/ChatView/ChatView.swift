@@ -48,10 +48,12 @@ struct ChatView: View {
                             LazyVStack {
                                     ForEach(timelineItems) { item in
                                         if let event = item.asEvent() {
-                                            TimelineItemView(event: event).id(item.id)
+                                            TimelineItemView(event: event)
+                                                .id(item.id)
                                         }
-                                        if let _ = item.asVirtual() {
-                                            Text("Virtual item").id(item.id)
+                                        if let virtual = item.asVirtual() {
+                                            VirtualItemView(item: virtual)
+                                                .id(item.id)
                                         }
                                     }
                             }
@@ -69,6 +71,7 @@ struct ChatView: View {
             }
             .scrollPosition(id: $scrollPosition, anchor: .bottom)
             .safeAreaPadding(.bottom, 10)
+            .safeAreaPadding(.top, 20)
             .scrollContentBackground(.hidden)
             .defaultScrollAnchor(.bottom)
             
@@ -79,6 +82,22 @@ struct ChatView: View {
                 self.timeline = try await RoomTimeline(room: room)
             } catch {
                 self.errorMessage = error.localizedDescription
+            }
+        }
+        .onChange(of: self.timeline?.timelineItems.count ?? 0) { prev, now in
+            if now > 0 {
+                Task {
+                    if prev == 0 { // disable animation on first load
+                        self.scrollPosition = self.timeline?.timelineItems.last?.id
+                        await Task.yield()
+                        self.scrollPosition = self.timeline?.timelineItems.last?.id
+                    } else {
+                        await Task.yield()
+                        withAnimation {
+                            self.scrollPosition = self.timeline?.timelineItems.last?.id
+                        }
+                    }
+                }
             }
         }
     }

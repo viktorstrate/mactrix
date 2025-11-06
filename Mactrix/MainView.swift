@@ -14,7 +14,7 @@ struct MainView: View {
     @Environment(AppState.self) var appState
     
     @State private var showWelcomeSheet: Bool = false
-    @State private var selectedCategory: SelectedCategory = .rooms
+    @State private var selectedCategory: SelectedCategory = .defaultCategory
     
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
@@ -45,6 +45,7 @@ struct MainView: View {
         .onChange(of: appState.matrixClient == nil) { _, matrixClientIsNil in
             if matrixClientIsNil {
                 showWelcomeSheet = true
+                selectedCategory = .defaultCategory
             }
         }
     }

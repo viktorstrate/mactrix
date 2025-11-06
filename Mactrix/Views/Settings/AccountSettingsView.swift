@@ -35,6 +35,12 @@ struct AccountSettingsView: View {
                             .foregroundStyle(Color.red)
                     }
                 }
+                
+                Button("Clear cache") {
+                    Task {
+                        try await appState.matrixClient?.clearCache()
+                    }
+                }
             }
         } else {
             ContentUnavailableView("User not logged in", systemImage: "person")
@@ -42,25 +48,6 @@ struct AccountSettingsView: View {
     }
 }
 
-struct SettingsView: View {
-    var body: some View {
-        TabView {
-            Tab("Account", systemImage: "person") {
-                AccountSettingsView()
-            }
-            Tab("Appearance", systemImage: "eye") {
-                Text("Appearance Settings")
-            }
-            Tab("Encryption", systemImage: "lock") {
-                Text("Encryption Settings")
-            }
-        }
-        .scenePadding()
-        .frame(maxWidth: 450, minHeight: 200)
-    }
-}
-
 #Preview {
-    SettingsView()
-        .environment(AppState.previewMock)
+    AccountSettingsView()
 }

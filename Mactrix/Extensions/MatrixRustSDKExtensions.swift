@@ -28,3 +28,9 @@ extension MatrixRustSDK.Reaction: @retroactive Identifiable {
         self.key
     }
 }
+
+extension MatrixRustSDK.Timestamp {
+    public var date: Date {
+        Date(timeIntervalSince1970: Double(self) / 1000)
+    }
+}

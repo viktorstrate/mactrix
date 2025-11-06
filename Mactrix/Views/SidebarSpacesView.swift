@@ -80,6 +80,8 @@ struct RoomsIcon: View {
 enum SelectedCategory: Hashable {
     case rooms
     case space(id: String)
+    
+    static var defaultCategory: Self { .rooms }
 }
 
 struct SidebarSpacesView: View {
@@ -127,5 +129,5 @@ struct SidebarSpacesView: View {
 }
 
 #Preview {
-    SidebarSpacesView(selectedCategory: .constant(.rooms))
+    SidebarSpacesView(selectedCategory: .constant(.defaultCategory))
 }

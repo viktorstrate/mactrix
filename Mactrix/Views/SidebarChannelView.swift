@@ -15,7 +15,7 @@ struct SidebarChannelView: View {
         Group {
             if let visibleRooms = visibleRooms {
                 List(visibleRooms) { room in
-                    NavigationLink(destination: { ChatView(room: room) }) {
+                    NavigationLink(destination: { ChatView(room: room).id(room.id) }) {
                         HStack(alignment: .center) {
                             RoomIcon()
                                 .frame(width: 32, height: 32)
@@ -38,16 +38,19 @@ struct SidebarChannelView: View {
                 ProgressView()
             }
         }
-        .task(id: selectedCategory) {
-            switch selectedCategory {
-            case .rooms:
-                self.visibleRooms = rooms.filter { !$0.isSpace() }
-            case .space(let spaceId):
-                self.visibleRooms = nil
-                let spaceRooms = try! await appState.matrixClient?.client.spaceService().spaceRoomList(spaceId: spaceId)
-                let roomIds = spaceRooms?.rooms().map { $0.roomId } ?? []
-                self.visibleRooms = rooms.filter { room in roomIds.contains(where: { $0 == room.id() }) }
-            }
+        .task(id: selectedCategory) { await updateVisibleRooms() }
+        .task(id: rooms) { await updateVisibleRooms() }
+    }
+    
+    func updateVisibleRooms() async {
+        switch selectedCategory {
+        case .rooms:
+            self.visibleRooms = rooms.filter { !$0.isSpace() }
+        case .space(let spaceId):
+            self.visibleRooms = nil
+            let spaceRooms = try! await appState.matrixClient?.client.spaceService().spaceRoomList(spaceId: spaceId)
+            let roomIds = spaceRooms?.rooms().map { $0.roomId } ?? []
+            self.visibleRooms = rooms.filter { room in roomIds.contains(where: { $0 == room.id() }) }
         }
     }
 }

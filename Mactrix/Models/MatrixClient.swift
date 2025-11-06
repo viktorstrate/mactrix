@@ -122,18 +122,23 @@ struct UserSession: Codable {
         try keychain.removeAll()
     }
     
-    fileprivate var syncService: SyncService!
-    fileprivate var roomListService: RoomListService!
-    fileprivate var roomListEntriesHandle: RoomListEntriesWithDynamicAdaptersResult!
+    var syncService: SyncService?
+    var roomListService: RoomListService?
+    var roomListEntriesHandle: RoomListEntriesWithDynamicAdaptersResult?
     
     func startSync() async throws {
         syncService = try await client.syncService().finish()
-        roomListService = syncService.roomListService()
-        roomListEntriesHandle = try await roomListService.allRooms().entriesWithDynamicAdapters(pageSize: 100, listener: self)
-        let _ = roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
+        roomListService = syncService?.roomListService()
+        roomListEntriesHandle = try await roomListService?.allRooms().entriesWithDynamicAdapters(pageSize: 100, listener: self)
+        let _ = roomListEntriesHandle?.controller().setFilter(kind: .all(filters: []))
         
         // Start the sync loop.
-        await syncService.start()
+        await syncService?.start()
+        print("Matrix sync started")
+    }
+    
+    func clearCache() async throws {
+        try await self.client.clearCaches(syncService: syncService)
     }
 }
 
