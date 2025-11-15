@@ -4,6 +4,7 @@ import UI
 
 struct SpaceDisclosureGroup: View {
     @Environment(AppState.self) var appState
+    @Environment(WindowState.self) var windowState
     
     @State var space: SidebarSpaceRoom
     
@@ -46,8 +47,26 @@ struct SpaceDisclosureGroup: View {
         }
     }
     
+    var joinRoom: (() async throws -> Void)? {
+        if appState.matrixClient?.rooms.contains(where: { $0.id() == space.id }) == false {
+            return {
+                print("Joining room: \(space.id)")
+                guard let matrixClient = appState.matrixClient else { return }
+                let room = try await matrixClient.client.joinRoomById(roomId: space.id)
+                windowState.selectedRoom = SelectedRoom.joinedRoom(LiveRoom(room: room))
+            }
+        }
+        
+        return nil
+    }
+    
     var roomRow: some View {
-        UI.RoomRow(title: space.spaceRoom.displayName, avatarUrl: space.spaceRoom.avatarUrl, imageLoader: appState.matrixClient, placeholderImageName: "network")
+        UI.RoomRow(
+            title: space.spaceRoom.displayName,
+            avatarUrl: space.spaceRoom.avatarUrl,
+            imageLoader: appState.matrixClient,
+            joinRoom: joinRoom,
+            placeholderImageName: "network")
     }
     
     var body: some View {
@@ -61,6 +80,8 @@ struct SpaceDisclosureGroup: View {
 
 struct SidebarView: View {
     @Environment(AppState.self) var appState
+    
+    @State private var searchText: String = ""
     
     var directs: [SidebarRoom] {
         (appState.matrixClient?.rooms ?? [])
@@ -82,13 +103,38 @@ struct SidebarView: View {
         List(selection: $selectedRoomId) {
             Section("Directs") {
                 ForEach(directs) { room in
-                    UI.RoomRow(title: room.displayName() ?? "Unknown user", avatarUrl: room.avatarUrl(), imageLoader: appState.matrixClient, placeholderImageName: "person.fill")
+                    UI.RoomRow(
+                        title: room.displayName() ?? "Unknown user",
+                        avatarUrl: room.avatarUrl(),
+                        imageLoader: appState.matrixClient,
+                        joinRoom: nil,
+                        placeholderImageName: "person.fill"
+                    )
                 }
             }
             
             Section("Rooms") {
                 ForEach(rooms) { room in
-                    UI.RoomRow(title: room.displayName() ?? "Unknown Room", avatarUrl: room.avatarUrl(), imageLoader: appState.matrixClient)
+                    UI.RoomRow(
+                        title: room.displayName() ?? "Unknown Room",
+                        avatarUrl: room.avatarUrl(),
+                        imageLoader: appState.matrixClient,
+                        joinRoom: nil
+                    )
+                    .contextMenu {
+                        Button {
+                            Task {
+                                do {
+                                    print("leaving room: \(room.id())")
+                                    try await room.leave()
+                                } catch {
+                                    print("failed to leave room: \(error)")
+                                }
+                            }
+                        } label: {
+                            Label("Leave room", systemImage: "minus.circle")
+                        }
+                    }
                 }
             }
             

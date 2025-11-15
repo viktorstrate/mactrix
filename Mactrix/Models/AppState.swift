@@ -1,16 +1,9 @@
-//
-//  AppState.swift
-//  Mactrix
-//
-//  Created by Viktor Strate Kløvedal on 31/10/2025.
-//
-
 import Foundation
 import Models
 import MatrixRustSDK
 
 @MainActor
-@Observable class AppState {
+@Observable final class AppState {
     var matrixClient: MatrixClient? = nil
     
     func reset() async throws {

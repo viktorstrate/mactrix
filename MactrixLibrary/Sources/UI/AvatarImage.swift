@@ -42,7 +42,7 @@ public struct AvatarImage<Preview: View>: View {
                 do {
                     avatar = try await imageLoader?.loadImage(matrixUrl: avatarUrl)
                 } catch {
-                    print("failed to load avatar: \(error)")
+                    print("failed to load avatar (\(avatarUrl): \(error)")
                 }
             }
     }

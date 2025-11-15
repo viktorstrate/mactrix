@@ -5,14 +5,14 @@ import UI
 struct MainView: View {
     @Environment(AppState.self) var appState
     
-    @State var selectedRoom: SelectedRoom? = nil
+    @State private var windowState = WindowState()
     
     @State private var showWelcomeSheet: Bool = false
     @State private var inspectorVisible: Bool = false
     @State private var selectedRoomId: String? = nil
     
     @ViewBuilder var details: some View {
-        switch selectedRoom {
+        switch windowState.selectedRoom {
         case .joinedRoom(let room):
             ChatView(room: room).id(room.id)
         case .previewRoom(let room):
@@ -27,8 +27,9 @@ struct MainView: View {
             sidebar: { SidebarView(selectedRoomId: $selectedRoomId) },
             detail: { details }
         )
+        .environment(windowState)
         .inspector(isPresented: $inspectorVisible, content: {
-            switch selectedRoom {
+            switch windowState.selectedRoom {
             case .joinedRoom(let room):
                 UI.RoomInspectorView(room: room, members: room.fetchedMembers, inspectorVisible: $inspectorVisible)
             case .previewRoom(let room):
@@ -48,26 +49,7 @@ struct MainView: View {
             }
         }
         .task(id: selectedRoomId) {
-            guard let matrixClient = appState.matrixClient else { return }
-            
-            do {
-                print("Selected room: \(selectedRoomId.debugDescription)")
-                
-                if let roomId = selectedRoomId {
-                    if let selectedRoom = try matrixClient.client.getRoom(roomId: roomId) {
-                        self.selectedRoom = .joinedRoom(LiveRoom(room: selectedRoom))
-                    } else {
-                        let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(roomId: roomId, viaServers: ["matrix.org"])
-                        
-                        print("Selected room preview: \(roomPreview.info())")
-                        self.selectedRoom = .previewRoom(roomPreview)
-                    }
-                } else {
-                    self.selectedRoom = nil
-                }
-            } catch {
-                print("Failed to get room \(error)")
-            }
+            await onRoomSelected()
         }
         .onChange(of: appState.matrixClient?.authenticationFailed) { _, authFailed in
             if authFailed == true {
@@ -108,6 +90,29 @@ struct MainView: View {
             } else {
                 NSApp.terminate(nil)
             }
+        }
+    }
+    
+    func onRoomSelected() async {
+        guard let matrixClient = appState.matrixClient else { return }
+        
+        do {
+            print("Selected room: \(selectedRoomId.debugDescription)")
+            
+            if let roomId = selectedRoomId {
+                if let selectedRoom = try matrixClient.client.getRoom(roomId: roomId) {
+                    self.windowState.selectedRoom = .joinedRoom(LiveRoom(room: selectedRoom))
+                } else {
+                    let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(roomId: roomId, viaServers: ["matrix.org"])
+                    
+                    print("Selected room preview: \(roomPreview.info())")
+                    self.windowState.selectedRoom = .previewRoom(roomPreview)
+                }
+            } else {
+                self.windowState.selectedRoom = nil
+            }
+        } catch {
+            print("Failed to get room \(error)")
         }
     }
 }
