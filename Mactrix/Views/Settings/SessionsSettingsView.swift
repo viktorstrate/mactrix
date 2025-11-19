@@ -1,9 +1,9 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 
 struct SessionsSettingsView: View {
     @Environment(AppState.self) var appState
-    
+
     @ViewBuilder
     func sessionBadge(systemIcon: String, color: Color) -> some View {
         Image(systemName: systemIcon)
@@ -12,7 +12,7 @@ struct SessionsSettingsView: View {
             .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(0.2)))
             .foregroundStyle(color.mix(with: .black, by: 0.2))
     }
-    
+
     @ViewBuilder
     func sessionVerificationState(badge: some View, title: LocalizedStringKey, subtitle: LocalizedStringKey) -> some View {
         HStack {
@@ -25,7 +25,7 @@ struct SessionsSettingsView: View {
             }
         }
     }
-    
+
     @ViewBuilder
     func sessionVerificationView(matrixClient: MatrixClient) -> some View {
         switch matrixClient.verificationState {
@@ -49,7 +49,7 @@ struct SessionsSettingsView: View {
             )
         }
     }
-    
+
     var body: some View {
         if let matrixClient = appState.matrixClient {
             sessionVerificationView(matrixClient: matrixClient)

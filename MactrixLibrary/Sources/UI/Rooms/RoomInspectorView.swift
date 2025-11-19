@@ -1,17 +1,17 @@
-import SwiftUI
 import Models
+import SwiftUI
 
 public struct UserProfileRow<Profile: UserProfile>: View {
     let userProfile: Profile
     let imageLoader: ImageLoader?
-    
+
     @State private var image: Image? = nil
-    
+
     public init(userProfile: Profile, imageLoader: ImageLoader?) {
         self.userProfile = userProfile
         self.imageLoader = imageLoader
     }
-    
+
     public var body: some View {
         Label(title: { Text(userProfile.displayName ?? userProfile.userId) }, icon: {
             AvatarImage(avatarUrl: userProfile.avatarUrl, imageLoader: imageLoader, placeholder: { Image(systemName: "person") })
@@ -22,7 +22,7 @@ public struct UserProfileRow<Profile: UserProfile>: View {
 struct RoomInspectorMemberRow<RoomMember: Models.RoomMember>: View {
     let member: RoomMember
     let imageLoader: ImageLoader?
-    
+
     var body: some View {
         UserProfileRow(userProfile: member, imageLoader: imageLoader)
     }
@@ -31,20 +31,20 @@ struct RoomInspectorMemberRow<RoomMember: Models.RoomMember>: View {
 public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember>: View {
     let room: Room
     let members: [RoomMember]?
-    
+
     let roomInfo: RoomInfo?
     let imageLoader: ImageLoader?
-    
+
     @Binding var inspectorVisible: Bool
-    
+
     public init(room: Room, members: [RoomMember]?, roomInfo: RoomInfo?, imageLoader: ImageLoader?, inspectorVisible: Binding<Bool>) {
         self.room = room
         self.members = members
         self.imageLoader = imageLoader
         self.roomInfo = roomInfo
-        self._inspectorVisible = inspectorVisible
+        _inspectorVisible = inspectorVisible
     }
-    
+
     @ViewBuilder
     func userSection(title: LocalizedStringResource, allMembers: [RoomMember], withRole role: RoomMemberRole) -> some View {
         let roleMembers = allMembers.filter { $0.roleForPowerLevel == role }
@@ -54,7 +54,7 @@ public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember
             }
         }
     }
-    
+
     @ViewBuilder
     var usersPlaceholder: some View {
         Group {
@@ -62,7 +62,7 @@ public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember
                 Text("First admin")
                 Text("Second admin")
             }
-            
+
             Section("Users (4)") {
                 Text("First user")
                 Text("Second user")
@@ -72,18 +72,18 @@ public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember
         }
         .redacted(reason: .placeholder)
     }
-    
+
     public var body: some View {
         List {
             VStack(alignment: .center) {
                 Text(room.displayName ?? "Unknown Room").font(.title)
                 Text(room.topic ?? "No Topic")
-                
+
                 RoomEncryptionBadge(state: room.encryptionState)
             }
             .frame(maxWidth: .infinity)
             .listRowSeparator(.hidden)
-            
+
             if let members = members {
                 userSection(title: "Admins", allMembers: members, withRole: .administrator)
                 userSection(title: "Moderators", allMembers: members, withRole: .moderator)
@@ -98,7 +98,7 @@ public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember
                         }
                     }
             }
-            
+
             if let roomInfo {
                 Section("Extra room info") {
                     Text("Room version: \(roomInfo.roomVersion, default: "Unknown")")
@@ -117,9 +117,7 @@ public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember
     }
 }
 
-
 #Preview {
-    RoomInspectorView<MockRoom, MockRoomMember>
-        .init(room: MockRoom.previewRoom, members: nil, roomInfo: MockRoomInfo(), imageLoader: nil, inspectorVisible: .constant(true))
+    RoomInspectorView<MockRoom, MockRoomMember>(room: MockRoom.previewRoom, members: nil, roomInfo: MockRoomInfo(), imageLoader: nil, inspectorVisible: .constant(true))
         .frame(width: 250, height: 500)
 }

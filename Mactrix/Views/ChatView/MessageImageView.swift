@@ -1,14 +1,14 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 
 struct MessageImageView: View {
     let content: ImageMessageContent
-    
+
     @Environment(AppState.self) private var appState
-    
+
     @State private var image: Image? = nil
     @State private var errorMessage: String? = nil
-    
+
     var body: some View {
         VStack {
             if let errorMessage = errorMessage {
@@ -38,7 +38,7 @@ struct MessageImageView: View {
                 errorMessage = "Matrix client not available"
                 return
             }
-            
+
             do {
                 let data = try await matrixClient.client.getMediaContent(mediaSource: .fromUrl(url: url))
                 image = try await Image(importing: data, contentType: nil)

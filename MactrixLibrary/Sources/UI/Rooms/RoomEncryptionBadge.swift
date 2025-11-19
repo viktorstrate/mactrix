@@ -1,19 +1,19 @@
-import SwiftUI
 import Models
+import SwiftUI
 
 public struct RoomEncryptionBadge: View {
     let state: EncryptionState
-    
+
     public init(state: EncryptionState) {
         self.state = state
     }
-    
+
     struct Badge {
         let label: String
         let icon: String
         let color: Color
     }
-    
+
     var badge: Badge {
         switch state {
         case .encrypted:
@@ -24,7 +24,7 @@ public struct RoomEncryptionBadge: View {
             return Badge(label: "Encryption unknown", icon: "questionmark", color: .gray)
         }
     }
-    
+
     public var body: some View {
         Label(badge.label, systemImage: badge.icon)
             .padding(.vertical, 8)
@@ -33,7 +33,7 @@ public struct RoomEncryptionBadge: View {
             .background(
                 RoundedRectangle(cornerRadius: 8)
                     .fill(badge.color.quaternary)
-                    //.stroke(badge.color.secondary)
+                // .stroke(badge.color.secondary)
             )
             .padding()
     }

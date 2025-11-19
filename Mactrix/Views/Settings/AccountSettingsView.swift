@@ -1,15 +1,15 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 
 struct ChangableField: View {
     let name: String
     let value: String
     let onSave: (_ newValue: String) async -> Void
-    
+
     @State private var isEditing: Bool = false
     @State private var editValue: String = ""
     @State private var saving: Bool = false
-    
+
     private func save() {
         Task {
             saving = true
@@ -18,7 +18,7 @@ struct ChangableField: View {
             saving = false
         }
     }
-    
+
     var body: some View {
         if isEditing {
             HStack {
@@ -44,10 +44,10 @@ struct ChangableField: View {
 
 struct AccountSettingsView: View {
     @Environment(AppState.self) var appState
-    
+
     @State private var logoutError: String? = nil
     @State private var displayName: String? = nil
-    
+
     var body: some View {
         if let matrixClient = appState.matrixClient {
             Form {
@@ -59,24 +59,24 @@ struct AccountSettingsView: View {
                         print("Failed to update display name: \(error)")
                     }
                 })
-                    .task {
-                        do {
-                            displayName = try await matrixClient.client.displayName()
-                        } catch {
-                            print("Failed to load display name: \(error)")
-                        }
+                .task {
+                    do {
+                        displayName = try await matrixClient.client.displayName()
+                    } catch {
+                        print("Failed to load display name: \(error)")
                     }
-                
+                }
+
                 LabeledContent("User") {
                     Text((try? matrixClient.client.userId()) ?? "error")
                         .textSelection(.enabled)
                 }
-                
+
                 LabeledContent("Device") {
                     Text((try? matrixClient.client.deviceId()) ?? "error")
                         .textSelection(.enabled)
                 }
-                
+
                 HStack {
                     Button("Sign out", role: .destructive) {
                         Task {
@@ -93,7 +93,7 @@ struct AccountSettingsView: View {
                             .foregroundStyle(Color.red)
                     }
                 }
-                
+
                 Button("Clear cache") {
                     Task {
                         try await appState.matrixClient?.clearCache()

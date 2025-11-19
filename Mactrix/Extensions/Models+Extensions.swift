@@ -1,6 +1,6 @@
 import Foundation
-import Models
 import MatrixRustSDK
+import Models
 
 extension Models.CreateRoomParams {
     var asMatrixRequest: MatrixRustSDK.CreateRoomParameters {
@@ -10,17 +10,17 @@ extension Models.CreateRoomParams {
         case .publicRoom:
             .publicChat
         }
-        
+
         let visibility: MatrixRustSDK.RoomVisibility = switch self.visibility {
         case .published:
             .public
         case .unpublished:
             .private
         }
-        
+
         var topicValue: String? = topic.trimmingCharacters(in: .whitespacesAndNewlines)
         topicValue = topicValue?.isEmpty == false ? topicValue : nil
-        
+
         return CreateRoomParameters(
             name: name,
             topic: topicValue,

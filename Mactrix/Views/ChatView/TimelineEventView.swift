@@ -1,22 +1,21 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 import UI
 
 struct TimelineEventView: View {
-    
     let timeline: LiveTimeline?
     let event: MatrixRustSDK.EventTimelineItem
-    
+
     var body: some View {
         switch event.content {
-        case .msgLike(content: let content):
+        case let .msgLike(content: content):
             ChatMessageView(timeline: timeline?.timeline, event: event, msg: content)
         case .callInvite:
             UI.GenericEventView(event: event, name: "Call invite")
         case .rtcNotification:
             UI.GenericEventView(event: event, name: "Rtc notification")
         case let .roomMembership(userId: _, userDisplayName: _, change: change, reason: reason):
-            let changeMsg: String = switch change {
+            let changeMsg = switch change {
             case nil:
                 "unknown membership change event"
             case .some(.none):
@@ -54,13 +53,13 @@ struct TimelineEventView: View {
             case .notImplemented:
                 "room membership event not implemented"
             }
-            
+
             let message: String = if let reason {
                 "\(changeMsg) because \(reason)"
             } else {
                 changeMsg
             }
-            
+
             UI.GenericEventView(event: event, name: message)
         case let .profileChange(displayName: displayName, prevDisplayName: prevDisplayName, avatarUrl: avatarUrl, prevAvatarUrl: prevAvatarUrl):
             let changeMsg = switch (displayName, prevDisplayName, avatarUrl, prevAvatarUrl) {
@@ -73,7 +72,7 @@ struct TimelineEventView: View {
             case _:
                 "unknown profile change"
             }
-            
+
             UI.GenericEventView(event: event, name: changeMsg)
         case let .state(stateKey: stateKey, content: content):
             StateEventView(event: event, stateKey: stateKey, state: content)
@@ -86,11 +85,10 @@ struct TimelineEventView: View {
 }
 
 struct StateEventView: View {
-    
     let event: EventTimelineItem
     let stateKey: String
     let state: OtherState
-    
+
     var stateMessage: String {
         switch state {
         case .policyRuleRoom:
@@ -115,7 +113,7 @@ struct StateEventView: View {
             "change room history visibility"
         case .roomJoinRules:
             "changed room join rules"
-        case .roomName(name: let name):
+        case let .roomName(name: name):
             "changed room name to '\(name ?? "empty")'"
         case .roomPinnedEvents(change: _):
             "changed room pinned events"
@@ -127,17 +125,17 @@ struct StateEventView: View {
             "changed room third party invite"
         case .roomTombstone:
             "room tombstone"
-        case .roomTopic(topic: let topic):
+        case let .roomTopic(topic: topic):
             "changed room topic to '\(topic ?? "none")'"
         case .spaceChild:
             "changed space child"
         case .spaceParent:
             "changed space parent"
-        case .custom(eventType: let eventType):
+        case let .custom(eventType: eventType):
             "changed custom state '\(eventType)'"
         }
     }
-    
+
     var body: some View {
         GenericEventView(event: event, name: stateMessage)
     }

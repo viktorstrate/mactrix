@@ -1,5 +1,5 @@
-import SwiftUI
 import Models
+import SwiftUI
 
 struct MessageReactionToggleStyle: ToggleStyle {
     func makeBody(configuration: Configuration) -> some View {
@@ -9,12 +9,11 @@ struct MessageReactionToggleStyle: ToggleStyle {
                 configuration.label
                     .background(
                         configuration.isOn ?
-                        Color.blue.quaternary : Color.gray.quaternary
+                            Color.blue.quaternary : Color.gray.quaternary
                     )
             }
         )
         .buttonStyle(.plain)
-        
         .overlay {
             RoundedRectangle(cornerRadius: 4)
                 .stroke(configuration.isOn ? Color.blue : Color.gray)
@@ -25,14 +24,14 @@ struct MessageReactionToggleStyle: ToggleStyle {
 public struct MessageReactionView<Reaction: Models.Reaction>: View {
     let reaction: Reaction
     let active: Binding<Bool>
-    
+
     @FocusState private var isFocused: Bool
-    
+
     public init(reaction: Reaction, active: Binding<Bool>) {
         self.reaction = reaction
         self.active = active
     }
-    
+
     public var body: some View {
         Toggle(isOn: active, label: {
             HStack(spacing: 0) {
@@ -42,12 +41,12 @@ public struct MessageReactionView<Reaction: Models.Reaction>: View {
             }
             .padding(4)
         })
-            .toggleStyle(MessageReactionToggleStyle())
+        .toggleStyle(MessageReactionToggleStyle())
     }
 }
 
 #Preview {
-    @Previewable @State var active: Bool = false
+    @Previewable @State var active = false
     MessageReactionView(reaction: MockReaction(), active: $active)
-    .padding()
+        .padding()
 }

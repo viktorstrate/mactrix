@@ -1,22 +1,22 @@
-import SwiftUI
-import Models
-import UI
 import MatrixRustSDK
+import Models
+import SwiftUI
+import UI
 
 struct ChatMessageView: View, UI.MessageEventActions {
     @Environment(AppState.self) private var appState
-    
+
     let timeline: MatrixRustSDK.Timeline?
     let event: MatrixRustSDK.EventTimelineItem
     let msg: MsgLikeContent
-    
+
     var name: String {
         if case let .ready(displayName, _, _) = event.senderProfileDetails, let displayName = displayName {
             return displayName
         }
         return event.sender
     }
-    
+
     func toggleReaction(key: String) {
         Task {
             do {
@@ -26,11 +26,11 @@ struct ChatMessageView: View, UI.MessageEventActions {
             }
         }
     }
-    
+
     func reply() {}
-    
+
     func replyInThread() {}
-    
+
     func pin() {
         guard case let .eventId(eventId: eventId) = event.eventOrTransactionId else { return }
         Task {
@@ -41,31 +41,31 @@ struct ChatMessageView: View, UI.MessageEventActions {
             }
         }
     }
-    
+
     @ViewBuilder
     var message: some View {
         switch msg.kind {
-        case .message(content: let content):
+        case let .message(content: content):
             switch content.msgType {
-            case .emote(content: let content):
+            case let .emote(content: content):
                 Text("Emote: \(content.body)").textSelection(.enabled)
-            case .image(content: let content):
+            case let .image(content: content):
                 MessageImageView(content: content)
-            case .audio(content: let content):
+            case let .audio(content: content):
                 Text("Audio: \(content.caption ?? "no caption") \(content.filename)").textSelection(.enabled)
-            case .video(content: let content):
+            case let .video(content: content):
                 Text("Video: \(content.caption ?? "no caption") \(content.filename)").textSelection(.enabled)
-            case .file(content: let content):
+            case let .file(content: content):
                 Text("File: \(content.caption ?? "no caption") \(content.filename)").textSelection(.enabled)
-            case .gallery(content: let content):
+            case let .gallery(content: content):
                 Text("Gallery: \(content.body)").textSelection(.enabled)
-            case .notice(content: let content):
+            case let .notice(content: content):
                 Text("Notice: \(content.body)").textSelection(.enabled)
-            case .text(content: let content):
+            case let .text(content: content):
                 Text(content.body).textSelection(.enabled)
-            case .location(content: let content):
+            case let .location(content: content):
                 Text("Location: \(content.body) \(content.geoUri)").textSelection(.enabled)
-            case .other(msgtype: let msgtype, body: let body):
+            case let .other(msgtype: msgtype, body: body):
                 Text("Other: \(msgtype) \(body)").textSelection(.enabled)
             }
         case .sticker(body: let body, info: _, source: _):
@@ -86,7 +86,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
             Text("Custom event").textSelection(.enabled)
         }
     }
-    
+
     var body: some View {
         UI.MessageEventView(event: event, reactions: msg.reactions, actions: self, imageLoader: appState.matrixClient) {
             message

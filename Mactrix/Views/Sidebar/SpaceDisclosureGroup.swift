@@ -1,14 +1,14 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 import UI
 
 struct SpaceDisclosureGroup: View {
     @Environment(AppState.self) var appState
     @Environment(WindowState.self) var windowState
-    
+
     @State var space: SidebarSpaceRoom
     @State private var isExpanded: Bool = false
-    
+
     var loadingRooms: some View {
         Label {
             Text("Loading rooms")
@@ -17,13 +17,13 @@ struct SpaceDisclosureGroup: View {
             ProgressView().scaleEffect(0.5)
         }
     }
-    
+
     var spaceRow: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
             switch space.children {
             case .loading:
                 loadingRooms
-            case .loaded(let children):
+            case let .loaded(children):
                 if children.paginationState == .loading {
                     loadingRooms
                 } else {
@@ -31,7 +31,7 @@ struct SpaceDisclosureGroup: View {
                         SpaceDisclosureGroup(space: room)
                     }
                 }
-            case .error(let error):
+            case let .error(error):
                 Text("Error: \(error.localizedDescription)")
                     .foregroundStyle(Color.red)
                     .textSelection(.enabled)
@@ -45,7 +45,7 @@ struct SpaceDisclosureGroup: View {
             }
         }
     }
-    
+
     var joinRoom: (() async throws -> Void)? {
         if appState.matrixClient?.rooms.contains(where: { $0.id() == space.id }) == false {
             return {
@@ -55,14 +55,14 @@ struct SpaceDisclosureGroup: View {
                 windowState.selectedScreen = .joinedRoom(LiveRoom(matrixRoom: room))
             }
         }
-        
+
         return nil
     }
-    
+
     var joinedRoom: SidebarRoom? {
         return appState.matrixClient?.rooms.first(where: { $0.id() == space.id })
     }
-    
+
     @ViewBuilder
     var roomRow: some View {
         if let joinedRoom {
@@ -85,9 +85,8 @@ struct SpaceDisclosureGroup: View {
                 joinRoom: joinRoom
             )
         }
-        
     }
-    
+
     var body: some View {
         if space.spaceRoom.roomType == .space {
             spaceRow

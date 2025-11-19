@@ -1,17 +1,17 @@
-import SwiftUI
 import Models
+import SwiftUI
 
 public struct GenericEventView: View {
     let event: EventTimelineItem
     let name: String
-    
+
     @State private var hover = false
-    
+
     public init(event: EventTimelineItem, name: String) {
         self.event = event
         self.name = name
     }
-    
+
     public var body: some View {
         HStack(spacing: 0) {
             MessageTimestampView(date: event.date, hover: hover)

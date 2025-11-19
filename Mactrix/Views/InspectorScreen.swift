@@ -1,32 +1,32 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 import UI
 
 struct InspectorScreen: View {
     @Environment(AppState.self) var appState
     @Environment(WindowState.self) var windowState
-    
+
     @ViewBuilder
     var content: some View {
         @Bindable var windowState = windowState
-        
+
         if windowState.searchFocused {
             SearchInspectorView()
         } else {
             switch windowState.selectedScreen {
-            case .joinedRoom(let room):
+            case let .joinedRoom(room):
                 UI.RoomInspectorView(room: room, members: room.fetchedMembers, roomInfo: room.roomInfo, imageLoader: appState.matrixClient, inspectorVisible: $windowState.inspectorVisible)
-            case .previewRoom(let room):
+            case let .previewRoom(room):
                 Text("Preview room: \(room.info().name ?? "unknown name")")
             case .none, .newRoom:
                 Text("No room selected")
             }
         }
     }
-    
+
     var body: some View {
         @Bindable var windowState = windowState
-        
+
         content
             .searchable(text: $windowState.searchQuery, tokens: $windowState.searchTokens, isPresented: $windowState.searchFocused, placement: .automatic, prompt: "Search") { token in
                 switch token {
@@ -58,5 +58,4 @@ struct InspectorScreen: View {
                 }
             }
     }
-    
 }

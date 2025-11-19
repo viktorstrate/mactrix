@@ -25,7 +25,7 @@ let package = Package(
             dependencies: ["Models"]
         ),
         .target(
-            name: "Models",
+            name: "Models"
         ),
     ]
 )

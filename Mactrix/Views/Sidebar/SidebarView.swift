@@ -1,41 +1,40 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 import UI
 
 struct SidebarView: View {
     @Environment(AppState.self) var appState
     @Environment(WindowState.self) var windowState
-    
+
     @State private var searchText: String = ""
-    
+
     var favorites: [SidebarRoom] {
         (appState.matrixClient?.rooms ?? [])
             .filter { $0.roomInfo?.isFavourite == true }
     }
-    
+
     var directs: [SidebarRoom] {
         (appState.matrixClient?.rooms ?? [])
             .filter { $0.roomInfo?.isDirect == true }
     }
-    
+
     var rooms: [SidebarRoom] {
         (appState.matrixClient?.rooms ?? [])
             .filter { !$0.isSpace() && $0.roomInfo?.isDirect != true }
     }
-    
+
     var spaces: [SidebarSpaceRoom] {
         appState.matrixClient?.spaceService.spaceRooms ?? []
     }
-    
+
     var body: some View {
         @Bindable var windowState = windowState
-        
+
         List(selection: $windowState.selectedRoomId) {
-            
             SidebarSyncStateView()
-            
+
             SessionVerificationStatusView()
-            
+
             if !favorites.isEmpty {
                 Section("Favorites") {
                     ForEach(favorites) { room in
@@ -52,7 +51,7 @@ struct SidebarView: View {
                     }
                 }
             }
-            
+
             Section("Directs") {
                 ForEach(directs) { room in
                     UI.RoomRow(
@@ -67,7 +66,7 @@ struct SidebarView: View {
                     }
                 }
             }
-            
+
             Section("Rooms") {
                 ForEach(rooms) { room in
                     UI.RoomRow(
@@ -82,7 +81,7 @@ struct SidebarView: View {
                     }
                 }
             }
-            
+
             Section("Spaces") {
                 ForEach(spaces) { space in
                     SpaceDisclosureGroup(space: space)

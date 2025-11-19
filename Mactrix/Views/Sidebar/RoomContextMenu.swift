@@ -1,11 +1,11 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 
 struct RoomContextMenu: View {
     @Environment(WindowState.self) var windowState
-    
+
     let room: SidebarRoom
-    
+
     var body: some View {
         if let roomInfo = room.roomInfo {
             Button {
@@ -25,7 +25,6 @@ struct RoomContextMenu: View {
                 }
             }
 
-            
             Button {
                 Task {
                     do {
@@ -35,7 +34,7 @@ struct RoomContextMenu: View {
                         print("failed to mark room favourite: \(error)")
                     }
                 }
-                
+
             } label: {
                 if roomInfo.isFavourite {
                     Label("Unfavorite", systemImage: "heart.slash")
@@ -44,14 +43,14 @@ struct RoomContextMenu: View {
                 }
             }
         }
-        
+
         Button {
             Task {
                 do {
                     print("leaving room: \(room.id())")
                     try await room.leave()
                     try await room.forget()
-                    
+
                     if windowState.selectedRoomId == room.id() {
                         windowState.selectedRoomId = nil
                     }

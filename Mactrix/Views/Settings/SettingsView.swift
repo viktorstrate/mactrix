@@ -1,5 +1,5 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 
 struct SettingsView: View {
     var body: some View {

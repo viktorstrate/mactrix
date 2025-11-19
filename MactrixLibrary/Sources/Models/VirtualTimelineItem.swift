@@ -1,7 +1,6 @@
 import Foundation
 
 public enum VirtualTimelineItem {
-    
     /**
      * A divider between messages of different day or month depending on
      * timeline settings.

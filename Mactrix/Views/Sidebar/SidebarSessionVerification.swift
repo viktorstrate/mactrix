@@ -1,9 +1,9 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 
 struct SessionVerificationStatusView: View {
     @Environment(AppState.self) var appState
-    
+
     @ViewBuilder
     var selfVerificationView: some View {
         switch appState.matrixClient?.verificationState {
@@ -37,7 +37,7 @@ struct SessionVerificationStatusView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }
-    
+
     var body: some View {
         if let verificationRequest = appState.matrixClient?.sessionVerificationRequest {
             VStack {
@@ -55,7 +55,7 @@ struct SessionVerificationStatusView: View {
                         }
                     }
                     .buttonStyle(.borderedProminent)
-                    
+
                     Button("Decline") {
                         Task {
                             do {
@@ -67,7 +67,6 @@ struct SessionVerificationStatusView: View {
                         }
                     }
                 }
-                
             }
             .padding(10)
             .background(Color.green.opacity(0.2))

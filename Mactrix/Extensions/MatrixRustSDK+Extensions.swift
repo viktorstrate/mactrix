@@ -4,11 +4,11 @@ import Models
 
 extension MatrixRustSDK.RoomMember: @retroactive Identifiable, Models.RoomMember {
     public var id: String {
-        self.userId
+        userId
     }
-    
+
     public var roleForPowerLevel: Models.RoomMemberRole {
-        self.suggestedRoleForPowerLevel.asModel
+        suggestedRoleForPowerLevel.asModel
     }
 }
 
@@ -44,9 +44,9 @@ extension MatrixRustSDK.Room: @retroactive Equatable, @retroactive Hashable {
     public static func == (lhs: MatrixRustSDK.Room, rhs: MatrixRustSDK.Room) -> Bool {
         return lhs.id() == rhs.id()
     }
-    
+
     public func hash(into hasher: inout Hasher) {
-        return hasher.combine(self.id())
+        return hasher.combine(id())
     }
 }
 
@@ -60,21 +60,21 @@ extension MatrixRustSDK.RoomInfo: Models.RoomInfo {}
 
 extension MatrixRustSDK.TimelineItem: @retroactive Hashable, @retroactive Identifiable {
     public var id: String {
-        self.uniqueId().id
+        uniqueId().id
     }
-    
+
     public static func == (lhs: MatrixRustSDK.TimelineItem, rhs: MatrixRustSDK.TimelineItem) -> Bool {
         return lhs.id == rhs.id
     }
-    
+
     public func hash(into hasher: inout Hasher) {
-        hasher.combine(self.id)
+        hasher.combine(id)
     }
 }
 
 extension MatrixRustSDK.Reaction: @retroactive Identifiable {
     public var id: String {
-        self.key
+        key
     }
 }
 
@@ -88,8 +88,8 @@ extension MatrixRustSDK.ReactionSenderData: Models.ReactionSenderData {
     }
 }
 
-extension MatrixRustSDK.Timestamp {
-    public var date: Date {
+public extension MatrixRustSDK.Timestamp {
+    var date: Date {
         Date(timeIntervalSince1970: Double(self) / 1000)
     }
 }
@@ -97,7 +97,7 @@ extension MatrixRustSDK.Timestamp {
 extension MatrixRustSDK.VirtualTimelineItem {
     var asModel: Models.VirtualTimelineItem {
         switch self {
-        case .dateDivider(ts: let ts):
+        case let .dateDivider(ts: ts):
             return .dateDivider(date: ts.date)
         case .readMarker:
             return .readMarker
@@ -114,9 +114,9 @@ extension MatrixRustSDK.ProfileDetails {
             return .unavailable
         case .pending:
             return .pending
-        case .ready(let displayName, let displayNameAmbiguous, let avatarUrl):
+        case let .ready(displayName, displayNameAmbiguous, avatarUrl):
             return .ready(displayName: displayName, displayNameAmbiguous: displayNameAmbiguous, avatarUrl: avatarUrl)
-        case .error(let message):
+        case let .error(message):
             return .error(message: message)
         }
     }
@@ -124,9 +124,9 @@ extension MatrixRustSDK.ProfileDetails {
 
 extension MatrixRustSDK.EventTimelineItem: Models.EventTimelineItem {
     public var senderProfileDetails: Models.ProfileDetails {
-        self.senderProfile.asModel
+        senderProfile.asModel
     }
-    
+
     public var date: Date {
         timestamp.date
     }
@@ -134,22 +134,23 @@ extension MatrixRustSDK.EventTimelineItem: Models.EventTimelineItem {
 
 extension MatrixRustSDK.SpaceRoom: @retroactive Identifiable {
     public var id: String {
-        self.roomId
+        roomId
     }
 }
 
 extension MatrixRustSDK.UserProfile: @retroactive Identifiable, Models.UserProfile {
-    public var id: String { self.userId }
+    public var id: String { userId }
 }
 
 extension MatrixRustSDK.SessionVerificationEmoji: @retroactive Identifiable {
-    public var id: String { self.description() }
+    public var id: String { description() }
 }
+
 extension MatrixRustSDK.SessionVerificationEmoji: Models.SessionVerificationEmoji {
     public var description: String {
         self.description()
     }
-    
+
     public var symbol: String {
         self.symbol()
     }
@@ -158,9 +159,9 @@ extension MatrixRustSDK.SessionVerificationEmoji: Models.SessionVerificationEmoj
 extension MatrixRustSDK.SessionVerificationData {
     var asModel: Models.SessionVerificationData<MatrixRustSDK.SessionVerificationEmoji> {
         switch self {
-        case .emojis(let emojis, let indices):
+        case let .emojis(emojis, indices):
             return .emojis(emojis: emojis, indices: indices)
-        case .decimals(let values):
+        case let .decimals(values):
             return .decimals(values: values)
         }
     }

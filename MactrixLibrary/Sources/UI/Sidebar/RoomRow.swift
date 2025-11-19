@@ -1,9 +1,9 @@
-import SwiftUI
 import Models
+import SwiftUI
 
 struct ErrorPopover: View {
     let error: Error
-    
+
     var body: some View {
         VStack(alignment: .leading) {
             Label("Failed to join room", systemImage: "exclamationmark.triangle")
@@ -26,10 +26,10 @@ struct MockError: LocalizedError {
 
 #Preview {
     ErrorPopover(error: MockError())
-    /*Text("Hello")
-        .popover(isPresented: .constant(true)) {
-            ErrorPopover(error: MockError())
-        }*/
+    /* Text("Hello")
+     .popover(isPresented: .constant(true)) {
+         ErrorPopover(error: MockError())
+     } */
 }
 
 public struct RoomRow: View {
@@ -38,7 +38,7 @@ public struct RoomRow: View {
     let roomInfo: RoomInfo?
     let imageLoader: ImageLoader?
     let joinRoom: (() async throws -> Void)?
-    
+
     @State private var joining: Bool = false
     @State private var error: Error? = nil
     @State private var isErrorVisible: Bool = false
@@ -50,7 +50,7 @@ public struct RoomRow: View {
         self.imageLoader = imageLoader
         self.joinRoom = joinRoom
     }
-    
+
     var placeholderImageName: String {
         if roomInfo?.isSpace == true {
             "network"
@@ -60,7 +60,7 @@ public struct RoomRow: View {
             "number"
         }
     }
-    
+
     var label: some View {
         Label(
             title: { Text(title) },
@@ -74,23 +74,23 @@ public struct RoomRow: View {
         .fontWeight(isUnread ? .bold : .regular)
         .help(title)
     }
-    
+
     var badgeProminence: BadgeProminence {
         guard let roomInfo else { return .standard }
         return roomInfo.highlightCount > 0 ? .increased : .standard
     }
-    
+
     var notifications: Int {
         guard let roomInfo else { return 0 }
-        
+
         return Int(roomInfo.numUnreadMessages)
-        //return roomInfo.highlightCount > 0 ? Int(roomInfo.highlightCount) : Int(roomInfo.notificationCount)
+        // return roomInfo.highlightCount > 0 ? Int(roomInfo.highlightCount) : Int(roomInfo.notificationCount)
     }
-    
+
     var isUnread: Bool {
         return notifications > 0 || roomInfo?.isMarkedUnread == true
     }
-    
+
     public var body: some View {
         Group {
             if joinRoom != nil {
@@ -128,7 +128,7 @@ public struct RoomRow: View {
         .task(id: joining) {
             guard joining else { return }
             guard let joinRoom else { return }
-            
+
             do {
                 try await joinRoom()
             } catch {
@@ -136,7 +136,7 @@ public struct RoomRow: View {
                 self.error = error
                 self.isErrorVisible = true
             }
-            
+
             joining = false
         }
     }
@@ -152,7 +152,7 @@ public struct RoomRow: View {
                 imageLoader: nil,
                 joinRoom: nil
             )
-            
+
             RoomRow(
                 title: "Room row 2",
                 avatarUrl: nil,
@@ -160,7 +160,7 @@ public struct RoomRow: View {
                 imageLoader: nil,
                 joinRoom: nil
             )
-            
+
             RoomRow(
                 title: "Room row 3",
                 avatarUrl: nil,

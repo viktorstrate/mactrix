@@ -12,10 +12,10 @@ public protocol SessionVerificationEmoji: Identifiable {
 
 public struct MockSessionVerificationEmoji: SessionVerificationEmoji {
     public var id: String { symbol }
-    
+
     public var description: String
     public var symbol: String
-    
+
     public init(description: String, symbol: String) {
         self.description = description
         self.symbol = symbol

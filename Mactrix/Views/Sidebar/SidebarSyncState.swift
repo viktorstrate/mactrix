@@ -1,11 +1,11 @@
-import SwiftUI
 import MatrixRustSDK
+import SwiftUI
 
 struct SidebarSyncStateView: View {
     @Environment(AppState.self) var appState
-    
+
     @State var restarting: Bool = false
-    
+
     var syncState: String {
         switch appState.matrixClient?.syncState {
         case .idle:
@@ -22,11 +22,11 @@ struct SidebarSyncStateView: View {
             "logged out"
         }
     }
-    
+
     var canRestart: Bool {
         return [.error, .offline, .terminated].contains(where: { $0 == appState.matrixClient?.syncState })
     }
-    
+
     var body: some View {
         VStack {
             Text("Sync: \(syncState)")
@@ -36,7 +36,7 @@ struct SidebarSyncStateView: View {
                     Task {
                         restarting = true
                         defer { restarting = false }
-                        
+
                         do {
                             try await appState.matrixClient?.startSync()
                         } catch {

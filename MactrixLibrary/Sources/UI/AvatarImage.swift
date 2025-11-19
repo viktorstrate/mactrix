@@ -9,7 +9,7 @@ public struct AvatarImage<Preview: View>: View {
     let avatarUrl: String?
     let placeholder: () -> Preview
     let imageLoader: ImageLoader?
-    
+
     public init(
         avatarUrl: String?,
         imageLoader: ImageLoader?,
@@ -21,9 +21,9 @@ public struct AvatarImage<Preview: View>: View {
         self.imageLoader = imageLoader
         self.placeholder = placeholder
     }
-    
+
     @State private var avatar: Image? = nil
-    
+
     @ViewBuilder
     var imageOrPlaceholder: some View {
         if let avatar = avatar {
@@ -32,13 +32,13 @@ public struct AvatarImage<Preview: View>: View {
             placeholder()
         }
     }
-    
+
     public var body: some View {
         imageOrPlaceholder
             .aspectRatio(1.0, contentMode: .fit)
             .task(id: avatarUrl) {
                 guard let avatarUrl = avatarUrl else { return }
-                
+
                 do {
                     avatar = try await imageLoader?.loadImage(matrixUrl: avatarUrl)
                 } catch {

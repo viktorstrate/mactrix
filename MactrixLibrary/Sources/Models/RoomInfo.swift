@@ -2,7 +2,7 @@ import Foundation
 
 public protocol RoomInfo {
     var id: String { get }
-    //var encryptionState: EncryptionState { get }
+    // var encryptionState: EncryptionState { get }
     var creators: [String]? { get }
     /**
      * The room's name from the room state event if received from sync, or one
@@ -27,11 +27,11 @@ public protocol RoomInfo {
     /**
      * If present, it means the room has been archived/upgraded.
      */
-    //var successorRoom: SuccessorRoom? { get }
+    // var successorRoom: SuccessorRoom? { get }
     var isFavourite: Bool { get }
     var canonicalAlias: String? { get }
     var alternativeAliases: [String] { get }
-    //var membership: Membership { get }
+    // var membership: Membership { get }
     /**
      * Member who invited the current user to a room that's in the invited
      * state.
@@ -39,14 +39,14 @@ public protocol RoomInfo {
      * Can be missing if the room membership invite event is missing from the
      * store.
      */
-    //var inviter: RoomMember? { get }
-    //var heroes: [RoomHero] { get }
+    // var inviter: RoomMember? { get }
+    // var heroes: [RoomHero] { get }
     var activeMembersCount: UInt64 { get }
     var invitedMembersCount: UInt64 { get }
     var joinedMembersCount: UInt64 { get }
     var highlightCount: UInt64 { get }
     var notificationCount: UInt64 { get }
-    //var cachedUserDefinedNotificationMode: RoomNotificationMode? { get }
+    // var cachedUserDefinedNotificationMode: RoomNotificationMode? { get }
     var hasRoomCall: Bool { get }
     var activeRoomCallParticipants: [String] { get }
     /**
@@ -75,17 +75,17 @@ public protocol RoomInfo {
     /**
      * The join rule for this room, if known.
      */
-    //var joinRule: JoinRule? { get }
+    // var joinRule: JoinRule? { get }
     /**
      * The history visibility for this room, if known.
      */
-    //var historyVisibility: RoomHistoryVisibility { get }
+    // var historyVisibility: RoomHistoryVisibility { get }
     /**
      * This room's current power levels.
      *
      * Can be missing if the room power levels event is missing from the store.
      */
-    //var powerLevels: RoomPowerLevels? { get }
+    // var powerLevels: RoomPowerLevels? { get }
     /**
      * This room's version.
      */
@@ -99,58 +99,56 @@ public protocol RoomInfo {
 
 public struct MockRoomInfo: RoomInfo {
     public init() {}
-    
+
     public var id: String { "mock_id" }
-    
+
     public var creators: [String]? { nil }
-    
+
     public var displayName: String? { "Room Name" }
-    
+
     public var rawName: String? { "room_name_raw" }
-    
+
     public var topic: String? { "The topic of the room" }
-    
+
     public var avatarUrl: String? { nil }
-    
+
     public var isDirect: Bool { false }
-    
+
     public var isPublic: Bool? { true }
-    
+
     public var isSpace: Bool { false }
-    
+
     public var isFavourite: Bool { false }
-    
+
     public var canonicalAlias: String? { nil }
-    
+
     public var alternativeAliases: [String] { [] }
-    
+
     public var activeMembersCount: UInt64 { 3 }
-    
+
     public var invitedMembersCount: UInt64 { 1 }
-    
+
     public var joinedMembersCount: UInt64 { 8 }
-    
+
     public var highlightCount: UInt64 { 0 }
-    
+
     public var notificationCount: UInt64 { 2 }
-    
+
     public var hasRoomCall: Bool { false }
-    
+
     public var activeRoomCallParticipants: [String] { [] }
-    
+
     public var isMarkedUnread: Bool { false }
-    
+
     public var numUnreadMessages: UInt64 { 4 }
-    
+
     public var numUnreadNotifications: UInt64 { 2 }
-    
+
     public var numUnreadMentions: UInt64 { 2 }
-    
+
     public var pinnedEventIds: [String] { [] }
-    
+
     public var roomVersion: String? { "12" }
-    
+
     public var privilegedCreatorsRole: Bool { false }
-    
-    
 }

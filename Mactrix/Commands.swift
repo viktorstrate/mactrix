@@ -1,18 +1,17 @@
 import SwiftUI
 
 struct AppCommands: Commands {
-    
     @FocusedValue(WindowState.self) private var windowState: WindowState?
-    
+
     var body: some Commands {
         SidebarCommands()
         InspectorCommands()
         TextEditingCommands()
         ToolbarCommands()
-        
+
         newTab
     }
-    
+
     var newTab: some Commands {
         CommandGroup(after: .newItem) {
             Button(action: {
@@ -21,11 +20,11 @@ struct AppCommands: Commands {
                 }) else {
                     return
                 }
-                
+
                 guard let windowController = currentMainWindow.windowController else {
                     return
                 }
-                    
+
                 windowController.newWindowForTab(nil)
                 if let newWindow = NSApp.keyWindow, currentMainWindow != newWindow {
                     currentMainWindow.addTabbedWindow(newWindow, ordered: .above)
@@ -35,13 +34,13 @@ struct AppCommands: Commands {
                 Text("New Tab")
             }
             .keyboardShortcut("t", modifiers: [.command])
-            
+
             if let windowState {
                 Self.createRoomButton(windowState: windowState)
             }
         }
     }
-    
+
     static func createRoomButton(windowState: WindowState) -> some View {
         Button {
             windowState.selectedScreen = .newRoom

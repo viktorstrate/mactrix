@@ -1,17 +1,16 @@
-import SwiftUI
 import Models
+import SwiftUI
 
 struct HoverButton<Icon: View>: View {
-    
     @State private var hovering = false
-    
+
     @ViewBuilder
     let icon: () -> Icon
     let tooltip: LocalizedStringKey
     let action: () -> Void
-    
+
     let size: CGFloat = 24.0
-    
+
     var body: some View {
         Button(action: action) {
             icon()
@@ -43,13 +42,13 @@ public protocol MessageEventActions {
 struct MessageTimestampView: View {
     let date: Date
     let hover: Bool
-    
+
     var timeFormat: DateFormatter {
         let formatter = DateFormatter()
         formatter.dateFormat = "HH:mm"
         return formatter
     }
-    
+
     var body: some View {
         HStack {
             Text(timeFormat.string(from: date))
@@ -59,18 +58,17 @@ struct MessageTimestampView: View {
                 .padding(.top, 3)
         }
         .frame(width: 64 - 10)
-        //.opacity(hover ? 1 : 0)
+        // .opacity(hover ? 1 : 0)
     }
 }
 
 public struct MessageEventView<MessageView: View, EventTimelineItem: Models.EventTimelineItem, Reaction: Models.Reaction>: View {
-    
     let event: EventTimelineItem
     let reactions: [Reaction]
     let message: MessageView
     let actions: MessageEventActions
     let imageLoader: ImageLoader?
-    
+
     public init(event: EventTimelineItem, reactions: [Reaction], actions: MessageEventActions, imageLoader: ImageLoader?, @ViewBuilder message: () -> MessageView) {
         self.event = event
         self.reactions = reactions
@@ -78,16 +76,16 @@ public struct MessageEventView<MessageView: View, EventTimelineItem: Models.Even
         self.imageLoader = imageLoader
         self.message = message()
     }
-    
+
     var name: String {
         if case let .ready(displayName, _, _) = event.senderProfileDetails, let displayName = displayName {
             return displayName
         }
         return event.sender
     }
-    
+
     @State private var hoverText: Bool = false
-    
+
     @ViewBuilder
     var hoverActions: some View {
         HStack(spacing: 0) {
@@ -117,11 +115,11 @@ public struct MessageEventView<MessageView: View, EventTimelineItem: Models.Even
         .padding(.top, 8)
         .opacity(hoverText ? 1 : 0)
     }
-    
+
     func reactionIsActive(_ reaction: Reaction) -> Bool {
         return event.isOwn && reaction.senders.contains(where: { $0.senderId == event.sender })
     }
-    
+
     public var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 0) {
@@ -132,12 +130,12 @@ public struct MessageEventView<MessageView: View, EventTimelineItem: Models.Even
                             .frame(width: 32, height: 32)
                             .clipShape(Circle())
                     }.frame(width: 64)
-                    
+
                     Text(name)
                         .fontWeight(.bold)
                     Spacer()
                 }
-                
+
                 // Main body
                 HStack(alignment: .top, spacing: 0) {
                     MessageTimestampView(date: event.date, hover: hoverText)
@@ -150,7 +148,7 @@ public struct MessageEventView<MessageView: View, EventTimelineItem: Models.Even
                         .opacity(hoverText ? 1 : 0)
                 )
                 .padding(.horizontal, 10)
-                
+
                 // Reactions
                 HStack {
                     Spacer().frame(width: 64)
@@ -167,7 +165,7 @@ public struct MessageEventView<MessageView: View, EventTimelineItem: Models.Even
                 }
                 .padding(.top, 10)
             }
-            
+
             hoverActions
         }
         .padding(.top, 5)
@@ -178,7 +176,7 @@ public struct MessageEventView<MessageView: View, EventTimelineItem: Models.Even
 }
 
 public struct MockMessageEventActions: MessageEventActions {
-    public func toggleReaction(key: String) {}
+    public func toggleReaction(key _: String) {}
     public func reply() {}
     public func replyInThread() {}
     public func pin() {}

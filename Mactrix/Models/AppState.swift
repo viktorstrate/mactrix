@@ -1,14 +1,14 @@
 import Foundation
-import Models
 import MatrixRustSDK
+import Models
 
 @MainActor
 @Observable final class AppState {
-    var matrixClient: MatrixClient? = nil
-    
+    var matrixClient: MatrixClient?
+
     func reset() async throws {
         do {
-            try await self.matrixClient?.reset()
+            try await matrixClient?.reset()
         } catch {
             print("Failed to reset matrix client: \(error)")
         }

@@ -1,15 +1,14 @@
 import SwiftUI
 
 struct SectionAction<Content: View>: View {
-    
     let title: LocalizedStringKey
     let systemIcon: String
     let action: () -> Void
     let content: () -> Content
-    
+
     @State private var isHovering = false
-    
-    public init(
+
+    init(
         title: LocalizedStringKey,
         systemIcon: String,
         action: @escaping () -> Void,
@@ -20,7 +19,7 @@ struct SectionAction<Content: View>: View {
         self.action = action
         self.content = content
     }
-    
+
     var body: some View {
         Section {
             content()

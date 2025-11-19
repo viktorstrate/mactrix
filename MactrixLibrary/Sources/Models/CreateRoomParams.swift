@@ -12,15 +12,15 @@ public struct CreateRoomParams {
     public var name: String
     public var topic: String
     public var enableEncryption: Bool
-    //public var isDirect: Bool
+    // public var isDirect: Bool
     public var access: RoomAccess
     public var visibility: RoomVisibility
-    //public var invite: [String]?
-    //public var avatar: String?
-    //public var powerLevelContentOverride: PowerLevels?
-    //public var joinRuleOverride: JoinRule?
-    //public var historyVisibilityOverride: RoomHistoryVisibility?
-    //public var canonicalAlias: String?
+    // public var invite: [String]?
+    // public var avatar: String?
+    // public var powerLevelContentOverride: PowerLevels?
+    // public var joinRuleOverride: JoinRule?
+    // public var historyVisibilityOverride: RoomHistoryVisibility?
+    // public var canonicalAlias: String?
 
     public init(name: String, topic: String, enableEncryption: Bool, access: RoomAccess, visibility: RoomVisibility) {
         self.name = name
@@ -29,12 +29,12 @@ public struct CreateRoomParams {
         self.access = access
         self.visibility = visibility
     }
-    
+
     public init() {
-        self.name = ""
-        self.topic = ""
-        self.enableEncryption = false
-        self.access = .privateRoom
-        self.visibility = .unpublished
+        name = ""
+        topic = ""
+        enableEncryption = false
+        access = .privateRoom
+        visibility = .unpublished
     }
 }

@@ -1,27 +1,27 @@
-import SwiftUI
 import Models
+import SwiftUI
 
 public struct VirtualItemView: View {
     let item: VirtualTimelineItem
-    
+
     public init(item: VirtualTimelineItem) {
         self.item = item
     }
-    
+
     func formatDate(_ date: Date) -> String {
         let dayInSecs: Double = 60 * 60 * 24
         if Date.now.timeIntervalSince(date).isLess(than: dayInSecs) {
             return String(localized: "Today")
-        } else if Date.now.timeIntervalSince(date).isLess(than: dayInSecs*2) {
+        } else if Date.now.timeIntervalSince(date).isLess(than: dayInSecs * 2) {
             return String(localized: "Yesterday")
         } else {
             return date.formatted(date: .long, time: .omitted)
         }
     }
-    
+
     public var body: some View {
         switch item {
-        case .dateDivider(let date):
+        case let .dateDivider(date):
             Divider()
                 .overlay {
                     Text(formatDate(date))
