@@ -10,33 +10,40 @@ struct InspectorScreen: View {
     var content: some View {
         @Bindable var windowState = windowState
 
-        if windowState.searchFocused {
+        switch windowState.inspectorContent {
+        case .search:
             SearchInspectorView()
-        } else {
-            switch windowState.selectedScreen {
-            case let .joinedRoom(room, timeline: timeline):
-                if let thread = timeline.focusedThreadTimeline {
-                    VStack(spacing: 0) {
-                        UI.ThreadTimelineHeader {
-                            withAnimation {
-                                windowState.inspectorVisible = false
-                            }
-                            Task {
-                                try? await Task.sleep(for: .milliseconds(500))
-                                timeline.focusedThreadTimeline = nil
-                            }
-                        }
-                        ChatView(room: room, timeline: thread)
+        case let .focusThread(threadTimeline: thread):
+            VStack(spacing: 0) {
+                UI.ThreadTimelineHeader {
+                    windowState.inspectorVisible = false
+                    Task {
+                        try? await Task.sleep(for: .milliseconds(500))
+                        windowState.inspectorContent = .roomInfo
                     }
-                    .inspectorColumnWidth(min: 200, ideal: 400, max: nil)
-                } else {
-                    UI.RoomInspectorView(room: room, members: room.fetchedMembers, roomInfo: room.roomInfo, imageLoader: appState.matrixClient, inspectorVisible: $windowState.inspectorVisible)
                 }
-            case let .previewRoom(room):
-                Text("Preview room: \(room.info().name ?? "unknown name")")
-            case .none, .newRoom:
-                Text("No room selected")
+                ChatView(timeline: thread)
             }
+            .inspectorColumnWidth(min: 200, ideal: 400, max: nil)
+        case .roomInfo:
+            switch windowState.selectedScreen {
+            case let .joinedRoom(timeline: timeline):
+                UI.RoomInspectorView(room: timeline.room, members: timeline.room.fetchedMembers, roomInfo: timeline.room.roomInfo, imageLoader: appState.matrixClient, inspectorVisible: $windowState.inspectorVisible)
+            // case let .previewRoom(room):
+            //    Text("Preview room: \(room.info().name ?? "unknown name")")
+            case .none, .newRoom, .previewRoom:
+                Text("No room selected")
+                    .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
+            }
+        case let .userInfo(userId: userId):
+            Text("User info: \(userId)")
+                .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
+        case .roomThreads:
+            Text("Room threads")
+                .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
+        case .roomPins:
+            Text("Room pins")
+                .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
         }
     }
 

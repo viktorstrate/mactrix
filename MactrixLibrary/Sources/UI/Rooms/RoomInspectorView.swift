@@ -14,10 +14,15 @@ public struct UserProfileRow<Profile: UserProfile>: View {
     }
 
     public var body: some View {
-        Label(title: { Text(userProfile.displayName ?? userProfile.userId) }, icon: {
+        Label {
+            Text(userProfile.displayName ?? userProfile.userId)
+                .lineLimit(1)
+                .truncationMode(.tail)
+                .help(userProfile.displayName ?? userProfile.userId)
+        } icon: {
             AvatarImage(avatarUrl: userProfile.avatarUrl, imageLoader: imageLoader, placeholder: { Image(systemName: "person") })
                 .clipShape(Circle())
-        })
+        }
     }
 }
 

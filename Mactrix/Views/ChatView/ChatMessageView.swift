@@ -48,6 +48,11 @@ struct ChatMessageView: View, UI.MessageEventActions {
         }
     }
 
+    func focusUser() {
+        Logger.viewCycle.info("Focusing user \(event.sender)")
+        windowState.focusUser(userId: event.sender)
+    }
+
     @ViewBuilder
     var message: some View {
         switch msg.kind {
@@ -113,8 +118,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
                             Text("Thread summary (\(threadSummary.numReplies()) messages)")
                                 .italic()
                             EmbeddedMessageView(embeddedEvent: threadSummary.latestEvent()) {
-                                timeline.focusThread(rootEventId: event.eventOrTransactionId.id)
-                                windowState.inspectorVisible = true
+                                windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
                             }
                         }
                     }

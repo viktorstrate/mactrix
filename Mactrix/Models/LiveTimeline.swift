@@ -5,7 +5,7 @@ import SwiftUI
 
 @MainActor
 @Observable public final class LiveTimeline {
-    let room: MatrixRustSDK.Room
+    nonisolated let room: LiveRoom
     public let isThreadFocus: Bool
 
     public var timeline: Timeline?
@@ -16,14 +16,16 @@ import SwiftUI
     public var scrollPosition = ScrollPosition(idType: TimelineItem.ID.self, edge: .bottom)
     public var errorMessage: String?
     public var focusedTimelineEventId: String?
-    public var focusedThreadTimeline: LiveTimeline?
+    
+    //public var focusedThreadTimeline: LiveTimeline?
+    
     public var sendReplyTo: MatrixRustSDK.EventTimelineItem?
 
     public private(set) var timelineItems: [TimelineItem]?
     public private(set) var paginating: RoomPaginationStatus = .idle(hitTimelineStart: false)
     public private(set) var hitTimelineStart: Bool = false
 
-    public init(room: MatrixRustSDK.Room) {
+    public init(room: LiveRoom) {
         self.isThreadFocus = false
         self.room = room
         Task {
@@ -36,7 +38,7 @@ import SwiftUI
         }
     }
 
-    public init(room: MatrixRustSDK.Room, focusThread threadId: String) {
+    public init(room: LiveRoom, focusThread threadId: String) {
         self.isThreadFocus = true
         self.room = room
         Task {
@@ -96,10 +98,10 @@ import SwiftUI
         }
     }
 
-    public func focusThread(rootEventId: String) {
+    /*public func focusThread(rootEventId: String) {
         Logger.liveTimeline.info("focus thread: \(rootEventId)")
         focusedThreadTimeline = LiveTimeline(room: room, focusThread: rootEventId)
-    }
+    }*/
 }
 
 extension LiveTimeline: @MainActor TimelineListener {
@@ -144,5 +146,11 @@ extension LiveTimeline: @MainActor PaginationStatusListener {
     public func onUpdate(status: MatrixRustSDK.RoomPaginationStatus) {
         Logger.liveTimeline.debug("updating timeline paginating: \(status.debugDescription)")
         paginating = status
+    }
+}
+
+extension LiveTimeline: Equatable {
+    public nonisolated static func == (lhs: LiveTimeline, rhs: LiveTimeline) -> Bool {
+        lhs.room.id == rhs.room.id
     }
 }

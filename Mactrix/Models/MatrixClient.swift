@@ -57,7 +57,7 @@ struct UserSession: Codable {
 }
 
 enum SelectedScreen {
-    case joinedRoom(_ room: LiveRoom, timeline: LiveTimeline)
+    case joinedRoom(timeline: LiveTimeline)
     case previewRoom(_ room: RoomPreview)
     case newRoom
     case none

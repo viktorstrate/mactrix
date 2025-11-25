@@ -37,6 +37,7 @@ public protocol MessageEventActions {
     func reply()
     func replyInThread()
     func pin()
+    func focusUser()
 }
 
 struct MessageTimestampView: View {
@@ -137,17 +138,20 @@ public struct MessageEventView<MessageView: View, EventTimelineItem: Models.Even
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 0) {
                 // Profile icon and name
-                HStack(spacing: 0) {
+                Button(action: actions.focusUser) {
                     HStack(spacing: 0) {
-                        AvatarImage(avatarUrl: event.senderProfileDetails.avatarUrl, imageLoader: imageLoader)
-                            .frame(width: 32, height: 32)
-                            .clipShape(Circle())
-                    }.frame(width: 64)
+                        HStack(spacing: 0) {
+                            AvatarImage(avatarUrl: event.senderProfileDetails.avatarUrl, imageLoader: imageLoader)
+                                .frame(width: 32, height: 32)
+                                .clipShape(Circle())
+                        }.frame(width: 64)
 
-                    Text(name)
-                        .fontWeight(.bold)
-                    Spacer()
+                        Text(name)
+                            .fontWeight(.bold)
+                        Spacer()
+                    }
                 }
+                .buttonStyle(.plain)
 
                 // Main body
                 HStack(alignment: .top, spacing: 0) {
@@ -193,6 +197,7 @@ public struct MockMessageEventActions: MessageEventActions {
     public func reply() {}
     public func replyInThread() {}
     public func pin() {}
+    public func focusUser() {}
 }
 
 #Preview {

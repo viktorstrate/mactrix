@@ -53,7 +53,7 @@ struct SpaceDisclosureGroup: View {
                 Logger.viewCycle.error("Joining room: \(space.id)")
                 guard let matrixClient = appState.matrixClient else { return }
                 let room = try await matrixClient.client.joinRoomById(roomId: space.id)
-                windowState.selectedScreen = .joinedRoom(LiveRoom(matrixRoom: room), timeline: LiveTimeline(room: room))
+                windowState.selectedScreen = .joinedRoom(timeline: LiveTimeline(room: LiveRoom(matrixRoom: room)))
             }
         }
 

@@ -12,8 +12,8 @@ struct MainView: View {
 
     @ViewBuilder var details: some View {
         switch windowState.selectedScreen {
-        case let .joinedRoom(room, timeline: timeline):
-            ChatView(room: room, timeline: timeline).id(room.id)
+        case let .joinedRoom(timeline: timeline):
+            ChatView(timeline: timeline).id(timeline.room.id)
         case let .previewRoom(room):
             Text("Room Preview: \(room.info().name ?? "unknown name")")
             if let topic = room.info().topic {
@@ -49,13 +49,15 @@ struct MainView: View {
     }
 
     var body: some View {
+        @Bindable var windowState = windowState
+
         NavigationSplitView(
             sidebar: { SidebarView() },
             detail: { details }
         )
         .environment(windowState)
         .focusedSceneValue(windowState)
-        .inspector(isPresented: windowState.inspectorOrSearchActive, content: {
+        .inspector(isPresented: $windowState.inspectorVisible, content: {
             InspectorScreen()
                 .environment(windowState)
         })
@@ -105,6 +107,7 @@ struct MainView: View {
         .toolbar {
             Button {
                 Logger.viewCycle.info("Show pins")
+                windowState.showRoomPins()
             } label: {
                 Label("Show Pins", systemImage: "pin.circle")
             }
@@ -113,19 +116,20 @@ struct MainView: View {
 
             Button {
                 Logger.viewCycle.info("Show threads")
+                windowState.showRoomThreads()
             } label: {
                 Label("Show Threads", systemImage: "list.bullet.circle")
             }
             .help("Show Threads")
             .disabled(windowState.selectedRoomId == nil)
 
-            if !windowState.inspectorOrSearchActive.wrappedValue {
+            if !windowState.inspectorVisible {
                 HStack {
                     Divider()
                 }
             }
         }
-        .searchable(text: $windowState.searchQuery, tokens: $windowState.searchTokens, isPresented: $windowState.searchFocused, placement: .automatic, prompt: "Search") { token in
+        .searchable(text: $windowState.searchQuery, tokens: $windowState.searchTokens, isPresented: windowState.searchFocused, placement: .automatic, prompt: "Search") { token in
             switch token {
             case .users:
                 Text("Users")
@@ -192,7 +196,7 @@ struct MainView: View {
 
             if let roomId = windowState.selectedRoomId {
                 if let selectedRoom = try matrixClient.client.getRoom(roomId: roomId) {
-                    windowState.selectedScreen = .joinedRoom(LiveRoom(matrixRoom: selectedRoom), timeline: LiveTimeline(room: selectedRoom))
+                    windowState.selectedScreen = .joinedRoom(timeline: LiveTimeline(room: LiveRoom(matrixRoom: selectedRoom)))
                 } else {
                     let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(roomId: roomId, viaServers: ["matrix.org"])
 

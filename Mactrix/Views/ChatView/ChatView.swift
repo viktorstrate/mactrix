@@ -21,11 +21,13 @@ struct TimelineItemView: View {
 struct ChatView: View {
     @Environment(AppState.self) private var appState
 
-    let room: LiveRoom
+    var room: LiveRoom {
+        timeline.room
+    }
+
     @Bindable var timeline: LiveTimeline
 
-    init(room: LiveRoom, timeline: LiveTimeline) {
-        self.room = room
+    init(timeline: LiveTimeline) {
         self.timeline = timeline
     }
 
