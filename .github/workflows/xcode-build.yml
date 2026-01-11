@@ -1,0 +1,21 @@
+name: Xcode - Build and Analyze
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+    name: Build and analyse default scheme using xcodebuild command
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Build
+        env:
+          scheme: ${{ 'Mactrix' }}
+        run: |
+          xcodebuild clean build analyze -scheme "$scheme" -project Mactrix.xcodeproj | xcpretty && exit ${PIPESTATUS[0]}
