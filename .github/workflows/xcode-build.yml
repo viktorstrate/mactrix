@@ -28,13 +28,13 @@ jobs:
           xcodebuild clean build analyze \
             -scheme "$scheme" \
             -project Mactrix.xcodeproj \
-            -destination 'generic/platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
+            -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Test
         run: |
           xcodebuild test \
             -scheme "$scheme" \
             -project Mactrix.xcodeproj \
-            -destination 'generic/platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
+            -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Build release artifact
         if: matrix.macos-version == 'macos-26'
         run: |
@@ -42,7 +42,7 @@ jobs:
             -project Mactrix.xcodeproj \
             -scheme "$scheme" \
             -configuration Release \
-            -destination 'generic/platform=macOS' \
+            -destination 'platform=macOS' \
             -archivePath ./Mactrix.xcarchive | xcpretty && exit ${PIPESTATUS[0]}
       - name: Upload Artifact
         if: matrix.macos-version == 'macos-26'
