@@ -25,7 +25,30 @@ jobs:
         uses: actions/checkout@v4
       - name: Build
         run: |
-          xcodebuild clean build analyze -scheme "$scheme" -project Mactrix.xcodeproj | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild clean build analyze \
+            -scheme "$scheme" \
+            -project Mactrix.xcodeproj \
+            -destination 'generic/platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Test
         run: |
-          xcodebuild test -scheme "$scheme" -project Mactrix.xcodeproj | xcpretty && exit ${PIPESTATUS[0]}
+          xcodebuild test \
+            -scheme "$scheme" \
+            -project Mactrix.xcodeproj \
+            -destination 'generic/platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
+      - name: Build release artifact
+        if: matrix.macos-version == 'macos-26'
+        run: |
+          xcodebuild archive \
+            -project Mactrix.xcodeproj \
+            -scheme "$scheme" \
+            -configuration Release \
+            -destination 'generic/platform=macOS' \
+            -archivePath ./Mactrix.xcarchive | xcpretty && exit ${PIPESTATUS[0]}
+      - name: Upload Artifact
+        if: matrix.macos-version == 'macos-26'
+        uses: actions/upload-artifact@v4
+        with:
+          name: Mactrix.app
+          path: ./Mactrix.xcarchive/Products/Applications/Mactrix.app
+        
+        
