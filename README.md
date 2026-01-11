@@ -1,5 +1,7 @@
 # Mactrix
 
+[![Mactrix chatroom](https://img.shields.io/badge/matrix-%23mactrix-blue?logo=matrix)](https://matrix.to/#/%23mactrix:qpqp.dk)
+
 A native macOS client for [Matrix](https://matrix.org) – an open protocol for decentralised, secure communications.
 
 ## Overview
