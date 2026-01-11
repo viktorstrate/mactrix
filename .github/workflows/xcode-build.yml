@@ -6,9 +6,17 @@ on:
   pull_request:
     branches: [ "main" ]
 
-jobs:
+jobs:   
   build:
-    runs-on: macos-latest
+    name: Build and Test
+    strategy:
+      max-parallel: 2
+      fail-fast: false
+      matrix:
+        macos-version: [macos-15, macos-26]
+    runs-on: ${{ matrix.macos-version }}
+    env:
+      scheme: ${{ 'Mactrix' }}
     steps:
       - uses: maxim-lobanov/setup-xcode@v1
         with:
@@ -16,7 +24,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build
-        env:
-          scheme: ${{ 'Mactrix' }}
         run: |
           xcodebuild clean build analyze -scheme "$scheme" -project Mactrix.xcodeproj | xcpretty && exit ${PIPESTATUS[0]}
+      - name: Test
+        run: |
+          xcodebuild test -scheme "$scheme" -project Mactrix.xcodeproj | xcpretty && exit ${PIPESTATUS[0]}
