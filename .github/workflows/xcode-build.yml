@@ -1,4 +1,4 @@
-name: Xcode - Build and Analyze
+name: Xcode - Build and Test
 
 on:
   push:
@@ -8,10 +8,11 @@ on:
 
 jobs:
   build:
-    name: Build and analyse default scheme using xcodebuild command
     runs-on: macos-latest
-
     steps:
+      - uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: latest-stable
       - name: Checkout
         uses: actions/checkout@v4
       - name: Build
