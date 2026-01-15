@@ -77,8 +77,8 @@ class MatrixClient {
 
     private var clientDelegateHandle: TaskHandle?
     var authenticationFailed: Bool = false
-    
-    let notifications: MatrixNotifications = MatrixNotifications()
+
+    let notifications: MatrixNotifications = .init()
 
     init(storeID: String, clientBuilder: ClientBuilderProtocol) async throws {
         self.storeID = storeID
@@ -88,15 +88,15 @@ class MatrixClient {
             .setSessionDelegate(sessionDelegate: self)
             .build()
 
-        spaceService = LiveSpaceService(spaceService: client.spaceService())
+        spaceService = LiveSpaceService(spaceService: await client.spaceService())
 
         clientDelegateHandle = try? client.setDelegate(delegate: self)
     }
 
-    init(storeID: String, client: ClientProtocol) {
+    init(storeID: String, client: ClientProtocol) async {
         self.storeID = storeID
         self.client = client
-        spaceService = LiveSpaceService(spaceService: client.spaceService())
+        spaceService = LiveSpaceService(spaceService: await client.spaceService())
 
         clientDelegateHandle = try? self.client.setDelegate(delegate: self)
     }
@@ -190,7 +190,7 @@ class MatrixClient {
         _ = _roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
 
         notificationClient = try await client.notificationClient(processSetup: .singleProcess(syncService: _syncService))
-        await client.registerNotificationHandler(listener: self.notifications)
+        await client.registerNotificationHandler(listener: notifications)
 
         try await client.getSessionVerificationController().setDelegate(delegate: self)
 

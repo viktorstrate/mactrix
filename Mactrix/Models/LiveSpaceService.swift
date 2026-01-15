@@ -14,9 +14,9 @@ public final class LiveSpaceService {
         self.spaceService = spaceService
 
         Task {
-            listenerTaskHandle = await spaceService.subscribeToJoinedSpaces(listener: self)
+            listenerTaskHandle = await spaceService.subscribeToTopLevelJoinedSpaces(listener: self)
 
-            let joinedSpaces = await spaceService.joinedSpaces()
+            let joinedSpaces = await spaceService.topLevelJoinedSpaces()
             Logger.liveSpaceService.debug("Joined spaces: \(joinedSpaces)")
         }
     }

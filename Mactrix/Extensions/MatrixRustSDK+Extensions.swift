@@ -338,6 +338,38 @@ extension MatrixRustSDK.MessageLikeEventType: @retroactive CustomStringConvertib
             "unstable poll start"
         case let .other(other):
             other
+        case .audio:
+            "audio"
+        case .beacon:
+            "beacon"
+        case .callNegotiate:
+            "call negotiate"
+        case .callNotify:
+            "call notify"
+        case .callReject:
+            "call reject"
+        case .callSdpStreamMetadataChanged:
+            "call sdp stream metadata changed"
+        case .callSelectAnswer:
+            "call select answer"
+        case .emote:
+            "emote"
+        case .encrypted:
+            "encrypted"
+        case .file:
+            "file"
+        case .image:
+            "image"
+        case .location:
+            "location"
+        case .message:
+            "message"
+        case .rtcDecline:
+            "rtc decline"
+        case .video:
+            "video"
+        case .voice:
+            "voice"
         }
     }
 }

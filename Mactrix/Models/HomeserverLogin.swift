@@ -19,7 +19,7 @@ struct HomeserverLogin {
     func loginPassword(homeServer _: String, username: String, password: String) async throws -> MatrixClient {
         // Login using password authentication.
         try await unauthenticatedClient.login(username: username, password: password, initialDeviceName: "Mactrix", deviceId: nil)
-        return try onSuccessfullLogin()
+        return try await onSuccessfullLogin()
     }
 
     private var oidcConfiguration: OidcConfiguration {
@@ -41,12 +41,12 @@ struct HomeserverLogin {
 
         try await unauthenticatedClient.loginWithOidcCallback(callbackUrl: callbackUrl.absoluteString)
 
-        return try onSuccessfullLogin()
+        return try await onSuccessfullLogin()
     }
 
     @MainActor
-    fileprivate func onSuccessfullLogin() throws -> MatrixClient {
-        let matrixClient = MatrixClient(storeID: storeID, client: unauthenticatedClient)
+    fileprivate func onSuccessfullLogin() async throws -> MatrixClient {
+        let matrixClient = await MatrixClient(storeID: storeID, client: unauthenticatedClient)
 
         let userSession = try matrixClient.userSession()
         try userSession.saveUserToKeychain()

@@ -67,7 +67,7 @@ extension MatrixNotifications: MatrixRustSDK.SyncNotificationListener {
             return "Room \(notification.roomInfo.displayName)"
         case let .timeline(event: event):
             do {
-                switch try event.eventType() {
+                switch try event.content() {
                 case let .messageLike(content: msgLike):
                     switch msgLike {
                     case .callAnswer:

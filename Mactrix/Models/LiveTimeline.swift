@@ -69,7 +69,7 @@ public final class LiveTimeline {
             filter: .all,
             internalIdPrefix: nil,
             dateDividerMode: .daily,
-            trackReadReceipts: true,
+            trackReadReceipts: .allEvents,
             reportUtds: false
         )
         timeline = try await room.room.timelineWithConfiguration(configuration: config)

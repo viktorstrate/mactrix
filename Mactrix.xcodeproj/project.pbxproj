@@ -430,8 +430,8 @@
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/matrix-org/matrix-rust-components-swift";
 			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 25.10.27;
+				branch = main;
+				kind = branch;
 			};
 		};
 		34F7225D2EB531F40007B2A4 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
