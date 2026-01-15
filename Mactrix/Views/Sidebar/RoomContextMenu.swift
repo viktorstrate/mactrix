@@ -43,6 +43,22 @@ struct RoomContextMenu: View {
                     Label("Favorite", systemImage: "heart")
                 }
             }
+
+            Button {
+                Task {
+                    do {
+                        let permalink = try await room.room.matrixToPermalink()
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(permalink, forType: .string)
+                        Logger.viewCycle.debug("copy room link: \(permalink)")
+                    } catch {
+                        Logger.viewCycle.error("unable to copy room link: \(error)")
+                    }
+                }
+            } label: {
+                Label("Copy Link", systemImage: "link")
+            }
+            .disabled(roomInfo.isDirect)
         }
 
         Button {
