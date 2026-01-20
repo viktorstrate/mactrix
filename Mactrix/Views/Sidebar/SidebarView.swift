@@ -15,12 +15,21 @@ struct SidebarView: View {
 
     var directs: [SidebarRoom] {
         (appState.matrixClient?.rooms ?? [])
-            .filter { $0.roomInfo?.isDirect == true }
+            .filter { room in
+                let isDirect = room.roomInfo?.isDirect == true
+                let favoriteIDs = Set(favorites.map { $0.id })
+                return isDirect && !favoriteIDs.contains(room.id)
+            }
     }
 
     var rooms: [SidebarRoom] {
         (appState.matrixClient?.rooms ?? [])
-            .filter { !$0.room.isSpace() && $0.roomInfo?.isDirect != true }
+            .filter { room in
+                let isSpace = room.room.isSpace()
+                let isDirect = room.roomInfo?.isDirect == true
+                let favoriteIDs = Set(favorites.map(\.id))
+                return !isSpace && !isDirect && !favoriteIDs.contains(room.id)
+            }
     }
 
     var spaces: [SidebarSpaceRoom] {
