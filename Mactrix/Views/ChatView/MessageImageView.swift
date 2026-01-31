@@ -45,14 +45,13 @@ struct MessageImageView: View {
             }
         }
         .task(id: content.source.url()) {
-            let url: String = content.source.url()
             guard let matrixClient = appState.matrixClient else {
                 errorMessage = "Matrix client not available"
                 return
             }
 
             do {
-                let data = try await matrixClient.client.getMediaContent(mediaSource: .fromUrl(url: url))
+                let data = try await matrixClient.client.getMediaContent(mediaSource: content.source)
                 imageData = data
                 let contentType = content.info?.mimetype.flatMap { UTType(mimeType: $0) }
                 image = try await Image(importing: data, contentType: contentType)
