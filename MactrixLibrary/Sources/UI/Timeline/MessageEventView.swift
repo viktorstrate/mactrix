@@ -63,12 +63,64 @@ struct MessageTimestampView: View {
     }
 }
 
-public struct MessageEventProfileView<Event: EventTimelineItem>: View {
-    let event: Event
+struct MessageMainBody<MessageView: View, EventTimelineItem: Models.EventTimelineItem>: View {
+    let event: EventTimelineItem
+    let message: MessageView
+    let hover: Bool
+    let focused: Bool
+
+    var body: some View {
+        // Main body
+        HStack(alignment: .top, spacing: 0) {
+            MessageTimestampView(date: event.date, hover: hover)
+            message
+                .frame(maxWidth: .infinity, alignment: .leading)
+        }
+        .background(
+            RoundedRectangle(cornerRadius: 4)
+                .fill(focused ? Color.accentColor.opacity(0.1) : Color.gray.opacity(0.1))
+                .opacity(hover || focused ? 1 : 0)
+        )
+        .padding(.horizontal, 10)
+    }
+}
+
+struct ReadReciptsView: View {
+    let receipts: [String: Receipt]
+    let imageLoader: ImageLoader?
+
+    var users: [String] {
+        receipts
+            .sorted { a, b in
+                let a = (a.value.timestamp ?? Date(timeIntervalSince1970: 0))
+                let b = (b.value.timestamp ?? Date(timeIntervalSince1970: 0))
+                return a < b
+            }
+            .map { key, _ in key }
+    }
+
+    var body: some View {
+        HStack(spacing: -2) {
+            ForEach(users, id: \.self) { user in
+                // TODO: Pass correct url (not user id)
+                AvatarImage(avatarUrl: user, imageLoader: imageLoader)
+                    .frame(width: 14, height: 14)
+                    .clipShape(Circle())
+                    .background(
+                        Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 3)
+                    )
+                    .help("Read by \(user)")
+            }
+        }
+    }
+}
+
+public struct MessageEventProfileView<EventTimelineItem: Models.EventTimelineItem>: View {
+    let event: EventTimelineItem
     let actions: MessageEventActions
     let imageLoader: ImageLoader?
 
-    public init(event: Event, actions: MessageEventActions, imageLoader: ImageLoader?) {
+    public init(event: EventTimelineItem, actions: MessageEventActions, imageLoader: ImageLoader?) {
         self.event = event
         self.actions = actions
         self.imageLoader = imageLoader
@@ -87,8 +139,8 @@ public struct MessageEventProfileView<Event: EventTimelineItem>: View {
             HStack(spacing: 0) {
                 HStack(spacing: 0) {
                     AvatarImage(userProfile: event, imageLoader: imageLoader)
-                    .frame(width: 32, height: 32)
-                    .clipShape(Circle())
+                        .frame(width: 32, height: 32)
+                        .clipShape(Circle())
                 }.frame(width: 64)
 
                 Username(userProfile: event)
@@ -176,18 +228,12 @@ public struct MessageEventBodyView<MessageView: View, EventTimelineItem: Models.
     public var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 0) {
-                // Main body
-                HStack(alignment: .firstTextBaseline, spacing: 0) {
-                    MessageTimestampView(date: event.date, hover: hoverText)
-                    message
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                }
-                .background(
-                    RoundedRectangle(cornerRadius: 4)
-                        .fill(focused ? Color.accentColor.opacity(0.1) : Color.gray.opacity(0.1))
-                        .opacity(hoverText || focused ? 1 : 0)
+                MessageMainBody(
+                    event: event,
+                    message: message,
+                    hover: hoverText,
+                    focused: focused
                 )
-                .padding(.horizontal, 10)
 
                 // Reactions
                 if !reactions.isEmpty {
@@ -203,8 +249,16 @@ public struct MessageEventBodyView<MessageView: View, EventTimelineItem: Models.
                             )
                         }
                         Spacer()
+                        ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader)
+                            .padding(.horizontal, 10)
                     }
                     .padding(.top, 10)
+                } else if !event.userReadReceipts.isEmpty {
+                    HStack {
+                        Spacer()
+                        ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader)
+                            .padding(.horizontal, 10)
+                    }.padding(.top, 10)
                 }
             }
 
