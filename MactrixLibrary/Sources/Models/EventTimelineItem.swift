@@ -14,6 +14,14 @@ public enum ProfileDetails {
     }
 }
 
+public struct Receipt: Equatable, Hashable {
+    public var timestamp: Date?
+
+    public init(timestamp: Date?) {
+        self.timestamp = timestamp
+    }
+}
+
 public protocol EventTimelineItem {
     var isRemote: Bool { get }
     // var eventOrTransactionId: EventOrTransactionId { get }
@@ -25,7 +33,7 @@ public protocol EventTimelineItem {
     var date: Date { get }
     // var localSendState: EventSendState? { get }
     var localCreatedAt: UInt64? { get }
-    // var readReceipts: [String: Receipt] { get }
+    var userReadReceipts: [String: Receipt] { get }
     // var origin: EventItemOrigin? { get }
     var canBeRepliedTo: Bool { get }
     // var lazyProvider: LazyTimelineItemProvider { get }
@@ -60,6 +68,13 @@ public struct MockEventTimelineItem: EventTimelineItem {
 
     public var localCreatedAt: UInt64? {
         nil
+    }
+
+    public var userReadReceipts: [String: Receipt] {
+        [
+            "foo@matrix.org": .init(timestamp: .now),
+            "bar@matrix.org": .init(timestamp: .now + 2)
+        ]
     }
 
     public var canBeRepliedTo: Bool {
