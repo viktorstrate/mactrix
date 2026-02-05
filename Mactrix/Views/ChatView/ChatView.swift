@@ -110,6 +110,7 @@ struct ChatTimelineScrollView: View {
 
 struct ChatJoinedRoom: View {
     @Environment(AppState.self) private var appState
+    @Environment(WindowState.self) private var windowState
     @Bindable var timeline: LiveTimeline
 
     var room: LiveRoom {
@@ -117,6 +118,7 @@ struct ChatJoinedRoom: View {
     }
 
     @State private var inputHeight: CGFloat?
+    @FocusState private var inputFocused: Bool
 
     var toolbarSubtitle: String {
         guard let topic = room.room.topic() else { return "" }
@@ -128,12 +130,29 @@ struct ChatJoinedRoom: View {
         ChatTimelineScrollView(timeline: timeline)
             .safeAreaPadding(.bottom, inputHeight ?? 60) // chat input overlay
             .overlay(alignment: .bottom) {
-                ChatInputView(room: room.room, timeline: timeline, replyTo: $timeline.sendReplyTo, height: $inputHeight)
+                ChatInputView(room: room.room, timeline: timeline, replyTo: $timeline.sendReplyTo, height: $inputHeight, focusState: $inputFocused)
             }
             .background(Color(NSColor.controlBackgroundColor))
             .navigationTitle(room.room.displayName() ?? "Unknown room")
             .navigationSubtitle(toolbarSubtitle)
             .frame(minWidth: 250, minHeight: 200)
+            .onAppear {
+                // Delay focus slightly to ensure view is fully rendered
+                Task { @MainActor in
+                    try? await Task.sleep(for: .milliseconds(50))
+                    inputFocused = true
+                }
+            }
+            .onChange(of: windowState.shouldFocusInput) { _, shouldFocus in
+                if shouldFocus {
+                    // Delay focus to ensure the new room view is rendered
+                    Task { @MainActor in
+                        try? await Task.sleep(for: .milliseconds(50))
+                        inputFocused = true
+                        windowState.shouldFocusInput = false
+                    }
+                }
+            }
             .task {
                 do {
                     try await Task.sleep(for: .seconds(2))

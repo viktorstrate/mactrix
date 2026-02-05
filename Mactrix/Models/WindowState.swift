@@ -26,6 +26,8 @@ final class WindowState {
 
     // @SceneStorage("MainView.selectedRoomId")
     var selectedRoomId: String?
+    
+    var shouldFocusInput: Bool = false
 
     // @SceneStorage("MainView.inspectorVisible")
     var inspectorVisible: Bool = false
