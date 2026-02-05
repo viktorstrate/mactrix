@@ -7,9 +7,9 @@ struct ChatInputView: View {
     let timeline: LiveTimeline
     @Binding var replyTo: MatrixRustSDK.EventTimelineItem?
     @Binding var height: CGFloat?
+    var focusState: FocusState<Bool>.Binding
 
     @State private var chatInput: String = ""
-    @FocusState private var chatFocused: Bool
 
     func sendMessage() {
         guard !chatInput.isEmpty else { return }
@@ -48,7 +48,7 @@ struct ChatInputView: View {
                 }
             }
             TextField("Message room", text: $chatInput, axis: .vertical)
-                .focused($chatFocused)
+                .focused(focusState)
                 .onSubmit { sendMessage() }
                 .textFieldStyle(.plain)
                 .lineLimit(nil)
@@ -75,7 +75,7 @@ struct ChatInputView: View {
         )
         // .shadow(color: .black.opacity(0.1), radius: 4)
         .onTapGesture {
-            chatFocused = true
+            focusState.wrappedValue = true
         }
         .onChange(of: !chatInput.isEmpty) { _, isTyping in
             Task {

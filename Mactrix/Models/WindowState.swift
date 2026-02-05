@@ -26,6 +26,8 @@ final class WindowState {
 
     // @SceneStorage("MainView.selectedRoomId")
     var selectedRoomId: String?
+    
+    var shouldFocusInput: Bool = false
 
     // @SceneStorage("MainView.inspectorVisible")
     var inspectorVisible: Bool = false
@@ -114,6 +116,26 @@ final class WindowState {
             inspectorContent = .userInfo(userId: userId)
             inspectorVisible = true
         }
+    }
+    
+    func selectPreviousRoom(rooms: [String]) {
+        guard let currentRoomId = selectedRoomId,
+              let currentIndex = rooms.firstIndex(of: currentRoomId),
+              currentIndex > 0 else {
+            return
+        }
+        selectedRoomId = rooms[currentIndex - 1]
+        shouldFocusInput = true
+    }
+    
+    func selectNextRoom(rooms: [String]) {
+        guard let currentRoomId = selectedRoomId,
+              let currentIndex = rooms.firstIndex(of: currentRoomId),
+              currentIndex < rooms.count - 1 else {
+            return
+        }
+        selectedRoomId = rooms[currentIndex + 1]
+        shouldFocusInput = true
     }
 }
 
