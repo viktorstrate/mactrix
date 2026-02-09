@@ -3,6 +3,7 @@ import SwiftUI
 
 struct SessionsSettingsView: View {
     @Environment(AppState.self) var appState
+    @Environment(\.colorScheme) var colorScheme
 
     @ViewBuilder
     func sessionBadge(systemIcon: String, color: Color) -> some View {
@@ -10,7 +11,7 @@ struct SessionsSettingsView: View {
             .font(.system(size: 20))
             .padding(12)
             .background(RoundedRectangle(cornerRadius: 6).fill(color.opacity(0.2)))
-            .foregroundStyle(color.mix(with: .black, by: 0.2))
+            .foregroundStyle(color.mix(with: colorScheme == .light ? .black : .white, by: 0.2))
     }
 
     @ViewBuilder

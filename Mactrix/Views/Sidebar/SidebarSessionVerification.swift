@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SessionVerificationStatusView: View {
     @Environment(AppState.self) var appState
+    @Environment(\.colorScheme) var colorScheme
 
     @ViewBuilder
     var selfVerificationView: some View {
@@ -34,7 +35,7 @@ struct SessionVerificationStatusView: View {
             }
             .padding(10)
             .background(Color.red.opacity(0.2))
-            .foregroundStyle(Color.red.mix(with: .black, by: 0.5))
+            .foregroundStyle(Color.red.mix(with: colorScheme == .light ? .black : .white, by: 0.5))
             .clipShape(RoundedRectangle(cornerRadius: 8))
         }
     }

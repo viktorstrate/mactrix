@@ -2,6 +2,7 @@ import Models
 import SwiftUI
 
 public struct VirtualItemView: View {
+    @Environment(\.colorScheme) var colorScheme
     let item: VirtualTimelineItem
 
     public init(item: VirtualTimelineItem) {
@@ -40,7 +41,7 @@ public struct VirtualItemView: View {
                 }
                 .frame(height: 40)
                 .padding(.horizontal, 10)
-                .foregroundStyle(.red.mix(with: .black, by: 0.1))
+                .foregroundStyle(.red.mix(with: colorScheme == .light ? .black : .white, by: 0.1))
         case .timelineStart:
             Divider()
                 .overlay {
