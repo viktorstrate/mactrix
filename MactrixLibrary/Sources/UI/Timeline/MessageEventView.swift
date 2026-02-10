@@ -86,13 +86,32 @@ public struct MessageEventProfileView: View {
         Button(action: actions.focusUser) {
             HStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    AvatarImage(avatarUrl: event.senderProfileDetails.avatarUrl, imageLoader: imageLoader)
+                    AvatarImage(
+                        avatarUrl: event.senderProfileDetails.avatarUrl,
+                        imageLoader: imageLoader
+                    ) {
+                        GeometryReader { g in
+                            ZStack {
+                                Color("Username\(stringToColor(event.sender))")
+                                
+                                if let initial = name.uppercased().first.map({
+                                    String($0)
+                                }) {
+                                    Text(initial)
+                                        .font(.system(size: g.size.width * 0.7))
+                                        .fontWeight(.bold)
+                                        .foregroundStyle(.primary)
+                                }
+                            }
+                        }
+                    }
                         .frame(width: 32, height: 32)
                         .clipShape(Circle())
                 }.frame(width: 64)
 
                 Text(name)
                     .fontWeight(.bold)
+                    .foregroundStyle(Color("Username\(stringToColor(event.sender))"))
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
         }
@@ -262,4 +281,11 @@ public struct MockMessageEventActions: MessageEventActions {
             Text("Yet another message")
         }
     }
+}
+
+func stringToColor(_ string: String) -> String {
+    String(
+        format: "%02d",
+        string.unicodeScalars.reduce(0) { $0 + Int($1.value) } % 16 + 1
+    )
 }
