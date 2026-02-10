@@ -22,6 +22,30 @@ public struct AvatarImage<Preview: View>: View {
         self.imageLoader = imageLoader
         self.placeholder = placeholder
     }
+    
+    public init(
+        avatarUrl: String?,
+        imageLoader: ImageLoader?,
+        id: String,
+        name: String?
+    ) where Preview == AnyView {
+        self.init(avatarUrl: avatarUrl, imageLoader: imageLoader) {
+            AnyView(
+                GeometryReader { g in
+                    ZStack {
+                        Color(userID: id)
+                        
+                        if let initial = (name ?? id).uppercased().first.map({ String($0) }) {
+                            Text(initial)
+                                .font(.system(size: g.size.width * 0.7))
+                                .fontWeight(.bold)
+                                .foregroundStyle(.primary)
+                        }
+                    }
+                }
+            )
+        }
+    }
 
     @State private var avatar: Image? = nil
 

@@ -19,7 +19,7 @@ public struct UserProfileRow<Profile: UserProfile>: View {
                 .truncationMode(.tail)
                 .help(profile.displayName ?? profile.userId)
         } icon: {
-            AvatarImage(avatarUrl: profile.avatarUrl, imageLoader: imageLoader, placeholder: { Image(systemName: "person") })
+            AvatarImage(avatarUrl: profile.avatarUrl, imageLoader: imageLoader, id: profile.userId, name: profile.displayName)
                 .clipShape(Circle())
         }
     }
@@ -36,7 +36,7 @@ public struct UserProfileRowLarge<Profile: UserProfile>: View {
 
     public var body: some View {
         HStack {
-            AvatarImage(avatarUrl: profile.avatarUrl, imageLoader: imageLoader)
+            AvatarImage(avatarUrl: profile.avatarUrl, imageLoader: imageLoader, id: profile.userId, name: profile.displayName)
                 .frame(width: 32, height: 32)
                 .clipShape(.circle)
             VStack(alignment: .leading) {

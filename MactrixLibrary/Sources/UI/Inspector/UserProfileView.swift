@@ -35,7 +35,7 @@ public struct UserProfileView<Profile: UserProfile>: View {
     @ViewBuilder
     var profileHeader: some View {
         VStack(alignment: .center) {
-            AvatarImage(avatarUrl: profile.avatarUrl, imageLoader: imageLoader)
+            AvatarImage(avatarUrl: profile.avatarUrl, imageLoader: imageLoader, id: profile.userId, name: profile.displayName)
                 .frame(width: 72, height: 72)
                 .clipShape(.circle)
                 .padding(.bottom, 6)
