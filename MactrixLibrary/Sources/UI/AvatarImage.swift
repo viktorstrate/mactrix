@@ -35,11 +35,13 @@ public struct AvatarImage<Preview: View>: View {
                     ZStack {
                         Color(userID: id)
                         
-                        if let initial = (name ?? id).uppercased().first.map({ String($0) }) {
+                        if
+                            let initial = (name ?? id).uppercased().filter({ $0 != Character("@") }).first.map({ String($0) })
+                        {
                             Text(initial)
                                 .font(.system(size: g.size.width * 0.7))
                                 .fontWeight(.bold)
-                                .foregroundStyle(.primary)
+                                .foregroundStyle(.background)
                         }
                     }
                 }
