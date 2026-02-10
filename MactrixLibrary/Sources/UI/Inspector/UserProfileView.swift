@@ -40,7 +40,7 @@ public struct UserProfileView<Profile: UserProfile>: View {
                 .clipShape(.circle)
                 .padding(.bottom, 6)
 
-            Text(profile.displayName ?? "No display name")
+            Username(id: profile.userId, name: profile.displayName ?? "No display name")
                 .textSelection(.enabled)
             Text(profile.userId)
                 .font(.subheadline)

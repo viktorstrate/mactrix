@@ -14,7 +14,7 @@ public struct UserProfileRow<Profile: UserProfile>: View {
 
     public var body: some View {
         Label {
-            Text(profile.displayName ?? profile.userId)
+            Username(id: profile.userId, name: profile.displayName)
                 .lineLimit(1)
                 .truncationMode(.tail)
                 .help(profile.displayName ?? profile.userId)
@@ -40,7 +40,7 @@ public struct UserProfileRowLarge<Profile: UserProfile>: View {
                 .frame(width: 32, height: 32)
                 .clipShape(.circle)
             VStack(alignment: .leading) {
-                Text(profile.displayName ?? "No display name")
+                Username(id: profile.userId, name: profile.displayName ?? "No display name")
                     .textSelection(.enabled)
                 Text(profile.userId)
                     .font(.subheadline)
