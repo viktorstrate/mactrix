@@ -363,6 +363,57 @@ extension MatrixClient {
     func roomPreviewActions(forRoomWithId roomId: String, windowState: WindowState) -> RoomPreviewActions {
         return MatrixClientRoomPreviewActions(roomId: roomId, matrixClient: self, windowState: windowState)
     }
+    
+    // Computed properties for organized room lists
+    var organizedRooms: OrganizedRooms {
+        let favorites = rooms.filter { $0.roomInfo?.isFavourite == true }
+        let favoriteIDs = Set(favorites.map { $0.id })
+        
+        let directs = rooms.filter { room in
+            let isDirect = room.roomInfo?.isDirect == true
+            return isDirect && !favoriteIDs.contains(room.id)
+        }
+        
+        let regularRooms = rooms.filter { room in
+            let isSpace = room.room.isSpace()
+            let isDirect = room.roomInfo?.isDirect == true
+            return !isSpace && !isDirect && !favoriteIDs.contains(room.id)
+        }
+        
+        let spaces = spaceService.spaceRooms
+        
+        return OrganizedRooms(
+            favorites: favorites,
+            directs: directs,
+            rooms: regularRooms,
+            spaces: spaces
+        )
+    }
+    
+    var orderedRoomIds: [String] {
+        let organized = organizedRooms
+        var ids: [String] = []
+        
+        ids.append(contentsOf: organized.favorites.map { $0.id })
+        ids.append(contentsOf: organized.directs.map { $0.id })
+        ids.append(contentsOf: organized.rooms.map { $0.id })
+        
+        for space in organized.spaces {
+            ids.append(space.id)
+            if case let .loaded(children) = space.children {
+                ids.append(contentsOf: children.rooms.map { $0.id })
+            }
+        }
+        
+        return ids
+    }
+}
+
+struct OrganizedRooms {
+    let favorites: [SidebarRoom]
+    let directs: [SidebarRoom]
+    let rooms: [SidebarRoom]
+    let spaces: [SidebarSpaceRoom]
 }
 
 private extension URL {

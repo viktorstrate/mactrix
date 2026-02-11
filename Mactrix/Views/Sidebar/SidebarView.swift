@@ -8,32 +8,13 @@ struct SidebarView: View {
 
     @State private var searchText: String = ""
 
-    var favorites: [SidebarRoom] {
-        (appState.matrixClient?.rooms ?? [])
-            .filter { $0.roomInfo?.isFavourite == true }
-    }
-
-    var directs: [SidebarRoom] {
-        (appState.matrixClient?.rooms ?? [])
-            .filter { room in
-                let isDirect = room.roomInfo?.isDirect == true
-                let favoriteIDs = Set(favorites.map { $0.id })
-                return isDirect && !favoriteIDs.contains(room.id)
-            }
-    }
-
-    var rooms: [SidebarRoom] {
-        (appState.matrixClient?.rooms ?? [])
-            .filter { room in
-                let isSpace = room.room.isSpace()
-                let isDirect = room.roomInfo?.isDirect == true
-                let favoriteIDs = Set(favorites.map(\.id))
-                return !isSpace && !isDirect && !favoriteIDs.contains(room.id)
-            }
-    }
-
-    var spaces: [SidebarSpaceRoom] {
-        appState.matrixClient?.spaceService.spaceRooms ?? []
+    var organizedRooms: OrganizedRooms {
+        appState.matrixClient?.organizedRooms ?? OrganizedRooms(
+            favorites: [],
+            directs: [],
+            rooms: [],
+            spaces: []
+        )
     }
 
     var body: some View {
@@ -44,9 +25,9 @@ struct SidebarView: View {
 
             SessionVerificationStatusView()
 
-            if !favorites.isEmpty {
+            if !organizedRooms.favorites.isEmpty {
                 Section("Favorites") {
-                    ForEach(favorites) { room in
+                    ForEach(organizedRooms.favorites) { room in
                         UI.RoomRow(
                             title: room.room.displayName() ?? "Unknown room",
                             avatarUrl: room.room.avatarUrl(),
@@ -62,7 +43,7 @@ struct SidebarView: View {
             }
 
             Section("Directs") {
-                ForEach(directs) { room in
+                ForEach(organizedRooms.directs) { room in
                     UI.RoomRow(
                         title: room.room.displayName() ?? "Unknown user",
                         avatarUrl: room.room.avatarUrl(),
@@ -77,7 +58,7 @@ struct SidebarView: View {
             }
 
             Section("Rooms") {
-                ForEach(rooms) { room in
+                ForEach(organizedRooms.rooms) { room in
                     UI.RoomRow(
                         title: room.room.displayName() ?? "Unknown Room",
                         avatarUrl: room.room.avatarUrl(),
@@ -92,7 +73,7 @@ struct SidebarView: View {
             }
 
             Section("Spaces") {
-                ForEach(spaces) { space in
+                ForEach(organizedRooms.spaces) { space in
                     SpaceDisclosureGroup(space: space)
                 }
             }
