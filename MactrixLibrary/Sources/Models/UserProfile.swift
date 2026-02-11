@@ -6,6 +6,25 @@ public protocol UserProfile: Identifiable {
     var avatarUrl: String? { get }
 }
 
+public struct SimpleUserProfile: UserProfile {
+    public var userId: String
+    public var displayName: String?
+    public var avatarUrl: String?
+    
+    public init(userId: String, profileDetails: ProfileDetails) {
+        self.userId = userId
+        
+        switch profileDetails {
+        case let .ready(displayName: displayName, displayNameAmbiguous: _, avatarUrl: avatarUrl):
+            self.displayName = displayName
+            self.avatarUrl = avatarUrl
+        default:
+            self.displayName = nil
+            self.avatarUrl = nil
+        }
+    }
+}
+
 public extension UserProfile {
     var id: String { userId }
 }

@@ -6,5 +6,9 @@ struct Username: View {
     
     var body: some View {
         Text(name ?? id).foregroundStyle(Color(userID: id))
+            .lineLimit(1)
+            .truncationMode(.tail)
+            .help(name ?? id)
+            .textSelection(.enabled)
     }
 }

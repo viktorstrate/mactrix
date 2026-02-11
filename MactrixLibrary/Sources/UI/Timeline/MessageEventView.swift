@@ -87,10 +87,11 @@ public struct MessageEventProfileView: View {
             HStack(spacing: 0) {
                 HStack(spacing: 0) {
                     AvatarImage(
-                        avatarUrl: event.senderProfileDetails.avatarUrl,
-                        imageLoader: imageLoader,
-                        id: event.sender,
-                        name: name,
+                        userProfile: Models.SimpleUserProfile(
+                            userId: event.sender,
+                            profileDetails: event.senderProfileDetails
+                        ),
+                        imageLoader: imageLoader
                     )
                     .frame(width: 32, height: 32)
                     .clipShape(Circle())

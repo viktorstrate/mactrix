@@ -35,13 +35,12 @@ public struct UserProfileView<Profile: UserProfile>: View {
     @ViewBuilder
     var profileHeader: some View {
         VStack(alignment: .center) {
-            AvatarImage(avatarUrl: profile.avatarUrl, imageLoader: imageLoader, id: profile.userId, name: profile.displayName)
+            AvatarImage(userProfile: profile, imageLoader: imageLoader)
                 .frame(width: 72, height: 72)
                 .clipShape(.circle)
                 .padding(.bottom, 6)
 
             Username(id: profile.userId, name: profile.displayName ?? "No display name")
-                .textSelection(.enabled)
             Text(profile.userId)
                 .font(.subheadline)
                 .foregroundStyle(.secondary)
