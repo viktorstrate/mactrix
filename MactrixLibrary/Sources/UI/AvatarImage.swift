@@ -28,24 +28,9 @@ public struct AvatarImage<Preview: View>: View {
         imageLoader: ImageLoader?,
         id: String,
         name: String?
-    ) where Preview == AnyView {
+    ) where Preview == UserAvatarPlaceholder {
         self.init(avatarUrl: avatarUrl, imageLoader: imageLoader) {
-            AnyView(
-                GeometryReader { g in
-                    ZStack {
-                        Color(userID: id)
-                        
-                        if
-                            let initial = (name ?? id).uppercased().filter({ $0 != Character("@") }).first.map({ String($0) })
-                        {
-                            Text(initial)
-                                .font(.system(size: g.size.width * 0.7))
-                                .fontWeight(.bold)
-                                .foregroundStyle(.background)
-                        }
-                    }
-                }
-            )
+            UserAvatarPlaceholder(id: id, name: name)
         }
     }
 
@@ -76,6 +61,28 @@ public struct AvatarImage<Preview: View>: View {
                         Logger.viewCycle.error("failed to load avatar (\(avatarUrl): \(error)")
                     }
                 }
+        }
+    }
+}
+
+public struct UserAvatarPlaceholder: View {
+    let id: String
+    let name: String?
+    
+    public var body: some View {
+        GeometryReader { g in
+            ZStack {
+                Color(userID: id)
+                
+                if
+                    let initial = (name ?? id).uppercased().filter({ $0 != Character("@") }).first.map({ String($0) })
+                {
+                    Text(initial)
+                        .font(.system(size: g.size.width * 0.7))
+                        .fontWeight(.bold)
+                        .foregroundStyle(.background)
+                }
+            }
         }
     }
 }
