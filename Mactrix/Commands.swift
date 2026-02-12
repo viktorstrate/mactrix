@@ -64,12 +64,12 @@ struct AppCommands: Commands {
             .disabled(fontSize >= 24)
 
             Button {
-                fontSize = 16
+                fontSize = 13
             } label: {
                 Text("Make Text Normal Size")
             }
             .keyboardShortcut("0", modifiers: [.command])
-            .disabled(fontSize == 16)
+            .disabled(fontSize == 13)
 
             Button {
                 fontSize -= 1
