@@ -10,8 +10,8 @@ public final class LiveRoom: Identifiable {
     public var typingUserIds: [String] = []
     public var fetchedMembers: [MatrixRustSDK.RoomMember]?
 
-    private var typingHandle: TaskHandle?
-    private var typingTask: Task<Void, Never>?
+    @ObservationIgnored private var typingHandle: TaskHandle?
+    @ObservationIgnored private var typingTask: Task<Void, Never>?
 
     public nonisolated var room: MatrixRustSDK.Room {
         sidebarRoom.room
@@ -38,6 +38,7 @@ public final class LiveRoom: Identifiable {
     isolated deinit {
         Logger.matrixClient.info("live room deinit")
         typingTask?.cancel()
+        typingTask = nil
     }
 
     fileprivate func startListening() {
@@ -56,8 +57,10 @@ public final class LiveRoom: Identifiable {
             }
         }
 
-        typingTask = Task { @MainActor in
+        typingTask = Task { [weak self] in
             for await typingUserIds in stream {
+                guard let self else { break }
+
                 Logger.matrixClient.info("typing indicator updating UI")
                 self.typingUserIds = typingUserIds
             }
