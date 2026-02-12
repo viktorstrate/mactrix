@@ -8,7 +8,7 @@ struct SettingsView: View {
                 AccountSettingsView()
             }
             Tab("Appearance", systemImage: "eye") {
-                Text("Appearance Settings")
+                AppearanceSettingsView()
             }
             Tab("Sessions", systemImage: "desktopcomputer.and.macbook") {
                 SessionsSettingsView()

@@ -108,6 +108,7 @@ public struct MessageEventBodyView<MessageView: View, EventTimelineItem: Models.
     let actions: MessageEventActions
     let imageLoader: ImageLoader?
     let ownUserId: String
+    @AppStorage("fontSize") var fontSize: Int = 14
 
     public init(event: EventTimelineItem, focused: Bool, reactions: [Reaction], actions: MessageEventActions, ownUserID: String, imageLoader: ImageLoader?, @ViewBuilder message: () -> MessageView) {
         self.event = event
@@ -177,10 +178,11 @@ public struct MessageEventBodyView<MessageView: View, EventTimelineItem: Models.
         ZStack(alignment: .topTrailing) {
             VStack(spacing: 0) {
                 // Main body
-                HStack(alignment: .top, spacing: 0) {
+                HStack(alignment: .firstTextBaseline, spacing: 0) {
                     MessageTimestampView(date: event.date, hover: hoverText)
                     message
                         .frame(maxWidth: .infinity, alignment: .leading)
+                        .font(.system(size: .init(fontSize)))
                 }
                 .background(
                     RoundedRectangle(cornerRadius: 4)
