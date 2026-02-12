@@ -24,10 +24,10 @@ public struct AvatarImage<Preview: View>: View {
         self.placeholder = placeholder
     }
     
-    public init(
-        userProfile: any UserProfile,
+    public init<Profile: UserProfile>(
+        userProfile: Profile,
         imageLoader: ImageLoader?,
-    ) where Preview == UserAvatarPlaceholder {
+    ) where Preview == UserAvatarPlaceholder<Profile> {
         self.init(avatarUrl: userProfile.avatarUrl, imageLoader: imageLoader) {
             UserAvatarPlaceholder(userProfile: userProfile)
         }
@@ -64,8 +64,8 @@ public struct AvatarImage<Preview: View>: View {
     }
 }
 
-public struct UserAvatarPlaceholder: View {
-    let userProfile: any UserProfile
+public struct UserAvatarPlaceholder<Profile: UserProfile>: View {
+    let userProfile: Profile
     
     public var body: some View {
         GeometryReader { g in

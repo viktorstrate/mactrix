@@ -63,12 +63,12 @@ struct MessageTimestampView: View {
     }
 }
 
-public struct MessageEventProfileView: View {
-    let event: EventTimelineItem
+public struct MessageEventProfileView<Event: EventTimelineItem>: View {
+    let event: Event
     let actions: MessageEventActions
     let imageLoader: ImageLoader?
 
-    public init(event: EventTimelineItem, actions: MessageEventActions, imageLoader: ImageLoader?) {
+    public init(event: Event, actions: MessageEventActions, imageLoader: ImageLoader?) {
         self.event = event
         self.actions = actions
         self.imageLoader = imageLoader
