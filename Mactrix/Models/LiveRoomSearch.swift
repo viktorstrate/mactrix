@@ -86,7 +86,7 @@ final class AnonymousRoomDirectorySearchEntriesListener: RoomDirectorySearchEntr
     let callback: @Sendable ([MatrixRustSDK.RoomDirectorySearchEntryUpdate]) -> Void
     init(callback: @Sendable @escaping ([MatrixRustSDK.RoomDirectorySearchEntryUpdate]) -> Void) { self.callback = callback }
 
-    nonisolated func onUpdate(roomEntriesUpdate: [MatrixRustSDK.RoomDirectorySearchEntryUpdate]) {
+    func onUpdate(roomEntriesUpdate: [MatrixRustSDK.RoomDirectorySearchEntryUpdate]) {
         callback(roomEntriesUpdate)
     }
 }

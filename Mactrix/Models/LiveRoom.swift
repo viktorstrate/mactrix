@@ -44,29 +44,24 @@ public final class LiveRoom: Identifiable {
     fileprivate func startListening() {
         Logger.matrixClient.info("typing indicator start listening")
 
-        let stream = AsyncStream { continuation in
-            let listener = AnonymousTypingListener { typingUserIds in
-                Logger.matrixClient.info("typing indicator stream yield")
-                continuation.yield(typingUserIds)
-            }
+        MatrixRustListener(
+            configure: { continuation in
+                let listener = AnonymousTypingListener { typingUserIds in
+                    Logger.matrixClient.info("typing indicator stream yield")
+                    continuation.yield(typingUserIds)
+                }
 
-            typingHandle = room.subscribeToTypingNotifications(listener: listener)
+                continuation.onTermination = { _ in
+                    Logger.matrixClient.info("typing indicator continuation terminated")
+                }
 
-            continuation.onTermination = { _ in
-                Logger.matrixClient.info("typing indicator continuation terminated")
-            }
-        }
-
-        typingTask = Task { [weak self] in
-            for await typingUserIds in stream {
-                guard let self else { break }
-
+                return self.room.subscribeToTypingNotifications(listener: listener)
+            },
+            onElement: { typingUserIds in
                 Logger.matrixClient.info("typing indicator updating UI")
                 self.typingUserIds = typingUserIds
             }
-
-            Logger.matrixClient.info("typing indicator background task ended")
-        }
+        )
     }
 }
 
@@ -74,7 +69,7 @@ final class AnonymousTypingListener: TypingNotificationsListener {
     let callback: @Sendable ([String]) -> Void
     init(callback: @Sendable @escaping ([String]) -> Void) { self.callback = callback }
 
-    nonisolated func call(typingUserIds: [String]) {
+    func call(typingUserIds: [String]) {
         Logger.matrixClient.info("typing indicator called from rust")
         callback(typingUserIds)
     }
