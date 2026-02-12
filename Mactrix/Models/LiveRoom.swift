@@ -11,36 +11,69 @@ public final class LiveRoom: Identifiable {
     public var fetchedMembers: [MatrixRustSDK.RoomMember]?
 
     private var typingHandle: TaskHandle?
+    private var typingTask: Task<Void, Never>?
 
-    public let room: MatrixRustSDK.Room
+    public nonisolated var room: MatrixRustSDK.Room {
+        sidebarRoom.room
+    }
 
     public var roomInfo: MatrixRustSDK.RoomInfo? {
         sidebarRoom.roomInfo
     }
 
     public nonisolated var id: String {
-        room.id()
+        sidebarRoom.id
     }
 
     public init(sidebarRoom: SidebarRoom) {
         self.sidebarRoom = sidebarRoom
-        self.room = sidebarRoom.room
+
+        startListening()
     }
 
     public convenience init(matrixRoom: MatrixRustSDK.Room) {
         self.init(sidebarRoom: SidebarRoom(room: matrixRoom))
     }
 
+    isolated deinit {
+        Logger.matrixClient.info("live room deinit")
+        typingTask?.cancel()
+    }
+
     fileprivate func startListening() {
-        typingHandle = room.subscribeToTypingNotifications(listener: self)
+        Logger.matrixClient.info("typing indicator start listening")
+
+        let stream = AsyncStream { continuation in
+            let listener = AnonymousTypingListener { typingUserIds in
+                Logger.matrixClient.info("typing indicator stream yield")
+                continuation.yield(typingUserIds)
+            }
+
+            typingHandle = room.subscribeToTypingNotifications(listener: listener)
+
+            continuation.onTermination = { _ in
+                Logger.matrixClient.info("typing indicator continuation terminated")
+            }
+        }
+
+        typingTask = Task { @MainActor in
+            for await typingUserIds in stream {
+                Logger.matrixClient.info("typing indicator updating UI")
+                self.typingUserIds = typingUserIds
+            }
+
+            Logger.matrixClient.info("typing indicator background task ended")
+        }
     }
 }
 
-extension LiveRoom: TypingNotificationsListener {
-    public nonisolated func call(typingUserIds: [String]) {
-        Task { @MainActor in
-            self.typingUserIds = typingUserIds
-        }
+final class AnonymousTypingListener: TypingNotificationsListener {
+    let callback: @Sendable ([String]) -> Void
+    init(callback: @Sendable @escaping ([String]) -> Void) { self.callback = callback }
+
+    nonisolated func call(typingUserIds: [String]) {
+        Logger.matrixClient.info("typing indicator called from rust")
+        callback(typingUserIds)
     }
 }
 
@@ -55,23 +88,21 @@ extension LiveRoom: Hashable {
 }
 
 extension LiveRoom: Models.Room {
-    public nonisolated func syncMembers() async throws {
-        Task { @MainActor in
-            // guard not already synced
-            guard fetchedMembers == nil else { return }
+    public func syncMembers() async throws {
+        // guard not already synced
+        guard fetchedMembers == nil else { return }
 
-            let id = self.id
-            Logger.liveRoom.debug("syncing members for room: \(id)")
+        let id = self.id
+        Logger.liveRoom.debug("syncing members for room: \(id)")
 
-            let memberIter = try await room.members()
-            var result = [MatrixRustSDK.RoomMember]()
-            while let memberChunk = memberIter.nextChunk(chunkSize: 1000) {
-                result.append(contentsOf: memberChunk)
-            }
-            fetchedMembers = result
-
-            Logger.liveRoom.debug("synced \(result.count) members")
+        let memberIter = try await room.members()
+        var result = [MatrixRustSDK.RoomMember]()
+        while let memberChunk = memberIter.nextChunk(chunkSize: 1000) {
+            result.append(contentsOf: memberChunk)
         }
+        fetchedMembers = result
+
+        Logger.liveRoom.debug("synced \(result.count) members")
     }
 
     public nonisolated var displayName: String? {
