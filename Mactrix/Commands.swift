@@ -2,7 +2,7 @@ import SwiftUI
 
 struct AppCommands: Commands {
     @FocusedValue(WindowState.self) private var windowState: WindowState?
-    @AppStorage("fontSize") var fontSize: Int = 16
+    @AppStorage("fontSize") var fontSize: Int = 13
 
     var body: some Commands {
         SidebarCommands()

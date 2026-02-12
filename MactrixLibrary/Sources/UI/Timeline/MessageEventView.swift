@@ -108,7 +108,7 @@ public struct MessageEventBodyView<MessageView: View, EventTimelineItem: Models.
     let actions: MessageEventActions
     let imageLoader: ImageLoader?
     let ownUserId: String
-    @AppStorage("fontSize") var fontSize: Int = 14
+    @AppStorage("fontSize") var fontSize: Int = 13
 
     public init(event: EventTimelineItem, focused: Bool, reactions: [Reaction], actions: MessageEventActions, ownUserID: String, imageLoader: ImageLoader?, @ViewBuilder message: () -> MessageView) {
         self.event = event

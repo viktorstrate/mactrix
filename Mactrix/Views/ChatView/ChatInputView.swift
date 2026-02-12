@@ -7,7 +7,7 @@ struct ChatInputView: View {
     let timeline: LiveTimeline
     @Binding var replyTo: MatrixRustSDK.EventTimelineItem?
     @Binding var height: CGFloat?
-    @AppStorage("fontSize") var fontSize: Int = 16
+    @AppStorage("fontSize") var fontSize: Int = 13
 
     @State private var chatInput: String = ""
     @FocusState private var chatFocused: Bool

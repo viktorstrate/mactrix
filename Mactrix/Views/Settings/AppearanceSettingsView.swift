@@ -1,7 +1,7 @@
 import SwiftUI
 
 struct AppearanceSettingsView: View {
-    @AppStorage("fontSize") var fontSize: Int = 16
+    @AppStorage("fontSize") var fontSize: Int = 13
     
     var body: some View {
         Form {
