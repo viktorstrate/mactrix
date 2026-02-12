@@ -7,6 +7,7 @@ struct ChatInputView: View {
     let timeline: LiveTimeline
     @Binding var replyTo: MatrixRustSDK.EventTimelineItem?
     @Binding var height: CGFloat?
+    @AppStorage("fontSize") var fontSize: Int = 16
 
     @State private var chatInput: String = ""
     @FocusState private var chatFocused: Bool
@@ -56,7 +57,7 @@ struct ChatInputView: View {
                 .background(.clear)
                 .padding(10)
         }
-        .font(.system(size: 14))
+        .font(.system(size: .init(fontSize)))
         .background(
             GeometryReader { proxy in
                 Color(NSColor.textBackgroundColor)

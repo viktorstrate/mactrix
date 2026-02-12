@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AppCommands: Commands {
     @FocusedValue(WindowState.self) private var windowState: WindowState?
+    @AppStorage("fontSize") var fontSize: Int = 16
 
     var body: some Commands {
         SidebarCommands()
@@ -10,6 +11,7 @@ struct AppCommands: Commands {
         ToolbarCommands()
 
         newTab
+        fontSizeCommands
     }
 
     var newTab: some Commands {
@@ -49,5 +51,33 @@ struct AppCommands: Commands {
         }
         .help("Create a new room")
         .keyboardShortcut("N", modifiers: [.command, .shift])
+    }
+    
+    var fontSizeCommands: some Commands {
+        CommandGroup(after: .toolbar) {
+            Button {
+                fontSize += 1
+            } label: {
+                Text("Make Text Bigger")
+            }
+            .keyboardShortcut("=", modifiers: [.command])
+            .disabled(fontSize >= 24)
+
+            Button {
+                fontSize = 16
+            } label: {
+                Text("Make Text Normal Size")
+            }
+            .keyboardShortcut("0", modifiers: [.command])
+
+            Button {
+                fontSize -= 1
+                    
+            } label: {
+                Text("Make Text Smaller")
+            }
+            .keyboardShortcut("-", modifiers: [.command])
+            .disabled(fontSize <= 8)
+        }
     }
 }
