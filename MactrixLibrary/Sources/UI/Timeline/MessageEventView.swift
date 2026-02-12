@@ -86,18 +86,12 @@ public struct MessageEventProfileView: View {
         Button(action: actions.focusUser) {
             HStack(spacing: 0) {
                 HStack(spacing: 0) {
-                    AvatarImage(
-                        userProfile: Models.SimpleUserProfile(
-                            userId: event.sender,
-                            profileDetails: event.senderProfileDetails
-                        ),
-                        imageLoader: imageLoader
-                    )
+                    AvatarImage(userProfile: event, imageLoader: imageLoader)
                     .frame(width: 32, height: 32)
                     .clipShape(Circle())
                 }.frame(width: 64)
 
-                Username(id: event.sender, name: name)
+                Username(userProfile: event)
                     .fontWeight(.bold)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }

@@ -1,14 +1,14 @@
 import SwiftUI
+import Models
 
 struct Username: View {
-    var id: String
-    var name: String?
+    var userProfile: any UserProfile
     
     var body: some View {
-        Text(name ?? id).foregroundStyle(Color(userID: id))
+        Text(userProfile.displayName ?? userProfile.userId).foregroundStyle(Color(userID: userProfile.userId))
             .lineLimit(1)
             .truncationMode(.tail)
-            .help(name ?? id)
+            .help(userProfile.displayName ?? userProfile.userId)
             .textSelection(.enabled)
     }
 }

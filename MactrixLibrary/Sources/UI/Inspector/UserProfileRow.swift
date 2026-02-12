@@ -14,7 +14,7 @@ public struct UserProfileRow<Profile: UserProfile>: View {
 
     public var body: some View {
         Label {
-            Username(id: profile.userId, name: profile.displayName)
+            Username(userProfile: profile)
         } icon: {
             AvatarImage(userProfile: profile, imageLoader: imageLoader)
                 .clipShape(Circle())
@@ -37,7 +37,7 @@ public struct UserProfileRowLarge<Profile: UserProfile>: View {
                 .frame(width: 32, height: 32)
                 .clipShape(.circle)
             VStack(alignment: .leading) {
-                Username(id: profile.userId, name: profile.displayName ?? "No display name")
+                Username(userProfile: profile)
                 Text(profile.userId)
                     .font(.subheadline)
                     .foregroundStyle(.secondary)

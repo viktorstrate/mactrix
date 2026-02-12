@@ -179,6 +179,26 @@ extension MatrixRustSDK.EventTimelineItem: Models.EventTimelineItem {
     public var date: Date {
         timestamp.date
     }
+    
+    public var userId: String {
+        sender
+    }
+    
+    public var displayName: String? {
+        if case let .ready(displayName: displayName, displayNameAmbiguous: _, avatarUrl: _) = senderProfileDetails {
+            return displayName
+        }
+        
+        return nil
+    }
+    
+    public var avatarUrl: String? {
+        if case let .ready(displayName: _, displayNameAmbiguous: _, avatarUrl: avatarUrl) = senderProfileDetails {
+            return avatarUrl
+        }
+        
+        return nil
+    }
 }
 
 extension MatrixRustSDK.EventTimelineItem: @retroactive Identifiable {

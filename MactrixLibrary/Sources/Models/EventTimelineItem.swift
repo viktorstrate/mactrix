@@ -14,7 +14,7 @@ public enum ProfileDetails {
     }
 }
 
-public protocol EventTimelineItem {
+public protocol EventTimelineItem: UserProfile {
     var isRemote: Bool { get }
     // var eventOrTransactionId: EventOrTransactionId { get }
     var sender: String { get }
@@ -65,4 +65,8 @@ public struct MockEventTimelineItem: EventTimelineItem {
     public var canBeRepliedTo: Bool {
         true
     }
+    
+    public var userId: String { sender }
+    public var displayName: String? { nil }
+    public var avatarUrl: String? { nil }
 }
