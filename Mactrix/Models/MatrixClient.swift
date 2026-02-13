@@ -119,7 +119,7 @@ class MatrixClient {
                 guard let self else { return }
 
                 switch event {
-                case .didReceiveAuthError(isSoftLogout: let isSoftLogout):
+                case let .didReceiveAuthError(isSoftLogout: isSoftLogout):
                     Logger.matrixClient.debug("did receive auth error: soft logout \(isSoftLogout, privacy: .public)")
                     if !isSoftLogout {
                         authenticationFailed = true
@@ -187,7 +187,7 @@ class MatrixClient {
     var showRoomSyncIndicator: RoomListServiceSyncIndicator?
     var ignoredUserIds: [String] = []
 
-    @ObservationIgnored private var roomListEntriesHandle: RoomListEntriesWithDynamicAdaptersResult?
+    @ObservationIgnored private var roomListEntriesListener: MatrixRustListener<[RoomListEntriesUpdate]>?
     @ObservationIgnored private var roomListServiceStateListener: MatrixRustListener<RoomListServiceState>?
     @ObservationIgnored private var syncIndicatorListener: MatrixRustListener<RoomListServiceSyncIndicator>?
     @ObservationIgnored private var syncStateListener: MatrixRustListener<SyncServiceState>?
@@ -244,10 +244,53 @@ class MatrixClient {
             }
         )
 
-        let _roomListEntriesHandle = try await _roomListService.allRooms().entriesWithDynamicAdapters(pageSize: 100, listener: self)
-        roomListEntriesHandle = _roomListEntriesHandle
+        roomListEntriesListener = MatrixRustListener(
+            configure: { continuation in
+                let listener = AnonymousRoomListEntriesListener { roomEntriesUpdate in
+                    continuation.yield(roomEntriesUpdate)
+                }
 
-        _ = _roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
+                do {
+                    let roomListEntriesHandle = try await _roomListService.allRooms().entriesWithDynamicAdapters(pageSize: 100, listener: listener)
+                    _ = roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
+
+                    return roomListEntriesHandle.entriesStream()
+                } catch {
+                    Logger.matrixClient.error("Failed to register room list entries listener: \(error)")
+                    return nil
+                }
+            },
+            onElement: { [weak self] roomEntriesUpdate in
+                guard let self else { return }
+
+                for update in roomEntriesUpdate {
+                    switch update {
+                    case let .append(values):
+                        rooms.append(contentsOf: values.map(SidebarRoom.init(room:)))
+                    case .clear:
+                        rooms.removeAll()
+                    case let .pushFront(room):
+                        rooms.insert(SidebarRoom(room: room), at: 0)
+                    case let .pushBack(room):
+                        rooms.append(SidebarRoom(room: room))
+                    case .popFront:
+                        rooms.removeFirst()
+                    case .popBack:
+                        rooms.removeLast()
+                    case let .insert(index, room):
+                        rooms.insert(SidebarRoom(room: room), at: Int(index))
+                    case let .set(index, room):
+                        rooms[Int(index)] = SidebarRoom(room: room)
+                    case let .remove(index):
+                        rooms.remove(at: Int(index))
+                    case let .truncate(length):
+                        rooms.removeSubrange(Int(length) ..< rooms.count)
+                    case let .reset(values: values):
+                        rooms = values.map(SidebarRoom.init(room:))
+                    }
+                }
+            }
+        )
 
         notificationClient = try await client.notificationClient(processSetup: .singleProcess(syncService: _syncService))
         await client.registerNotificationHandler(listener: notifications)

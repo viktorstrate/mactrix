@@ -6,9 +6,24 @@ import UserNotifications
 final class MatrixNotifications: NSObject {
     var selectedRoomId: String?
 
+    typealias NotificationEvent = (item: MatrixRustSDK.NotificationItem, roomId: String)
+
+    @ObservationIgnored private let notificationContinuation: AsyncStream<NotificationEvent>.Continuation
+    @ObservationIgnored private var streamTask: Task<Void, Never>?
+
     override init() {
+        let (stream, continuation) = AsyncStream<NotificationEvent>.makeStream()
+        notificationContinuation = continuation
+
         super.init()
         UNUserNotificationCenter.current().delegate = self
+
+        streamTask = Task { [weak self] in
+            for await (notification, roomId) in stream {
+                guard let self else { break }
+                await self.sendNotification(notification: notification, roomId: roomId)
+            }
+        }
     }
 }
 
@@ -22,31 +37,40 @@ extension MatrixNotifications: UNUserNotificationCenterDelegate {
 
 extension MatrixNotifications: MatrixRustSDK.SyncNotificationListener {
     nonisolated func onNotification(notification: MatrixRustSDK.NotificationItem, roomId: String) {
-        Task { @MainActor in
+        notificationContinuation.yield((notification, roomId))
+    }
+}
+
+extension MatrixNotifications {
+    func sendNotification(notification: MatrixRustSDK.NotificationItem, roomId: String) async {
+        do {
             let success = try await UNUserNotificationCenter.current()
                 .requestAuthorization(options: [.alert, .badge, .sound])
             guard success else {
                 Logger.notification.warning("user rejected notification request")
                 return
             }
+        } catch {
+            Logger.notification.error("failed to request notification permissions: \(error)")
+            return
+        }
 
-            Logger.notification.debug("sending notification from room \(roomId)")
+        Logger.notification.debug("sending notification from room \(roomId)")
 
-            let content = UNMutableNotificationContent()
-            content.title = notificationTitle(for: notification)
-            content.subtitle = notificationBody(for: notification)
-            content.sound = UNNotificationSound.default
-            content.interruptionLevel = .timeSensitive
-            content.userInfo = ["roomId": roomId]
+        let content = UNMutableNotificationContent()
+        content.title = notificationTitle(for: notification)
+        content.subtitle = notificationBody(for: notification)
+        content.sound = UNNotificationSound.default
+        content.interruptionLevel = .timeSensitive
+        content.userInfo = ["roomId": roomId]
 
-            let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.01, repeats: false)
-            let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
+        let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.01, repeats: false)
+        let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: trigger)
 
-            do {
-                try await UNUserNotificationCenter.current().add(request)
-            } catch {
-                Logger.notification.error("failed to schedule notification \(error)")
-            }
+        do {
+            try await UNUserNotificationCenter.current().add(request)
+        } catch {
+            Logger.notification.error("failed to schedule notification: \(error)")
         }
     }
 

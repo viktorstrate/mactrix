@@ -25,8 +25,9 @@ final class MatrixRustListener<Element: Sendable> {
     }
 
     deinit {
-        Logger.matrixClient.debug("MatrixRustListener deinit")
         task?.cancel()
         task = nil
+        taskHandle?.cancel()
+        taskHandle = nil
     }
 }
