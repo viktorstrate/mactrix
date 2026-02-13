@@ -85,7 +85,7 @@ class MatrixClient {
 
         client = try await clientBuilder
             .enableOidcRefreshLock()
-            .setSessionDelegate(sessionDelegate: self)
+            .setSessionDelegate(sessionDelegate: MatrixClientSessionDelegate(storeID: storeID))
             .build()
 
         spaceService = LiveSpaceService(spaceService: await client.spaceService())
@@ -322,35 +322,6 @@ class MatrixClient {
 
 enum MatrixClientRestoreSessionError: Error {
     case sessionNotFound, wrongUserId
-}
-
-extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
-    nonisolated func retrieveSessionFromKeychain(userId: String) throws -> MatrixRustSDK.Session {
-        Logger.matrixClient.debug("client session delegate: retrieve session from keychain: \(userId, privacy: .sensitive)")
-
-        let userSession = try UserSession.loadUserFromKeychain()
-        if let userSession {
-            if userSession.userID == userId {
-                return userSession.session
-            } else {
-                Logger.matrixClient.debug(
-                    "restored user session has wrong userId: \(userSession.userID, privacy: .sensitive), expected \(userId, privacy: .sensitive)"
-                )
-                throw MatrixClientRestoreSessionError.wrongUserId
-            }
-        } else {
-            throw MatrixClientRestoreSessionError.sessionNotFound
-        }
-    }
-
-    nonisolated func saveSessionInKeychain(session: MatrixRustSDK.Session) {
-        Logger.matrixClient.debug("client session delegate: save session in keychain")
-        do {
-            try UserSession(session: session, storeID: storeID).saveUserToKeychain()
-        } catch {
-            Logger.matrixClient.error("failed to save session in keychain: \(error)")
-        }
-    }
 }
 
 extension MatrixClient: UI.ImageLoader {
