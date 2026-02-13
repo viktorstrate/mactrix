@@ -1,13 +1,13 @@
 import Models
 import SwiftUI
 
-public struct GenericEventView: View {
-    let event: EventTimelineItem
+public struct GenericEventView<Event: EventTimelineItem>: View {
+    let event: Event
     let name: String
 
     @State private var hover = false
 
-    public init(event: EventTimelineItem, name: String) {
+    public init(event: Event, name: String) {
         self.event = event
         self.name = name
     }

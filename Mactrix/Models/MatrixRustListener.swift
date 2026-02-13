@@ -1,5 +1,6 @@
 import Foundation
 import MatrixRustSDK
+import OSLog
 
 @MainActor
 final class MatrixRustListener<Element: Sendable> {
@@ -7,7 +8,7 @@ final class MatrixRustListener<Element: Sendable> {
     private var task: Task<Void, Never>?
 
     init(
-        configure: @escaping (AsyncStream<Element>.Continuation) async -> TaskHandle,
+        configure: @escaping (AsyncStream<Element>.Continuation) async -> TaskHandle?,
         onElement: @escaping (Element) -> Void)
     {
         let (stream, continuation) = AsyncStream<Element>.makeStream()
@@ -16,15 +17,15 @@ final class MatrixRustListener<Element: Sendable> {
             self.taskHandle = await configure(continuation)
         }
 
-        task = Task { [weak self] in
+        task = Task {
             for await element in stream {
-                guard let self else { break }
                 onElement(element)
             }
         }
     }
 
     deinit {
+        Logger.matrixClient.debug("MatrixRustListener deinit")
         task?.cancel()
         task = nil
     }

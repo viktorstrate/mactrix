@@ -35,55 +35,61 @@ extension MatrixClient: RoomListEntriesListener {
     }
 }
 
-extension MatrixClient: SyncServiceStateObserver {
-    nonisolated func onUpdate(state: MatrixRustSDK.SyncServiceState) {
-        Task { @MainActor in
-            syncState = state
-        }
+final class AnonymousSyncServiceStateObserver: SyncServiceStateObserver {
+    let callback: @Sendable (MatrixRustSDK.SyncServiceState) -> Void
+    init(callback: @Sendable @escaping (MatrixRustSDK.SyncServiceState) -> Void) { self.callback = callback }
+
+    func onUpdate(state: MatrixRustSDK.SyncServiceState) {
+        callback(state)
     }
 }
 
-extension MatrixClient: VerificationStateListener {
-    nonisolated func onUpdate(status: MatrixRustSDK.VerificationState) {
-        Task { @MainActor in
-            verificationState = status
-        }
+final class AnonymousVerificationStateListener: VerificationStateListener {
+    let callback: @Sendable (MatrixRustSDK.VerificationState) -> Void
+    init(callback: @Sendable @escaping (MatrixRustSDK.VerificationState) -> Void) { self.callback = callback }
+
+    func onUpdate(status: MatrixRustSDK.VerificationState) {
+        callback(status)
     }
 }
 
-extension MatrixClient: RoomListServiceStateListener {
-    nonisolated func onUpdate(state: MatrixRustSDK.RoomListServiceState) {
-        Task { @MainActor in
-            roomListServiceState = state
-        }
+final class AnonymousRoomListServiceStateListener: RoomListServiceStateListener {
+    let callback: @Sendable (MatrixRustSDK.RoomListServiceState) -> Void
+    init(callback: @Sendable @escaping (MatrixRustSDK.RoomListServiceState) -> Void) { self.callback = callback }
+
+    func onUpdate(state: MatrixRustSDK.RoomListServiceState) {
+        callback(state)
     }
 }
 
-extension MatrixClient: RoomListServiceSyncIndicatorListener {
-    nonisolated func onUpdate(syncIndicator: MatrixRustSDK.RoomListServiceSyncIndicator) {
-        Task { @MainActor in
-            showRoomSyncIndicator = syncIndicator
-        }
+final class AnonymousRoomListServiceSyncIndicatorListener: RoomListServiceSyncIndicatorListener {
+    let callback: @Sendable (RoomListServiceSyncIndicator) -> Void
+    init(callback: @Sendable @escaping (RoomListServiceSyncIndicator) -> Void) { self.callback = callback }
+
+    func onUpdate(syncIndicator: RoomListServiceSyncIndicator) {
+        callback(syncIndicator)
     }
 }
 
-extension MatrixClient: MatrixRustSDK.ClientDelegate {
-    nonisolated func didReceiveAuthError(isSoftLogout: Bool) {
-        Task { @MainActor in
-            Logger.matrixClient.debug("did receive auth error: soft logout \(isSoftLogout, privacy: .public)")
-            if !isSoftLogout {
-                authenticationFailed = true
-            }
-        }
+enum ClientDelegateEvent {
+    case didReceiveAuthError(isSoftLogout: Bool)
+}
+
+final class AnonymousClientDelegate: ClientDelegate {
+    let callback: @Sendable (ClientDelegateEvent) -> Void
+    init(callback: @Sendable @escaping (ClientDelegateEvent) -> Void) { self.callback = callback }
+
+    func didReceiveAuthError(isSoftLogout: Bool) {
+        callback(.didReceiveAuthError(isSoftLogout: isSoftLogout))
     }
 }
 
-extension MatrixClient: MatrixRustSDK.IgnoredUsersListener {
-    nonisolated func call(ignoredUserIds: [String]) {
-        Task { @MainActor in
-            Logger.matrixClient.debug("Updated ignored users: \(ignoredUserIds)")
-            self.ignoredUserIds = ignoredUserIds
-        }
+final class AnonymousIgnoredUsersListener: IgnoredUsersListener {
+    let callback: @Sendable ([String]) -> Void
+    init(callback: @Sendable @escaping ([String]) -> Void) { self.callback = callback }
+
+    func call(ignoredUserIds: [String]) {
+        callback(ignoredUserIds)
     }
 }
 

@@ -1,10 +1,9 @@
 import Models
 import SwiftUI
 
-public struct EventItemRow: View {
-    
-    let event: EventTimelineItem
-    
+public struct EventItemRow<Event: EventTimelineItem>: View {
+    let event: Event
+
     public var body: some View {
         VStack {
             Text(event.sender)
