@@ -85,36 +85,6 @@ struct MessageMainBody<MessageView: View, EventTimelineItem: Models.EventTimelin
     }
 }
 
-struct ReadReciptsView: View {
-    let receipts: [String: Receipt]
-    let imageLoader: ImageLoader?
-
-    var users: [String] {
-        receipts
-            .sorted { a, b in
-                let a = (a.value.timestamp ?? Date(timeIntervalSince1970: 0))
-                let b = (b.value.timestamp ?? Date(timeIntervalSince1970: 0))
-                return a < b
-            }
-            .map { key, _ in key }
-    }
-
-    var body: some View {
-        HStack(spacing: -2) {
-            ForEach(users, id: \.self) { user in
-                // TODO: Pass correct url (not user id)
-                AvatarImage(avatarUrl: user, imageLoader: imageLoader)
-                    .frame(width: 14, height: 14)
-                    .clipShape(Circle())
-                    .background(
-                        Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 3)
-                    )
-                    .help("Read by \(user)")
-            }
-        }
-    }
-}
-
 public struct MessageEventProfileView<EventTimelineItem: Models.EventTimelineItem>: View {
     let event: EventTimelineItem
     let actions: MessageEventActions
@@ -152,7 +122,12 @@ public struct MessageEventProfileView<EventTimelineItem: Models.EventTimelineIte
     }
 }
 
-public struct MessageEventBodyView<MessageView: View, EventTimelineItem: Models.EventTimelineItem, Reaction: Models.Reaction>: View {
+public struct MessageEventBodyView<
+    MessageView: View,
+    EventTimelineItem: Models.EventTimelineItem,
+    Reaction: Models.Reaction,
+    RoomMember: Models.RoomMember
+>: View {
     let event: EventTimelineItem
     let focused: Bool
     let reactions: [Reaction]
@@ -160,14 +135,25 @@ public struct MessageEventBodyView<MessageView: View, EventTimelineItem: Models.
     let actions: MessageEventActions
     let imageLoader: ImageLoader?
     let ownUserId: String
+    let roomMembers: [RoomMember]
 
-    public init(event: EventTimelineItem, focused: Bool, reactions: [Reaction], actions: MessageEventActions, ownUserID: String, imageLoader: ImageLoader?, @ViewBuilder message: () -> MessageView) {
+    public init(
+        event: EventTimelineItem,
+        focused: Bool,
+        reactions: [Reaction],
+        actions: MessageEventActions,
+        ownUserID: String,
+        imageLoader: ImageLoader?,
+        roomMembers: [RoomMember],
+        @ViewBuilder message: () -> MessageView
+    ) {
         self.event = event
         self.focused = focused
         self.reactions = reactions
         self.actions = actions
         self.ownUserId = ownUserID
         self.imageLoader = imageLoader
+        self.roomMembers = roomMembers
         self.message = message()
     }
 
@@ -249,14 +235,14 @@ public struct MessageEventBodyView<MessageView: View, EventTimelineItem: Models.
                             )
                         }
                         Spacer()
-                        ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader)
+                        ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader, roomMembers: roomMembers)
                             .padding(.horizontal, 10)
                     }
                     .padding(.top, 10)
                 } else if !event.userReadReceipts.isEmpty {
                     HStack {
                         Spacer()
-                        ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader)
+                        ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader, roomMembers: roomMembers)
                             .padding(.horizontal, 10)
                     }.padding(.top, 10)
                 }
@@ -289,7 +275,8 @@ public struct MockMessageEventActions: MessageEventActions {
             reactions: [MockReaction](),
             actions: MockMessageEventActions(),
             ownUserID: "user@example.com",
-            imageLoader: nil
+            imageLoader: nil,
+            roomMembers: [MockRoomMember()]
         ) {
             Text("This is the body of the message")
         }
@@ -300,7 +287,8 @@ public struct MockMessageEventActions: MessageEventActions {
             reactions: [MockReaction()],
             actions: MockMessageEventActions(),
             ownUserID: "user@example.com",
-            imageLoader: nil
+            imageLoader: nil,
+            roomMembers: [MockRoomMember()]
         ) {
             Text("This is another message from the same sender, this message is long enough that it will wrap to the next line".formatAsMarkdown)
         }
@@ -311,7 +299,8 @@ public struct MockMessageEventActions: MessageEventActions {
             reactions: [MockReaction()],
             actions: MockMessageEventActions(),
             ownUserID: "user@example.com",
-            imageLoader: nil
+            imageLoader: nil,
+            roomMembers: [MockRoomMember()]
         ) {
             Text("Yet another message")
         }

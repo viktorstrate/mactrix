@@ -1,6 +1,6 @@
+import Models
 import OSLog
 import SwiftUI
-import Models
 
 @MainActor
 public protocol ImageLoader {
@@ -23,10 +23,10 @@ public struct AvatarImage<Preview: View>: View {
         self.imageLoader = imageLoader
         self.placeholder = placeholder
     }
-    
+
     public init<Profile: UserProfile>(
         userProfile: Profile,
-        imageLoader: ImageLoader?,
+        imageLoader: ImageLoader?
     ) where Preview == UserAvatarPlaceholder<Profile> {
         self.init(avatarUrl: userProfile.avatarUrl, imageLoader: imageLoader) {
             UserAvatarPlaceholder(userProfile: userProfile)
@@ -66,12 +66,12 @@ public struct AvatarImage<Preview: View>: View {
 
 public struct UserAvatarPlaceholder<Profile: UserProfile>: View {
     let userProfile: Profile
-    
+
     public var body: some View {
         GeometryReader { g in
             ZStack {
                 Color(userID: userProfile.id)
-                
+
                 if
                     let initial = (userProfile.displayName ?? userProfile.id).uppercased().filter({ $0 != Character("@") }).first.map({ String($0) })
                 {

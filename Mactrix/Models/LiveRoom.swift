@@ -8,7 +8,7 @@ public final class LiveRoom: Identifiable {
     let sidebarRoom: SidebarRoom
 
     public var typingUserIds: [String] = []
-    public var fetchedMembers: [MatrixRustSDK.RoomMember]?
+    public var members: [MatrixRustSDK.RoomMember] = []
 
     @ObservationIgnored private var typingListener: MatrixRustListener<[String]>?
 
@@ -26,6 +26,14 @@ public final class LiveRoom: Identifiable {
 
     public init(sidebarRoom: SidebarRoom) {
         self.sidebarRoom = sidebarRoom
+
+        Task {
+            do {
+                try await syncMembers()
+            } catch {
+                Logger.liveRoom.error("failed to sync room members: \(error)")
+            }
+        }
 
         startListening()
     }
@@ -84,20 +92,22 @@ extension LiveRoom: Hashable {
 
 extension LiveRoom: Models.Room {
     public func syncMembers() async throws {
-        // guard not already synced
-        guard fetchedMembers == nil else { return }
-
         let id = self.id
         Logger.liveRoom.debug("syncing members for room: \(id)")
 
-        let memberIter = try await room.members()
-        var result = [MatrixRustSDK.RoomMember]()
-        while let memberChunk = memberIter.nextChunk(chunkSize: 1000) {
-            result.append(contentsOf: memberChunk)
+        // Get the locally cached members first
+        let membersNoSyncIter = try await room.membersNoSync()
+        if let result = membersNoSyncIter.nextChunk(chunkSize: membersNoSyncIter.len()) {
+            members = result
+            Logger.liveRoom.debug("loaded \(result.count) members locally for room \(id)")
         }
-        fetchedMembers = result
 
-        Logger.liveRoom.debug("synced \(result.count) members")
+        // Fetch the latest members from the homeserver, this gets the latest member list.
+        let memberIter = try await room.members()
+        if let result = memberIter.nextChunk(chunkSize: memberIter.len()) {
+            members = result
+            Logger.liveRoom.debug("synced \(result.count) members for room \(id)")
+        }
     }
 
     public nonisolated var displayName: String? {

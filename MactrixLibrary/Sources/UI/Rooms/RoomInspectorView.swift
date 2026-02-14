@@ -13,14 +13,14 @@ struct RoomInspectorMemberRow<RoomMember: Models.RoomMember>: View {
 
 public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember>: View {
     let room: Room
-    let members: [RoomMember]?
+    let members: [RoomMember]
 
     let roomInfo: RoomInfo?
     let imageLoader: ImageLoader?
 
     @Binding var inspectorVisible: Bool
 
-    public init(room: Room, members: [RoomMember]?, roomInfo: RoomInfo?, imageLoader: ImageLoader?, inspectorVisible: Binding<Bool>) {
+    public init(room: Room, members: [RoomMember], roomInfo: RoomInfo?, imageLoader: ImageLoader?, inspectorVisible: Binding<Bool>) {
         self.room = room
         self.members = members
         self.imageLoader = imageLoader
@@ -92,20 +92,9 @@ public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember
         List {
             header
 
-            if let members = members {
-                userSection(title: "Admins", allMembers: members, withRole: .administrator)
-                userSection(title: "Moderators", allMembers: members, withRole: .moderator)
-                userSection(title: "Users", allMembers: members, withRole: .user)
-            } else {
-                usersPlaceholder
-                    .task(id: room.id) {
-                        do {
-                            try await room.syncMembers()
-                        } catch {
-                            Logger.viewCycle.error("Failed to sync members in inspector: \(error)")
-                        }
-                    }
-            }
+            userSection(title: "Admins", allMembers: members, withRole: .administrator)
+            userSection(title: "Moderators", allMembers: members, withRole: .moderator)
+            userSection(title: "Users", allMembers: members, withRole: .user)
 
             if let roomInfo {
                 Section("Extra room info") {
@@ -126,6 +115,6 @@ public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember
 }
 
 #Preview {
-    RoomInspectorView<MockRoom, MockRoomMember>(room: MockRoom.previewRoom, members: nil, roomInfo: MockRoomInfo(), imageLoader: nil, inspectorVisible: .constant(true))
+    RoomInspectorView<MockRoom, MockRoomMember>(room: MockRoom.previewRoom, members: [], roomInfo: MockRoomInfo(), imageLoader: nil, inspectorVisible: .constant(true))
         .frame(width: 250, height: 500)
 }
