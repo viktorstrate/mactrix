@@ -172,6 +172,10 @@ extension MatrixRustSDK.ProfileDetails {
 }
 
 extension MatrixRustSDK.EventTimelineItem: Models.EventTimelineItem {
+    public var userReadReceipts: [String: Models.Receipt] {
+        readReceipts.mapValues { Models.Receipt(timestamp: $0.timestamp?.date) }
+    }
+
     public var senderProfileDetails: Models.ProfileDetails {
         senderProfile.asModel
     }

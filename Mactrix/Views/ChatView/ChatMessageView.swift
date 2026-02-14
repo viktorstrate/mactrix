@@ -126,7 +126,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
             UI.MessageEventProfileView(event: event, actions: self, imageLoader: appState.matrixClient)
                 .font(.system(size: .init(fontSize)))
         }
-        UI.MessageEventBodyView(event: event, focused: isEventFocused, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient) {
+        UI.MessageEventBodyView(event: event, focused: isEventFocused, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient, roomMembers: timeline.room.members) {
             VStack(alignment: .leading, spacing: 10) {
                 if let replyTo = msg.inReplyTo {
                     EmbeddedMessageView(embeddedEvent: replyTo.event()) {

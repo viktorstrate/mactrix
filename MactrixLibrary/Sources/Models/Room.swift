@@ -11,8 +11,6 @@ public protocol Room: Hashable, Identifiable {
     var displayName: String? { get }
     var topic: String? { get }
     var encryptionState: EncryptionState { get }
-
-    @MainActor func syncMembers() async throws
 }
 
 public enum Membership {
@@ -40,8 +38,6 @@ public enum RoomKind {
 }
 
 public struct MockRoom: Room, Identifiable {
-    public func syncMembers() async throws {}
-
     public let id: String
 
     public let displayName: String?
