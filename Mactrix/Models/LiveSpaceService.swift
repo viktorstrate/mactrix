@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
@@ -8,62 +9,59 @@ public final class LiveSpaceService {
 
     public var spaceRooms: [SidebarSpaceRoom] = []
 
-    @ObservationIgnored private var spaceListener: MatrixRustListener<[SpaceListUpdate]>?
+    @ObservationIgnored private var spaceHandle: TaskHandle?
 
     public init(spaceService: SpaceService) {
         self.spaceService = spaceService
 
-        spaceListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousSpaceServiceJoinedSpacesListener { roomUpdates in
-                    continuation.yield(roomUpdates)
-                }
-                return await self.spaceService.subscribeToTopLevelJoinedSpaces(listener: listener)
-            },
-            onElement: { [weak self] roomUpdates in
-                guard let self else { return }
-
-                for update in roomUpdates {
-                    switch update {
-                    case let .append(values):
-                        spaceRooms.append(contentsOf: values.map { SidebarSpaceRoom(spaceService: self, spaceRoom: $0) })
-                    case .clear:
-                        spaceRooms.removeAll()
-                    case let .pushFront(room):
-                        spaceRooms.insert(SidebarSpaceRoom(spaceService: self, spaceRoom: room), at: 0)
-                    case let .pushBack(room):
-                        spaceRooms.append(SidebarSpaceRoom(spaceService: self, spaceRoom: room))
-                    case .popFront:
-                        spaceRooms.removeFirst()
-                    case .popBack:
-                        spaceRooms.removeLast()
-                    case let .insert(index, room):
-                        spaceRooms.insert(SidebarSpaceRoom(spaceService: self, spaceRoom: room), at: Int(index))
-                    case let .set(index, room):
-                        spaceRooms[Int(index)] = SidebarSpaceRoom(spaceService: self, spaceRoom: room)
-                    case let .remove(index):
-                        spaceRooms.remove(at: Int(index))
-                    case let .truncate(length):
-                        spaceRooms.removeSubrange(Int(length) ..< spaceRooms.count)
-                    case let .reset(values: values):
-                        spaceRooms = values.map { SidebarSpaceRoom(spaceService: self, spaceRoom: $0) }
-                    }
-                }
-            }
-        )
-
         Task {
+            await self.listenToJoinedSpaces()
+
             let joinedSpaces = await spaceService.topLevelJoinedSpaces()
             Logger.liveSpaceService.debug("Joined spaces: \(joinedSpaces)")
         }
     }
-}
 
-final class AnonymousSpaceServiceJoinedSpacesListener: SpaceServiceJoinedSpacesListener {
-    let callback: @Sendable ([MatrixRustSDK.SpaceListUpdate]) -> Void
-    init(callback: @Sendable @escaping ([MatrixRustSDK.SpaceListUpdate]) -> Void) { self.callback = callback }
+    private func listenToJoinedSpaces() async {
+        let listener = AsyncSDKListener<[SpaceListUpdate]>()
+        self.spaceHandle = await self.spaceService.subscribeToTopLevelJoinedSpaces(listener: listener)
 
-    func onUpdate(roomUpdates: [MatrixRustSDK.SpaceListUpdate]) {
-        callback(roomUpdates)
+        Task { [weak self] in
+            let throttledListener = listener
+                ._throttle(for: .milliseconds(500), reducing: { result, next in
+                    (result ?? []) + next
+                })
+
+            for await roomUpdates in throttledListener {
+                guard let self else { break }
+
+                for update in roomUpdates {
+                    switch update {
+                    case let .append(values):
+                        self.spaceRooms.append(contentsOf: values.map { SidebarSpaceRoom(spaceService: self, spaceRoom: $0) })
+                    case .clear:
+                        self.spaceRooms.removeAll()
+                    case let .pushFront(room):
+                        self.spaceRooms.insert(SidebarSpaceRoom(spaceService: self, spaceRoom: room), at: 0)
+                    case let .pushBack(room):
+                        self.spaceRooms.append(SidebarSpaceRoom(spaceService: self, spaceRoom: room))
+                    case .popFront:
+                        self.spaceRooms.removeFirst()
+                    case .popBack:
+                        self.spaceRooms.removeLast()
+                    case let .insert(index, room):
+                        self.spaceRooms.insert(SidebarSpaceRoom(spaceService: self, spaceRoom: room), at: Int(index))
+                    case let .set(index, room):
+                        self.spaceRooms[Int(index)] = SidebarSpaceRoom(spaceService: self, spaceRoom: room)
+                    case let .remove(index):
+                        self.spaceRooms.remove(at: Int(index))
+                    case let .truncate(length):
+                        self.spaceRooms.removeSubrange(Int(length) ..< self.spaceRooms.count)
+                    case let .reset(values: values):
+                        self.spaceRooms = values.map { SidebarSpaceRoom(spaceService: self, spaceRoom: $0) }
+                    }
+                }
+            }
+        }
     }
 }

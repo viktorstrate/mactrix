@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
@@ -10,8 +11,8 @@ public final class LiveTimeline {
 
     public var timeline: Timeline?
 
-    @ObservationIgnored private var timelineListener: MatrixRustListener<[TimelineDiff]>?
-    @ObservationIgnored private var paginateListener: MatrixRustListener<RoomPaginationStatus>?
+    @ObservationIgnored private var timelineHandle: TaskHandle?
+    @ObservationIgnored private var paginateHandle: TaskHandle?
 
     public var scrollPosition = ScrollPosition(idType: TimelineGroup.ID.self, edge: .bottom)
     public var errorMessage: String?
@@ -58,6 +59,8 @@ public final class LiveTimeline {
     }
 
     private func configureTimeline(threadId: String? = nil) async throws {
+        Logger.liveTimeline.debug("configure timeline")
+
         let focus = if let threadId {
             TimelineFocus.thread(rootEventId: threadId)
         } else {
@@ -74,57 +77,59 @@ public final class LiveTimeline {
         )
         timeline = try await room.room.timelineWithConfiguration(configuration: config)
 
-        startTimelineListener()
+        await listenToTimelineChanges()
 
         // Only main timelines can subscibe to back pagination status
         if threadId == nil {
-            startPaginationStatusListener()
+            do {
+                try await listenToPaginationStatus()
+            } catch {
+                Logger.liveTimeline.error("Failed to listen to pagination status: \(error)")
+            }
         }
     }
 
-    private func startTimelineListener() {
+    private func listenToTimelineChanges() async {
         guard let timeline else { return }
 
-        timelineListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousTimelineListener { diff in
-                    continuation.yield(diff)
-                }
-                return await timeline.addListener(listener: listener)
-            },
-            onElement: { [weak self] diff in
-                self?.updateTimeline(diff: diff)
+        let listener = AsyncSDKListener<[TimelineDiff]>()
+        timelineHandle = await timeline.addListener(listener: listener)
+
+        Task { [weak self] in
+            let throttledListener = listener
+                ._throttle(for: .milliseconds(500), reducing: { result, next in
+                    (result ?? []) + next
+                })
+
+            for await diff in throttledListener {
+                guard let self else { break }
+                updateTimeline(diff: diff)
             }
-        )
+        }
     }
 
-    private func startPaginationStatusListener() {
+    private func listenToPaginationStatus() async throws {
         guard let timeline else { return }
 
-        paginateListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousPaginationStatusListener { status in
-                    continuation.yield(status)
-                }
+        let listener = AsyncSDKListener<RoomPaginationStatus>()
+        paginateHandle = try await timeline.subscribeToBackPaginationStatus(listener: listener)
 
-                do {
-                    return try await timeline.subscribeToBackPaginationStatus(listener: listener)
-                } catch {
-                    Logger.liveTimeline.error("Failed to subscribe to back pagination status: \(error)")
-                    return nil
-                }
-            },
-            onElement: { [weak self] status in
-                guard let self else { return }
+        Task { [weak self] in
+            for await status in listener {
+                guard let self else { break }
 
                 Logger.liveTimeline.debug("updating timeline paginating: \(status.debugDescription)")
                 paginating = status
             }
-        )
+        }
     }
 
     public func fetchOlderMessages() async throws {
-        guard paginating == .idle(hitTimelineStart: false) else { return }
+        guard paginating == .idle(hitTimelineStart: false) else {
+            let p = paginating.debugDescription
+            Logger.liveTimeline.debug("fetchOlderMessages cancelled, paginating was \(p)")
+            return
+        }
 
         _ = try await timeline?.paginateBackwards(numEvents: 100)
     }
@@ -150,24 +155,6 @@ public final class LiveTimeline {
                 scrollPosition.scrollTo(id: focusedTimelineGroupId)
             }
         }
-    }
-}
-
-final class AnonymousTimelineListener: TimelineListener {
-    let callback: @Sendable ([TimelineDiff]) -> Void
-    init(callback: @Sendable @escaping ([TimelineDiff]) -> Void) { self.callback = callback }
-
-    func onUpdate(diff: [TimelineDiff]) {
-        callback(diff)
-    }
-}
-
-final class AnonymousPaginationStatusListener: PaginationStatusListener {
-    let callback: @Sendable (MatrixRustSDK.RoomPaginationStatus) -> Void
-    init(callback: @Sendable @escaping (MatrixRustSDK.RoomPaginationStatus) -> Void) { self.callback = callback }
-
-    func onUpdate(status: MatrixRustSDK.RoomPaginationStatus) {
-        callback(status)
     }
 }
 

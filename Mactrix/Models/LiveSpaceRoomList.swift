@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
@@ -11,42 +12,50 @@ final class LiveSpaceRoomList {
     var rooms: [SidebarSpaceRoom] = []
     var paginationState: SpaceRoomListPaginationState = .loading
 
-    @ObservationIgnored fileprivate var spaceListener: MatrixRustListener<SpaceRoom?>?
-    @ObservationIgnored fileprivate var roomsListener: MatrixRustListener<[SpaceListUpdate]>?
-    @ObservationIgnored fileprivate var paginateListener: MatrixRustListener<SpaceRoomListPaginationState>?
+    @ObservationIgnored fileprivate var spaceHandle: TaskHandle?
+    @ObservationIgnored fileprivate var roomsHandle: TaskHandle?
+    @ObservationIgnored fileprivate var paginateHandle: TaskHandle?
 
     init(spaceService: LiveSpaceService, spaceRoomList: SpaceRoomList) {
         self.spaceService = spaceService
         self.spaceRoomList = spaceRoomList
-        startListening()
-        loadChildRooms()
+
+        listenToSpaceRoom()
+        listenToRooms()
+        listenToPagination()
+
+        Task {
+            await loadChildRooms()
+        }
     }
 
     deinit {
         Logger.liveSpaceRoomList.debug("LiveSpaceRoomList deinit")
     }
 
-    fileprivate func startListening() {
-        spaceListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousSpaceRoomListSpaceListener { space in
-                    continuation.yield(space)
-                }
-                return self.spaceRoomList.subscribeToSpaceUpdates(listener: listener)
-            },
-            onElement: { [weak self] space in
-                self?.space = space
-            }
-        )
+    fileprivate func listenToSpaceRoom() {
+        let spaceListener = AsyncSDKListener<SpaceRoom?>()
+        spaceHandle = spaceRoomList.subscribeToSpaceUpdates(listener: spaceListener)
 
-        roomsListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousSpaceRoomListEntriesListener { rooms in
-                    continuation.yield(rooms)
-                }
-                return self.spaceRoomList.subscribeToRoomUpdate(listener: listener)
-            },
-            onElement: { [weak self] roomUpdates in
+        Task { [weak self] in
+            for await space in spaceListener._throttle(for: .milliseconds(500)) {
+                guard let self else { break }
+                self.space = space
+            }
+        }
+    }
+
+    fileprivate func listenToRooms() {
+        let roomsListener = AsyncSDKListener<[SpaceListUpdate]>()
+        roomsHandle = spaceRoomList.subscribeToRoomUpdate(listener: roomsListener)
+
+        Task { [weak self] in
+            let throttledListener = roomsListener
+                ._throttle(for: .milliseconds(500), reducing: { result, next in
+                    (result ?? []) + next
+                })
+
+            for await roomUpdates in throttledListener {
                 guard let self else { return }
 
                 for update in roomUpdates {
@@ -76,55 +85,25 @@ final class LiveSpaceRoomList {
                     }
                 }
             }
-        )
-        
-        paginateListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousSpaceRoomListPaginationStateListener { paginationState in
-                    continuation.yield(paginationState)
-                }
-                return self.spaceRoomList.subscribeToPaginationStateUpdates(listener: listener)
-            },
-            onElement: { [weak self] state in
-                self?.paginationState = state
-            }
-        )
+        }
     }
 
-    func loadChildRooms() {
-        Task {
-            do {
-                try await spaceRoomList.paginate()
-            } catch {
-                Logger.viewCycle.error("Failed to paginate space list: \(error)")
+    fileprivate func listenToPagination() {
+        let paginateListener = AsyncSDKListener<SpaceRoomListPaginationState>()
+        paginateHandle = spaceRoomList.subscribeToPaginationStateUpdates(listener: paginateListener)
+
+        Task { [weak self] in
+            for await state in paginateListener._throttle(for: .milliseconds(500)) {
+                self?.paginationState = state
             }
         }
     }
-}
 
-final class AnonymousSpaceRoomListPaginationStateListener: SpaceRoomListPaginationStateListener {
-    let callback: @Sendable (MatrixRustSDK.SpaceRoomListPaginationState) -> Void
-    init(callback: @Sendable @escaping (MatrixRustSDK.SpaceRoomListPaginationState) -> Void) { self.callback = callback }
-
-    func onUpdate(paginationState: MatrixRustSDK.SpaceRoomListPaginationState) {
-        callback(paginationState)
-    }
-}
-
-final class AnonymousSpaceRoomListEntriesListener: SpaceRoomListEntriesListener {
-    let callback: @Sendable ([MatrixRustSDK.SpaceListUpdate]) -> Void
-    init(callback: @Sendable @escaping ([MatrixRustSDK.SpaceListUpdate]) -> Void) { self.callback = callback }
-
-    func onUpdate(rooms: [MatrixRustSDK.SpaceListUpdate]) {
-        callback(rooms)
-    }
-}
-
-final class AnonymousSpaceRoomListSpaceListener: SpaceRoomListSpaceListener {
-    let callback: @Sendable (MatrixRustSDK.SpaceRoom?) -> Void
-    init(callback: @Sendable @escaping (MatrixRustSDK.SpaceRoom?) -> Void) { self.callback = callback }
-
-    func onUpdate(space: MatrixRustSDK.SpaceRoom?) {
-        callback(space)
+    func loadChildRooms() async {
+        do {
+            try await spaceRoomList.paginate()
+        } catch {
+            Logger.viewCycle.error("Failed to paginate space list: \(error)")
+        }
     }
 }

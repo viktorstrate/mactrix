@@ -10,7 +10,7 @@ public final class LiveRoom: Identifiable {
     public var typingUserIds: [String] = []
     public var members: [MatrixRustSDK.RoomMember] = []
 
-    @ObservationIgnored private var typingListener: MatrixRustListener<[String]>?
+    @ObservationIgnored private var typingHandle: TaskHandle?
 
     public nonisolated var room: MatrixRustSDK.Room {
         sidebarRoom.room
@@ -27,6 +27,8 @@ public final class LiveRoom: Identifiable {
     public init(sidebarRoom: SidebarRoom) {
         self.sidebarRoom = sidebarRoom
 
+        startListening()
+
         Task {
             do {
                 try await syncMembers()
@@ -34,8 +36,6 @@ public final class LiveRoom: Identifiable {
                 Logger.liveRoom.error("failed to sync room members: \(error)")
             }
         }
-
-        startListening()
     }
 
     public convenience init(matrixRoom: MatrixRustSDK.Room) {
@@ -49,48 +49,18 @@ public final class LiveRoom: Identifiable {
     fileprivate func startListening() {
         Logger.matrixClient.info("typing indicator start listening")
 
-        typingListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousTypingListener { typingUserIds in
-                    Logger.matrixClient.info("typing indicator stream yield")
-                    continuation.yield(typingUserIds)
-                }
+        let listener = AsyncSDKListener<[String]>()
+        typingHandle = room.subscribeToTypingNotifications(listener: listener)
 
-                continuation.onTermination = { _ in
-                    Logger.matrixClient.info("typing indicator continuation terminated")
-                }
-
-                return self.room.subscribeToTypingNotifications(listener: listener)
-            },
-            onElement: { typingUserIds in
+        Task { [weak self] in
+            for await typingUserIds in listener {
+                guard let self else { break }
                 Logger.matrixClient.info("typing indicator updating UI")
                 self.typingUserIds = typingUserIds
             }
-        )
-    }
-}
-
-final class AnonymousTypingListener: TypingNotificationsListener {
-    let callback: @Sendable ([String]) -> Void
-    init(callback: @Sendable @escaping ([String]) -> Void) { self.callback = callback }
-
-    func call(typingUserIds: [String]) {
-        Logger.matrixClient.info("typing indicator called from rust")
-        callback(typingUserIds)
-    }
-}
-
-extension LiveRoom: Hashable {
-    public nonisolated static func == (lhs: LiveRoom, rhs: LiveRoom) -> Bool {
-        lhs.id == rhs.id
+        }
     }
 
-    public nonisolated func hash(into hasher: inout Hasher) {
-        hasher.combine(id)
-    }
-}
-
-extension LiveRoom: Models.Room {
     public func syncMembers() async throws {
         let id = self.id
         Logger.liveRoom.debug("syncing members for room: \(id)")
@@ -109,7 +79,19 @@ extension LiveRoom: Models.Room {
             Logger.liveRoom.debug("synced \(result.count) members for room \(id)")
         }
     }
+}
 
+extension LiveRoom: Hashable {
+    public nonisolated static func == (lhs: LiveRoom, rhs: LiveRoom) -> Bool {
+        lhs.id == rhs.id
+    }
+
+    public nonisolated func hash(into hasher: inout Hasher) {
+        hasher.combine(id)
+    }
+}
+
+extension LiveRoom: Models.Room {
     public nonisolated var displayName: String? {
         room.displayName()
     }

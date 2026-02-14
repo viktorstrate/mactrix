@@ -46,7 +46,11 @@ struct ChatTimelineScrollView: View {
 
     func loadMoreMessages() {
         guard scrollNearTop else { return }
-        guard timeline.paginating == .idle(hitTimelineStart: false) else { return }
+        guard timeline.paginating == .idle(hitTimelineStart: false) else {
+            let p = timeline.paginating.debugDescription
+            Logger.viewCycle.info("Fetching messages cancelled, already: paginating \(p)")
+            return
+        }
         Logger.viewCycle.info("Reached top, fetching more messages...")
 
         Task {
