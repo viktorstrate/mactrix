@@ -129,6 +129,7 @@ struct MainView: View {
         .modifier(SearchViewModifier())
         .environment(windowState)
         .focusedSceneValue(windowState)
+        .focusedSceneValue(appState)
     }
 
     func attemptLoadUserSession() async {

@@ -2,6 +2,7 @@ import SwiftUI
 
 struct AppCommands: Commands {
     @FocusedValue(WindowState.self) private var windowState: WindowState?
+    @FocusedValue(AppState.self) private var appState: AppState?
     @AppStorage("fontSize") var fontSize: Int = 13
 
     var body: some Commands {
@@ -52,7 +53,7 @@ struct AppCommands: Commands {
         .help("Create a new room")
         .keyboardShortcut("N", modifiers: [.command, .shift])
     }
-    
+
     var fontSizeCommands: some Commands {
         CommandGroup(after: .toolbar) {
             Button {
