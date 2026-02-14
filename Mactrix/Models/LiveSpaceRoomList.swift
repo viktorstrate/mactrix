@@ -18,16 +18,19 @@ final class LiveSpaceRoomList {
     init(spaceService: LiveSpaceService, spaceRoomList: SpaceRoomList) {
         self.spaceService = spaceService
         self.spaceRoomList = spaceRoomList
-        startListening()
-        loadChildRooms()
+
+        Task {
+            await startListening()
+            await loadChildRooms()
+        }
     }
 
     deinit {
         Logger.liveSpaceRoomList.debug("LiveSpaceRoomList deinit")
     }
 
-    fileprivate func startListening() {
-        spaceListener = MatrixRustListener(
+    fileprivate func startListening() async {
+        spaceListener = await MatrixRustListener(
             configure: { continuation in
                 let listener = AnonymousSpaceRoomListSpaceListener { space in
                     continuation.yield(space)
@@ -39,7 +42,7 @@ final class LiveSpaceRoomList {
             }
         )
 
-        roomsListener = MatrixRustListener(
+        roomsListener = await MatrixRustListener(
             configure: { continuation in
                 let listener = AnonymousSpaceRoomListEntriesListener { rooms in
                     continuation.yield(rooms)
@@ -77,8 +80,8 @@ final class LiveSpaceRoomList {
                 }
             }
         )
-        
-        paginateListener = MatrixRustListener(
+
+        paginateListener = await MatrixRustListener(
             configure: { continuation in
                 let listener = AnonymousSpaceRoomListPaginationStateListener { paginationState in
                     continuation.yield(paginationState)
@@ -91,13 +94,11 @@ final class LiveSpaceRoomList {
         )
     }
 
-    func loadChildRooms() {
-        Task {
-            do {
-                try await spaceRoomList.paginate()
-            } catch {
-                Logger.viewCycle.error("Failed to paginate space list: \(error)")
-            }
+    func loadChildRooms() async {
+        do {
+            try await spaceRoomList.paginate()
+        } catch {
+            Logger.viewCycle.error("Failed to paginate space list: \(error)")
         }
     }
 }

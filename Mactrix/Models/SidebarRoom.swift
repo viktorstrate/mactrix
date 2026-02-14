@@ -13,13 +13,16 @@ public final class SidebarRoom: Identifiable {
 
     public init(room: MatrixRustSDK.Room) {
         self.room = room
-        subscribeRoomInfo()
+
+        Task {
+            await subscribeRoomInfo()
+        }
     }
 
     @ObservationIgnored private var roomInfoListener: MatrixRustListener<RoomInfo>?
 
-    private func subscribeRoomInfo() {
-        roomInfoListener = MatrixRustListener(
+    private func subscribeRoomInfo() async {
+        roomInfoListener = await MatrixRustListener(
             configure: { continuation in
                 do {
                     let initialRoomInfo = try await self.room.roomInfo()

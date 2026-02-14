@@ -75,7 +75,7 @@ class MatrixClient {
 
     var spaceService: LiveSpaceService!
 
-    private var clientDelegateListener: MatrixRustListener<ClientDelegateEvent>?
+    private var clientDelegateHandle: TaskHandle?
     var authenticationFailed: Bool = false
 
     let notifications: MatrixNotifications = .init()
@@ -85,12 +85,12 @@ class MatrixClient {
 
         client = try await clientBuilder
             .enableOidcRefreshLock()
-            .setSessionDelegate(sessionDelegate: MatrixClientSessionDelegate(storeID: storeID))
+            .setSessionDelegate(sessionDelegate: self)
             .build()
 
         spaceService = LiveSpaceService(spaceService: await client.spaceService())
 
-        configureClientDelegate()
+        clientDelegateHandle = try? client.setDelegate(delegate: self)
     }
 
     init(storeID: String, client: ClientProtocol) async {
@@ -98,35 +98,7 @@ class MatrixClient {
         self.client = client
         spaceService = LiveSpaceService(spaceService: await client.spaceService())
 
-        configureClientDelegate()
-    }
-
-    private func configureClientDelegate() {
-        clientDelegateListener = MatrixRustListener(
-            configure: { continuation in
-                let delegate = AnonymousClientDelegate { event in
-                    continuation.yield(event)
-                }
-
-                do {
-                    return try self.client.setDelegate(delegate: delegate)
-                } catch {
-                    Logger.matrixClient.error("Failed to set client delegate: \(error)")
-                    return nil
-                }
-            },
-            onElement: { [weak self] event in
-                guard let self else { return }
-
-                switch event {
-                case let .didReceiveAuthError(isSoftLogout: isSoftLogout):
-                    Logger.matrixClient.debug("did receive auth error: soft logout \(isSoftLogout, privacy: .public)")
-                    if !isSoftLogout {
-                        authenticationFailed = true
-                    }
-                }
-            }
-        )
+        clientDelegateHandle = try? self.client.setDelegate(delegate: self)
     }
 
     func userSession() throws -> UserSession {
@@ -187,12 +159,12 @@ class MatrixClient {
     var showRoomSyncIndicator: RoomListServiceSyncIndicator?
     var ignoredUserIds: [String] = []
 
-    @ObservationIgnored private var roomListEntriesListener: MatrixRustListener<[RoomListEntriesUpdate]>?
-    @ObservationIgnored private var roomListServiceStateListener: MatrixRustListener<RoomListServiceState>?
-    @ObservationIgnored private var syncIndicatorListener: MatrixRustListener<RoomListServiceSyncIndicator>?
-    @ObservationIgnored private var syncStateListener: MatrixRustListener<SyncServiceState>?
-    @ObservationIgnored private var verificationStateListener: MatrixRustListener<VerificationState>?
-    @ObservationIgnored private var ignoredUsersListener: MatrixRustListener<[String]>?
+    @ObservationIgnored fileprivate var roomListEntriesHandle: RoomListEntriesWithDynamicAdaptersResult?
+    @ObservationIgnored fileprivate var roomListServiceStateHandle: TaskHandle?
+    @ObservationIgnored fileprivate var syncIndicatorHandle: TaskHandle?
+    @ObservationIgnored fileprivate var syncStateHandle: TaskHandle?
+    @ObservationIgnored fileprivate var verificationStateHandle: TaskHandle?
+    @ObservationIgnored fileprivate var ignoredUsersHandle: TaskHandle?
 
     /// The latest session verification request received by another client
     var sessionVerificationRequest: SessionVerificationRequestDetails?
@@ -205,129 +177,27 @@ class MatrixClient {
         let _syncService = try await client.syncService().withOfflineMode().finish()
         syncService = _syncService
 
-        syncStateListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousSyncServiceStateObserver { state in
-                    continuation.yield(state)
-                }
-                return _syncService.state(listener: listener)
-            },
-            onElement: { [weak self] state in
-                self?.syncState = state
-            }
-        )
+        syncStateHandle = _syncService.state(listener: self)
 
         let _roomListService = _syncService.roomListService()
         roomListService = _roomListService
+        roomListServiceStateHandle = _roomListService.state(listener: self)
+        syncIndicatorHandle = _roomListService.syncIndicator(delayBeforeShowingInMs: 200, delayBeforeHidingInMs: 200, listener: self)
 
-        roomListServiceStateListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousRoomListServiceStateListener { state in
-                    continuation.yield(state)
-                }
-                return _roomListService.state(listener: listener)
-            },
-            onElement: { [weak self] state in
-                self?.roomListServiceState = state
-            }
-        )
+        let _roomListEntriesHandle = try await _roomListService.allRooms().entriesWithDynamicAdapters(pageSize: 100, listener: self)
+        roomListEntriesHandle = _roomListEntriesHandle
 
-        syncIndicatorListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousRoomListServiceSyncIndicatorListener { syncIndicator in
-                    continuation.yield(syncIndicator)
-                }
-                return _roomListService.syncIndicator(delayBeforeShowingInMs: 200, delayBeforeHidingInMs: 200, listener: listener)
-            },
-            onElement: { [weak self] syncIndicator in
-                self?.showRoomSyncIndicator = syncIndicator
-            }
-        )
-
-        roomListEntriesListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousRoomListEntriesListener { roomEntriesUpdate in
-                    continuation.yield(roomEntriesUpdate)
-                }
-
-                do {
-                    let roomListEntriesHandle = try await _roomListService.allRooms().entriesWithDynamicAdapters(pageSize: 100, listener: listener)
-                    _ = roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
-
-                    return roomListEntriesHandle.entriesStream()
-                } catch {
-                    Logger.matrixClient.error("Failed to register room list entries listener: \(error)")
-                    return nil
-                }
-            },
-            onElement: { [weak self] roomEntriesUpdate in
-                guard let self else { return }
-
-                for update in roomEntriesUpdate {
-                    switch update {
-                    case let .append(values):
-                        rooms.append(contentsOf: values.map(SidebarRoom.init(room:)))
-                    case .clear:
-                        rooms.removeAll()
-                    case let .pushFront(room):
-                        rooms.insert(SidebarRoom(room: room), at: 0)
-                    case let .pushBack(room):
-                        rooms.append(SidebarRoom(room: room))
-                    case .popFront:
-                        rooms.removeFirst()
-                    case .popBack:
-                        rooms.removeLast()
-                    case let .insert(index, room):
-                        rooms.insert(SidebarRoom(room: room), at: Int(index))
-                    case let .set(index, room):
-                        rooms[Int(index)] = SidebarRoom(room: room)
-                    case let .remove(index):
-                        rooms.remove(at: Int(index))
-                    case let .truncate(length):
-                        rooms.removeSubrange(Int(length) ..< rooms.count)
-                    case let .reset(values: values):
-                        rooms = values.map(SidebarRoom.init(room:))
-                    }
-                }
-            }
-        )
+        _ = _roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
 
         notificationClient = try await client.notificationClient(processSetup: .singleProcess(syncService: _syncService))
         await client.registerNotificationHandler(listener: notifications)
 
         try await client.getSessionVerificationController().setDelegate(delegate: self)
 
-        verificationStateListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousVerificationStateListener { status in
-                    continuation.yield(status)
-                }
-                return self.client.encryption().verificationStateListener(listener: listener)
-            },
-            onElement: { [weak self] status in
-                self?.verificationState = status
-            }
-        )
+        verificationStateHandle = client.encryption().verificationStateListener(listener: self)
 
-        ignoredUsersListener = MatrixRustListener(
-            configure: { continuation in
-                do {
-                    self.ignoredUserIds = try await self.client.ignoredUsers()
-                } catch {
-                    Logger.matrixClient.error("Failed to load ignored users on start: \(error)")
-                }
-
-                let listener = AnonymousIgnoredUsersListener { ignoredUserIds in
-                    continuation.yield(ignoredUserIds)
-                }
-                return self.client.subscribeToIgnoredUsers(listener: listener)
-            },
-            onElement: { [weak self] ignoredUserIds in
-                guard let self else { return }
-                Logger.matrixClient.debug("Updated ignored users: \(ignoredUserIds)")
-                self.ignoredUserIds = ignoredUserIds
-            }
-        )
+        ignoredUsersHandle = client.subscribeToIgnoredUsers(listener: self)
+        ignoredUserIds = try await client.ignoredUsers()
 
         // Start the sync loop.
         await _syncService.start()
@@ -365,6 +235,35 @@ class MatrixClient {
 
 enum MatrixClientRestoreSessionError: Error {
     case sessionNotFound, wrongUserId
+}
+
+extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
+    nonisolated func retrieveSessionFromKeychain(userId: String) throws -> MatrixRustSDK.Session {
+        Logger.matrixClient.debug("client session delegate: retrieve session from keychain: \(userId, privacy: .sensitive)")
+
+        let userSession = try UserSession.loadUserFromKeychain()
+        if let userSession {
+            if userSession.userID == userId {
+                return userSession.session
+            } else {
+                Logger.matrixClient.debug(
+                    "restored user session has wrong userId: \(userSession.userID, privacy: .sensitive), expected \(userId, privacy: .sensitive)"
+                )
+                throw MatrixClientRestoreSessionError.wrongUserId
+            }
+        } else {
+            throw MatrixClientRestoreSessionError.sessionNotFound
+        }
+    }
+
+    nonisolated func saveSessionInKeychain(session: MatrixRustSDK.Session) {
+        Logger.matrixClient.debug("client session delegate: save session in keychain")
+        do {
+            try UserSession(session: session, storeID: storeID).saveUserToKeychain()
+        } catch {
+            Logger.matrixClient.error("failed to save session in keychain: \(error)")
+        }
+    }
 }
 
 extension MatrixClient: UI.ImageLoader {

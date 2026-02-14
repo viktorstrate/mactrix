@@ -12,17 +12,20 @@ class LiveRoomSearch {
 
     init(roomDirectorySearch: RoomDirectorySearchProtocol) {
         self.roomDirectorySearch = roomDirectorySearch
-        startListening()
+
+        Task {
+            await startListening()
+        }
     }
 
     deinit {
         Logger.matrixClient.info("LiveRoomSearch deinit")
     }
 
-    private func startListening() {
+    private func startListening() async {
         Logger.matrixClient.info("room search start listening")
 
-        resultsListener = MatrixRustListener(
+        resultsListener = await MatrixRustListener(
             configure: { continuation in
                 let listener = AnonymousRoomDirectorySearchEntriesListener { roomEntriesUpdate in
                     Logger.matrixClient.info("room search stream yield")
@@ -33,7 +36,7 @@ class LiveRoomSearch {
             },
             onElement: { [weak self] roomEntriesUpdate in
                 guard let self else { return }
-                
+
                 Logger.matrixClient.info("room search updating UI")
                 for update in roomEntriesUpdate {
                     switch update {

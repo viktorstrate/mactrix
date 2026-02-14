@@ -10,7 +10,7 @@ public final class LiveRoom: Identifiable {
     public var typingUserIds: [String] = []
     public var members: [MatrixRustSDK.RoomMember] = []
 
-    @ObservationIgnored private var typingListener: MatrixRustListener<[String]>?
+    @ObservationIgnored private var typingHandle: TaskHandle?
 
     public nonisolated var room: MatrixRustSDK.Room {
         sidebarRoom.room
@@ -27,6 +27,8 @@ public final class LiveRoom: Identifiable {
     public init(sidebarRoom: SidebarRoom) {
         self.sidebarRoom = sidebarRoom
 
+        startListening()
+
         Task {
             do {
                 try await syncMembers()
@@ -34,8 +36,6 @@ public final class LiveRoom: Identifiable {
                 Logger.liveRoom.error("failed to sync room members: \(error)")
             }
         }
-
-        startListening()
     }
 
     public convenience init(matrixRoom: MatrixRustSDK.Room) {
@@ -49,24 +49,34 @@ public final class LiveRoom: Identifiable {
     fileprivate func startListening() {
         Logger.matrixClient.info("typing indicator start listening")
 
-        typingListener = MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousTypingListener { typingUserIds in
-                    Logger.matrixClient.info("typing indicator stream yield")
-                    continuation.yield(typingUserIds)
-                }
+        let listener = AsyncSDKListener<[String]>()
+        typingHandle = room.subscribeToTypingNotifications(listener: listener)
 
-                continuation.onTermination = { _ in
-                    Logger.matrixClient.info("typing indicator continuation terminated")
-                }
-
-                return self.room.subscribeToTypingNotifications(listener: listener)
-            },
-            onElement: { typingUserIds in
+        Task { [weak self] in
+            for await typingUserIds in listener {
                 Logger.matrixClient.info("typing indicator updating UI")
-                self.typingUserIds = typingUserIds
+                self?.typingUserIds = typingUserIds
             }
-        )
+        }
+    }
+
+    public func syncMembers() async throws {
+        let id = self.id
+        Logger.liveRoom.debug("syncing members for room: \(id)")
+
+        // Get the locally cached members first
+        let membersNoSyncIter = try await room.membersNoSync()
+        if let result = membersNoSyncIter.nextChunk(chunkSize: membersNoSyncIter.len()) {
+            members = result
+            Logger.liveRoom.debug("loaded \(result.count) members locally for room \(id)")
+        }
+
+        // Fetch the latest members from the homeserver, this gets the latest member list.
+        let memberIter = try await room.members()
+        if let result = memberIter.nextChunk(chunkSize: memberIter.len()) {
+            members = result
+            Logger.liveRoom.debug("synced \(result.count) members for room \(id)")
+        }
     }
 }
 
@@ -91,25 +101,6 @@ extension LiveRoom: Hashable {
 }
 
 extension LiveRoom: Models.Room {
-    public func syncMembers() async throws {
-        let id = self.id
-        Logger.liveRoom.debug("syncing members for room: \(id)")
-
-        // Get the locally cached members first
-        let membersNoSyncIter = try await room.membersNoSync()
-        if let result = membersNoSyncIter.nextChunk(chunkSize: membersNoSyncIter.len()) {
-            members = result
-            Logger.liveRoom.debug("loaded \(result.count) members locally for room \(id)")
-        }
-
-        // Fetch the latest members from the homeserver, this gets the latest member list.
-        let memberIter = try await room.members()
-        if let result = memberIter.nextChunk(chunkSize: memberIter.len()) {
-            members = result
-            Logger.liveRoom.debug("synced \(result.count) members for room \(id)")
-        }
-    }
-
     public nonisolated var displayName: String? {
         room.displayName()
     }

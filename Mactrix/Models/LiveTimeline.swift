@@ -74,18 +74,18 @@ public final class LiveTimeline {
         )
         timeline = try await room.room.timelineWithConfiguration(configuration: config)
 
-        startTimelineListener()
+        await startTimelineListener()
 
         // Only main timelines can subscibe to back pagination status
         if threadId == nil {
-            startPaginationStatusListener()
+            await startPaginationStatusListener()
         }
     }
 
-    private func startTimelineListener() {
+    private func startTimelineListener() async {
         guard let timeline else { return }
 
-        timelineListener = MatrixRustListener(
+        timelineListener = await MatrixRustListener(
             configure: { continuation in
                 let listener = AnonymousTimelineListener { diff in
                     continuation.yield(diff)
@@ -98,10 +98,10 @@ public final class LiveTimeline {
         )
     }
 
-    private func startPaginationStatusListener() {
+    private func startPaginationStatusListener() async {
         guard let timeline else { return }
 
-        paginateListener = MatrixRustListener(
+        paginateListener = await MatrixRustListener(
             configure: { continuation in
                 let listener = AnonymousPaginationStatusListener { status in
                     continuation.yield(status)

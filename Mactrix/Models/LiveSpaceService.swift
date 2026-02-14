@@ -13,7 +13,16 @@ public final class LiveSpaceService {
     public init(spaceService: SpaceService) {
         self.spaceService = spaceService
 
-        spaceListener = MatrixRustListener(
+        Task {
+            await startListener()
+
+            let joinedSpaces = await spaceService.topLevelJoinedSpaces()
+            Logger.liveSpaceService.debug("Joined spaces: \(joinedSpaces)")
+        }
+    }
+
+    private func startListener() async {
+        spaceListener = await MatrixRustListener(
             configure: { continuation in
                 let listener = AnonymousSpaceServiceJoinedSpacesListener { roomUpdates in
                     continuation.yield(roomUpdates)
@@ -51,11 +60,6 @@ public final class LiveSpaceService {
                 }
             }
         )
-
-        Task {
-            let joinedSpaces = await spaceService.topLevelJoinedSpaces()
-            Logger.liveSpaceService.debug("Joined spaces: \(joinedSpaces)")
-        }
     }
 }
 
