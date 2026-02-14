@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
@@ -37,7 +38,7 @@ final class LiveSpaceRoomList {
         spaceHandle = spaceRoomList.subscribeToSpaceUpdates(listener: spaceListener)
 
         Task { [weak self] in
-            for await space in spaceListener {
+            for await space in spaceListener._throttle(for: .milliseconds(500)) {
                 guard let self else { break }
                 self.space = space
             }
@@ -49,7 +50,12 @@ final class LiveSpaceRoomList {
         roomsHandle = spaceRoomList.subscribeToRoomUpdate(listener: roomsListener)
 
         Task { [weak self] in
-            for await roomUpdates in roomsListener {
+            let throttledListener = roomsListener
+                ._throttle(for: .milliseconds(500), reducing: { result, next in
+                    (result ?? []) + next
+                })
+
+            for await roomUpdates in throttledListener {
                 guard let self else { return }
 
                 for update in roomUpdates {
@@ -87,7 +93,7 @@ final class LiveSpaceRoomList {
         paginateHandle = spaceRoomList.subscribeToPaginationStateUpdates(listener: paginateListener)
 
         Task { [weak self] in
-            for await state in paginateListener {
+            for await state in paginateListener._throttle(for: .milliseconds(500)) {
                 self?.paginationState = state
             }
         }

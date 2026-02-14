@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
@@ -32,7 +33,7 @@ public final class SidebarRoom: Identifiable {
         roomInfoHandle = room.subscribeToRoomInfoUpdates(listener: listener)
 
         Task { [weak self] in
-            for await roomInfo in listener {
+            for await roomInfo in listener._throttle(for: .milliseconds(500)) {
                 guard let self else { break }
                 self.roomInfo = roomInfo
             }

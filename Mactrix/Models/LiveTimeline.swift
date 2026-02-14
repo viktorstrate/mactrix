@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
@@ -59,7 +60,7 @@ public final class LiveTimeline {
 
     private func configureTimeline(threadId: String? = nil) async throws {
         Logger.liveTimeline.debug("configure timeline")
-        
+
         let focus = if let threadId {
             TimelineFocus.thread(rootEventId: threadId)
         } else {
@@ -90,16 +91,18 @@ public final class LiveTimeline {
 
     private func listenToTimelineChanges() async {
         guard let timeline else { return }
-        
-        Logger.liveTimeline.info("Listen to timeline changes")
 
         let listener = AsyncSDKListener<[TimelineDiff]>()
         timelineHandle = await timeline.addListener(listener: listener)
 
         Task { [weak self] in
-            for await diff in listener {
+            let throttledListener = listener
+                ._throttle(for: .milliseconds(500), reducing: { result, next in
+                    (result ?? []) + next
+                })
+
+            for await diff in throttledListener {
                 guard let self else { break }
-                Logger.liveTimeline.info("Timeline got change")
                 updateTimeline(diff: diff)
             }
         }
@@ -122,7 +125,12 @@ public final class LiveTimeline {
     }
 
     public func fetchOlderMessages() async throws {
-        guard paginating == .idle(hitTimelineStart: false) else { return }
+        guard paginating == .idle(hitTimelineStart: false) else {
+            let p = paginating.debugDescription
+            Logger.liveTimeline.debug("fetchOlderMessages cancelled, paginating was \(p)")
+            return
+        }
+
         _ = try await timeline?.paginateBackwards(numEvents: 100)
     }
 

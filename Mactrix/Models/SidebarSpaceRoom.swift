@@ -20,9 +20,7 @@ public final class SidebarSpaceRoom {
         }
 
         do {
-            let result = try await spaceService.spaceService
-                .spaceRoomList(spaceId: spaceRoom.roomId)
-
+            let result = try await spaceService.spaceService.spaceRoomList(spaceId: spaceRoom.roomId)
             children = .loaded(children: LiveSpaceRoomList(spaceService: spaceService, spaceRoomList: result))
         } catch {
             children = .error(error: error)

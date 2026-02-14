@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
@@ -26,7 +27,12 @@ class LiveRoomSearch {
         resultsHandle = await roomDirectorySearch.results(listener: listener)
 
         Task { [weak self] in
-            for await roomEntriesUpdate in listener {
+            let throttledListener = listener
+                ._throttle(for: .milliseconds(500), reducing: { result, next in
+                    (result ?? []) + next
+                })
+
+            for await roomEntriesUpdate in throttledListener {
                 guard let self else { break }
 
                 Logger.matrixClient.info("room search updating UI")

@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
@@ -26,7 +27,12 @@ public final class LiveSpaceService {
         self.spaceHandle = await self.spaceService.subscribeToTopLevelJoinedSpaces(listener: listener)
 
         Task { [weak self] in
-            for await roomUpdates in listener {
+            let throttledListener = listener
+                ._throttle(for: .milliseconds(500), reducing: { result, next in
+                    (result ?? []) + next
+                })
+
+            for await roomUpdates in throttledListener {
                 guard let self else { break }
 
                 for update in roomUpdates {

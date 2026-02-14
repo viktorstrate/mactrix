@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		3409F4EC2EBFD8D4009537B4 /* UI in Frameworks */ = {isa = PBXBuildFile; productRef = 3409F4EB2EBFD8D4009537B4 /* UI */; };
 		345E77E82ED9F309002E5B9A /* Utils in Frameworks */ = {isa = PBXBuildFile; productRef = 345E77E72ED9F309002E5B9A /* Utils */; };
+		348E99882F40ABC3009F57A9 /* AsyncAlgorithms in Frameworks */ = {isa = PBXBuildFile; productRef = 348E99872F40ABC3009F57A9 /* AsyncAlgorithms */; };
 		34913F6E2EC0F532003034CB /* MatrixRustSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 34913F6D2EC0F532003034CB /* MatrixRustSDK */; };
 		34913F702EC0F59F003034CB /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 34913F6F2EC0F59F003034CB /* Models */; };
 		34F7225F2EB531F40007B2A4 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 34F7225E2EB531F40007B2A4 /* KeychainAccess */; };
@@ -50,6 +51,7 @@
 				345E77E82ED9F309002E5B9A /* Utils in Frameworks */,
 				34913F702EC0F59F003034CB /* Models in Frameworks */,
 				34F7225F2EB531F40007B2A4 /* KeychainAccess in Frameworks */,
+				348E99882F40ABC3009F57A9 /* AsyncAlgorithms in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -106,6 +108,7 @@
 				34913F6D2EC0F532003034CB /* MatrixRustSDK */,
 				34913F6F2EC0F59F003034CB /* Models */,
 				345E77E72ED9F309002E5B9A /* Utils */,
+				348E99872F40ABC3009F57A9 /* AsyncAlgorithms */,
 			);
 			productName = Mactrix;
 			productReference = 343858422EB394590010922A /* Mactrix.app */;
@@ -139,6 +142,7 @@
 				342C624C2EB4DDE600E2426A /* XCRemoteSwiftPackageReference "matrix-rust-components-swift" */,
 				34F7225D2EB531F40007B2A4 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
 				3409F4E82EBFD8D4009537B4 /* XCLocalSwiftPackageReference "MactrixLibrary" */,
+				348E99862F40ABC3009F57A9 /* XCRemoteSwiftPackageReference "swift-async-algorithms" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 343858432EB394590010922A /* Products */;
@@ -434,6 +438,14 @@
 				kind = branch;
 			};
 		};
+		348E99862F40ABC3009F57A9 /* XCRemoteSwiftPackageReference "swift-async-algorithms" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-async-algorithms.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 1.1.2;
+			};
+		};
 		34F7225D2EB531F40007B2A4 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
 			isa = XCRemoteSwiftPackageReference;
 			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess";
@@ -452,6 +464,11 @@
 		345E77E72ED9F309002E5B9A /* Utils */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Utils;
+		};
+		348E99872F40ABC3009F57A9 /* AsyncAlgorithms */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 348E99862F40ABC3009F57A9 /* XCRemoteSwiftPackageReference "swift-async-algorithms" */;
+			productName = AsyncAlgorithms;
 		};
 		34913F6D2EC0F532003034CB /* MatrixRustSDK */ = {
 			isa = XCSwiftPackageProductDependency;
