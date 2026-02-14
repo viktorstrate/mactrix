@@ -51,7 +51,7 @@ struct SearchRoomInspectorView: View {
                 if let rs = self.roomSearch {
                     roomSearch = rs
                 } else {
-                    roomSearch = LiveRoomSearch(roomDirectorySearch: matrixClient.client.roomDirectorySearch())
+                    roomSearch = await LiveRoomSearch(roomDirectorySearch: matrixClient.client.roomDirectorySearch())
                     self.roomSearch = roomSearch
                 }
 

@@ -6,36 +6,28 @@ import OSLog
 class LiveRoomSearch {
     let roomDirectorySearch: RoomDirectorySearchProtocol
 
-    @ObservationIgnored fileprivate var resultsListener: MatrixRustListener<[RoomDirectorySearchEntryUpdate]>?
+    @ObservationIgnored fileprivate var resultsHandle: TaskHandle?
 
     var rooms: [RoomDescription] = []
 
-    init(roomDirectorySearch: RoomDirectorySearchProtocol) {
+    init(roomDirectorySearch: RoomDirectorySearchProtocol) async {
         self.roomDirectorySearch = roomDirectorySearch
-
-        Task {
-            await startListening()
-        }
+        await listenToRoomResults()
     }
 
     deinit {
         Logger.matrixClient.info("LiveRoomSearch deinit")
     }
 
-    private func startListening() async {
+    private func listenToRoomResults() async {
         Logger.matrixClient.info("room search start listening")
 
-        resultsListener = await MatrixRustListener(
-            configure: { continuation in
-                let listener = AnonymousRoomDirectorySearchEntriesListener { roomEntriesUpdate in
-                    Logger.matrixClient.info("room search stream yield")
-                    continuation.yield(roomEntriesUpdate)
-                }
+        let listener = AsyncSDKListener<[RoomDirectorySearchEntryUpdate]>()
+        resultsHandle = await roomDirectorySearch.results(listener: listener)
 
-                return await self.roomDirectorySearch.results(listener: listener)
-            },
-            onElement: { [weak self] roomEntriesUpdate in
-                guard let self else { return }
+        Task { [weak self] in
+            for await roomEntriesUpdate in listener {
+                guard let self else { break }
 
                 Logger.matrixClient.info("room search updating UI")
                 for update in roomEntriesUpdate {
@@ -65,19 +57,10 @@ class LiveRoomSearch {
                     }
                 }
             }
-        )
+        }
     }
 
     func search(query: String?) async throws {
         try await roomDirectorySearch.search(filter: query, batchSize: 100, viaServerName: nil)
-    }
-}
-
-final class AnonymousRoomDirectorySearchEntriesListener: RoomDirectorySearchEntriesListener {
-    let callback: @Sendable ([MatrixRustSDK.RoomDirectorySearchEntryUpdate]) -> Void
-    init(callback: @Sendable @escaping ([MatrixRustSDK.RoomDirectorySearchEntryUpdate]) -> Void) { self.callback = callback }
-
-    func onUpdate(roomEntriesUpdate: [MatrixRustSDK.RoomDirectorySearchEntryUpdate]) {
-        callback(roomEntriesUpdate)
     }
 }

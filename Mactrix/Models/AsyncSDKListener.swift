@@ -2,34 +2,6 @@ import Foundation
 import MatrixRustSDK
 import OSLog
 
-@MainActor
-final class MatrixRustListener<Element: Sendable> {
-    private var taskHandle: TaskHandle?
-    private var task: Task<Void, Never>?
-
-    init(
-        configure: @escaping (AsyncStream<Element>.Continuation) async -> TaskHandle?,
-        onElement: @MainActor @escaping (Element) async -> Void) async
-    {
-        let (stream, continuation) = AsyncStream<Element>.makeStream()
-
-        taskHandle = await configure(continuation)
-
-        task = Task {
-            for await element in stream {
-                await onElement(element)
-            }
-        }
-    }
-
-    deinit {
-        task?.cancel()
-        task = nil
-        taskHandle?.cancel()
-        taskHandle = nil
-    }
-}
-
 final class AsyncSDKListener<Element: Sendable>: AsyncSequence, Sendable {
     typealias Element = Element
     typealias AsyncIterator = AsyncStream<Element>.Iterator
@@ -43,19 +15,65 @@ final class AsyncSDKListener<Element: Sendable>: AsyncSequence, Sendable {
         continuation = c
     }
 
-    func onUpdate(_ element: Element) {
+    func publishValue(_ element: Element) {
         continuation.yield(element)
     }
 
     func makeAsyncIterator() -> AsyncStream<Element>.Iterator {
-        let s = AsyncStream<Element> { _ in }
-        return s.makeAsyncIterator()
+        return stream.makeAsyncIterator()
     }
 }
 
 extension AsyncSDKListener: TypingNotificationsListener where Element == [String] {
     func call(typingUserIds: [String]) {
-        Logger.matrixClient.info("typing indicator called from rust")
-        onUpdate(typingUserIds)
+        publishValue(typingUserIds)
+    }
+}
+
+extension AsyncSDKListener: RoomDirectorySearchEntriesListener where Element == [MatrixRustSDK.RoomDirectorySearchEntryUpdate] {
+    func onUpdate(roomEntriesUpdate: [MatrixRustSDK.RoomDirectorySearchEntryUpdate]) {
+        publishValue(roomEntriesUpdate)
+    }
+}
+
+extension AsyncSDKListener: SpaceRoomListPaginationStateListener where Element == MatrixRustSDK.SpaceRoomListPaginationState {
+    func onUpdate(paginationState: MatrixRustSDK.SpaceRoomListPaginationState) {
+        publishValue(paginationState)
+    }
+}
+
+extension AsyncSDKListener: SpaceRoomListEntriesListener where Element == [MatrixRustSDK.SpaceListUpdate] {
+    func onUpdate(rooms: [MatrixRustSDK.SpaceListUpdate]) {
+        publishValue(rooms)
+    }
+}
+
+extension AsyncSDKListener: SpaceRoomListSpaceListener where Element == MatrixRustSDK.SpaceRoom? {
+    func onUpdate(space: MatrixRustSDK.SpaceRoom?) {
+        publishValue(space)
+    }
+}
+
+extension AsyncSDKListener: SpaceServiceJoinedSpacesListener where Element == [MatrixRustSDK.SpaceListUpdate] {
+    func onUpdate(roomUpdates: [MatrixRustSDK.SpaceListUpdate]) {
+        publishValue(roomUpdates)
+    }
+}
+
+extension AsyncSDKListener: TimelineListener where Element == [MatrixRustSDK.TimelineDiff] {
+    func onUpdate(diff: [TimelineDiff]) {
+        publishValue(diff)
+    }
+}
+
+extension AsyncSDKListener: PaginationStatusListener where Element == MatrixRustSDK.RoomPaginationStatus {
+    func onUpdate(status: MatrixRustSDK.RoomPaginationStatus) {
+        publishValue(status)
+    }
+}
+
+extension AsyncSDKListener: RoomInfoListener where Element == MatrixRustSDK.RoomInfo {
+    func call(roomInfo: MatrixRustSDK.RoomInfo) {
+        publishValue(roomInfo)
     }
 }

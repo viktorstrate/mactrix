@@ -54,8 +54,9 @@ public final class LiveRoom: Identifiable {
 
         Task { [weak self] in
             for await typingUserIds in listener {
+                guard let self else { break }
                 Logger.matrixClient.info("typing indicator updating UI")
-                self?.typingUserIds = typingUserIds
+                self.typingUserIds = typingUserIds
             }
         }
     }
@@ -77,16 +78,6 @@ public final class LiveRoom: Identifiable {
             members = result
             Logger.liveRoom.debug("synced \(result.count) members for room \(id)")
         }
-    }
-}
-
-final class AnonymousTypingListener: TypingNotificationsListener {
-    let callback: @Sendable ([String]) -> Void
-    init(callback: @Sendable @escaping ([String]) -> Void) { self.callback = callback }
-
-    func call(typingUserIds: [String]) {
-        Logger.matrixClient.info("typing indicator called from rust")
-        callback(typingUserIds)
     }
 }
 
