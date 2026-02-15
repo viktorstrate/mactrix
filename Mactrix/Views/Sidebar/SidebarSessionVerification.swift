@@ -4,6 +4,7 @@ import SwiftUI
 
 struct SessionVerificationStatusView: View {
     @Environment(AppState.self) var appState
+    @Environment(WindowState.self) var windowState
     @Environment(\.colorScheme) var colorScheme
 
     @ViewBuilder
@@ -21,14 +22,27 @@ struct SessionVerificationStatusView: View {
             EmptyView()
         case .unverified:
             VStack {
-                Label("Unverified session", systemImage: "exclamationmark.shield")
-                    .frame(maxWidth: .infinity)
-                Button("Verify session") {
-                    Task {
-                        do {
-                            try await appState.matrixClient?.requestDeviceVerification()
-                        } catch {
-                            Logger.viewCycle.error("request device verification failed: \(error)")
+                Label {
+                    Text("This session is unverified.")
+                        .bold()
+
+                    // NOTE(alicerunsonfedora): Setting a hard line limit because SwiftUI will otherwise truncate the
+                    // text, even when there's enough room to do so.
+                    Text("Verify the session for better security and to decrypt all messages.")
+                        .lineLimit(9)
+                } icon: {
+                    Image(systemName: "exclamationmark.shield")
+                        .bold()
+                }
+                .labelStyle(.multiline)
+                .frame(maxWidth: .infinity)
+                HStack {
+                    if windowState.requestedVerification {
+                        ProgressView("Requesting verification from your trusted devices...")
+                    }
+                    Button(windowState.requestedVerification ? "Try again" : "Verify session...") {
+                        Task {
+                            await startVerificationRequest()
                         }
                     }
                 }
@@ -76,6 +90,15 @@ struct SessionVerificationStatusView: View {
             .clipShape(RoundedRectangle(cornerRadius: 8))
         } else {
             selfVerificationView
+        }
+    }
+
+    private func startVerificationRequest() async {
+        do {
+            try await appState.matrixClient?.requestDeviceVerification()
+            windowState.requestedVerification = true
+        } catch {
+            Logger.viewCycle.error("request device verification failed: \(error)")
         }
     }
 }
