@@ -3,6 +3,7 @@ import UniformTypeIdentifiers
 
 extension Data {
     func computeMimeType() -> UTType? {
+        guard !self.isEmpty else { return nil }
         var b: UInt8 = 0
         self.copyBytes(to: &b, count: 1)
 
