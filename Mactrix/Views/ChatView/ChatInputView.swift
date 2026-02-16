@@ -9,6 +9,7 @@ struct ChatInputView: View {
     @Binding var height: CGFloat?
     @AppStorage("fontSize") var fontSize: Int = 13
 
+    @State private var isLoaded: Bool = false
     @State private var chatInput: String = ""
     @FocusState private var chatFocused: Bool
 
@@ -31,6 +32,90 @@ struct ChatInputView: View {
         chatInput = ""
         replyTo = nil
         timeline.scrollPosition.scrollTo(edge: .bottom)
+    }
+
+    private func clearDraft() {
+        Task {
+            do {
+                try await room.clearComposerDraft(threadRoot: timeline.focusedThreadId)
+            } catch {
+                Logger.viewCycle.error("failed to clear draft: \(error)")
+            }
+        }
+    }
+
+    private func saveDraft() {
+        if chatInput.isEmpty {
+            clearDraft()
+            return
+        }
+
+        Task {
+            let draftType: ComposerDraftType
+            if let replyTo {
+                draftType = .reply(eventId: replyTo.eventOrTransactionId.id)
+            } else {
+                draftType = .newMessage
+            }
+            let draft = ComposerDraft(
+                plainText: chatInput,
+                htmlText: nil,
+                draftType: draftType,
+                attachments: []
+            )
+            do {
+                try await room.saveComposerDraft(draft: draft, threadRoot: timeline.focusedThreadId)
+            } catch {
+                Logger.viewCycle.error("failed save draft: \(error)")
+            }
+        }
+    }
+
+    private func loadDraft() async {
+        do {
+            if let draft = try await room.loadComposerDraft(threadRoot: timeline.focusedThreadId) {
+                self.chatInput = draft.plainText
+                switch draft.draftType {
+                case .reply(eventId: let eventId):
+                    // we need a resolved timeline to populate the reply, so attempt to wait for it
+                    if timeline.timeline == nil {
+                        waitForTimeline: for _ in 0..<10 { // up to 1 second
+                            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+                            if timeline.timeline != nil {
+                                break waitForTimeline // named so it's not confused with the switch
+                            }
+                        }
+                    }
+
+                    // if we still don't have a timeline, log a warning, but we can't populate the reply
+                    guard let innerTimeline = timeline.timeline else {
+                        Logger.viewCycle.warning("Did not get an inner timeline before timeout.")
+                        return
+                    }
+
+                    do {
+                        let item = try await innerTimeline.getEventTimelineItemByEventId(eventId: eventId)
+                        self.timeline.sendReplyTo = item
+                    } catch {
+                        Logger.viewCycle.error("failed to resolve reply target: \(error)")
+                    }
+                case .newMessage, .edit:
+                    break
+                }
+            }
+        } catch {
+            Logger.viewCycle.error("failed to load draft: \(error)")
+        }
+    }
+
+    func chatInputChanged() {
+        guard isLoaded else { return } // avoid working on a draft that's being restored
+        if !chatInput.isEmpty {
+            Task {
+                try await room.typingNotice(isTyping: !chatInput.isEmpty)
+            }
+        }
+        saveDraft()
     }
 
     var replyEmbeddedDetails: EmbeddedEventDetails? {
@@ -60,7 +145,6 @@ struct ChatInputView: View {
             GeometryReader { proxy in
                 Color(NSColor.textBackgroundColor)
                     .onChange(of: proxy.size.height) { _, inputHeight in
-                        print("Input height: \(inputHeight)")
                         self.height = inputHeight
                     }
             }
