@@ -73,42 +73,41 @@ struct ChatInputView: View {
 
     private func loadDraft() async {
         do {
-            if let draft = try await room.loadComposerDraft(threadRoot: timeline.focusedThreadId) {
-                self.chatInput = draft.plainText
-                switch draft.draftType {
-                case .reply(eventId: let eventId):
-                    // we need a resolved timeline to populate the reply, so attempt to wait for it
-                    if timeline.timeline == nil {
-                        waitForTimeline: for _ in 0..<10 { // up to 1 second
-                            try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
-                            if timeline.timeline != nil {
-                                break waitForTimeline // named so it's not confused with the switch
-                            }
+            guard let draft = try await room.loadComposerDraft(threadRoot: timeline.focusedThreadId) else { return }
+            self.chatInput = draft.plainText
+            switch draft.draftType {
+            case .reply(eventId: let eventId):
+                // we need a resolved timeline to populate the reply, so attempt to wait for it
+                if timeline.timeline == nil {
+                    waitForTimeline: for _ in 0..<10 { // up to 1 second
+                        try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+                        if timeline.timeline != nil {
+                            break waitForTimeline // named so it's not confused with the switch
                         }
                     }
-
-                    // if we still don't have a timeline, log a warning, but we can't populate the reply
-                    guard let innerTimeline = timeline.timeline else {
-                        Logger.viewCycle.warning("Did not get an inner timeline before timeout.")
-                        return
-                    }
-
-                    do {
-                        let item = try await innerTimeline.getEventTimelineItemByEventId(eventId: eventId)
-                        self.timeline.sendReplyTo = item
-                    } catch {
-                        Logger.viewCycle.error("failed to resolve reply target: \(error)")
-                    }
-                case .newMessage, .edit:
-                    break
                 }
+
+                // if we still don't have a timeline, log a warning, but we can't populate the reply
+                guard let innerTimeline = timeline.timeline else {
+                    Logger.viewCycle.warning("Did not get an inner timeline before timeout.")
+                    return
+                }
+
+                do {
+                    let item = try await innerTimeline.getEventTimelineItemByEventId(eventId: eventId)
+                    self.timeline.sendReplyTo = item
+                } catch {
+                    Logger.viewCycle.error("failed to resolve reply target: \(error)")
+                }
+            case .newMessage, .edit:
+                break
             }
         } catch {
             Logger.viewCycle.error("failed to load draft: \(error)")
         }
     }
 
-    func chatInputChanged() {
+    private func chatInputChanged() {
         guard isLoaded else { return } // avoid working on a draft that's being restored
         if !chatInput.isEmpty {
             Task {
