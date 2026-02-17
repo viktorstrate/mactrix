@@ -76,10 +76,11 @@ struct MessageMainBody<MessageView: View, EventTimelineItem: Models.EventTimelin
             message
                 .frame(maxWidth: .infinity, alignment: .leading)
         }
+        .padding(.vertical, 4.0)
         .background(
             RoundedRectangle(cornerRadius: 4)
                 .fill(focused ? Color.accentColor.opacity(0.1) : Color.gray.opacity(0.1))
-                .opacity(hover || focused ? 1 : 0)
+                .opacity(hover || focused ? 1 : 0.001)
         )
         .padding(.horizontal, 10)
     }
