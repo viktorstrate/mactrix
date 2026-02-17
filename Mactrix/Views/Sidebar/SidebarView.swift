@@ -45,7 +45,7 @@ struct SidebarView: View {
             SessionVerificationStatusView()
 
             if !favorites.isEmpty {
-                Section("Favorites") {
+                Section("Favorites", isExpanded: $windowState.sidebarSections.favorites) {
                     ForEach(favorites) { room in
                         UI.RoomRow(
                             title: room.room.displayName() ?? "Unknown room",
@@ -61,7 +61,7 @@ struct SidebarView: View {
                 }
             }
 
-            Section("Directs") {
+            Section("Directs", isExpanded: $windowState.sidebarSections.directs) {
                 ForEach(directs) { room in
                     UI.RoomRow(
                         title: room.room.displayName() ?? "Unknown user",
@@ -76,7 +76,7 @@ struct SidebarView: View {
                 }
             }
 
-            Section("Rooms") {
+            Section("Rooms", isExpanded: $windowState.sidebarSections.rooms) {
                 ForEach(rooms) { room in
                     UI.RoomRow(
                         title: room.room.displayName() ?? "Unknown Room",
@@ -91,7 +91,7 @@ struct SidebarView: View {
                 }
             }
 
-            Section("Spaces") {
+            Section("Spaces", isExpanded: $windowState.sidebarSections.spaces) {
                 ForEach(spaces) { space in
                     SpaceDisclosureGroup(space: space)
                 }

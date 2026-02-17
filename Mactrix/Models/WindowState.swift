@@ -38,6 +38,9 @@ final class WindowState {
     var searchTokens: [SearchToken] = []
     var searchDirectResult: SearchDirectResult?
 
+    /// The collapsed/expanded states of the sections in the sidebar.
+    var sidebarSections = SidebarSectionCollapsibility()
+
     var searchFocused: Binding<Bool> {
         Binding(
             get: { self.inspectorContent == .search },
