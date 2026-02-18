@@ -7,7 +7,8 @@ import Utils
 struct MainView: View {
     @Environment(AppState.self) var appState
 
-    @State private var windowState = WindowState()
+    @SceneStorage("MainView.windowState")
+    private var windowState: WindowState = .init()
 
     @State private var showWelcomeSheet: Bool = false
 
@@ -35,7 +36,8 @@ struct MainView: View {
                 isUserIgnored: appState.matrixClient?.isUserIgnored(profile.userId) ?? false,
                 actions: appState.matrixClient?.userProfileActions(forUserId: profile.userId, windowState: windowState),
                 timelineActions: nil,
-                imageLoader: appState.matrixClient)
+                imageLoader: appState.matrixClient
+            )
         case .none:
             ContentUnavailableView("Select a room", systemImage: "message.fill")
         }

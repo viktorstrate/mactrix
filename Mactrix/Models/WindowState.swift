@@ -24,16 +24,13 @@ enum SearchDirectResult {
 final class WindowState {
     var selectedScreen: SelectedScreen = .none
 
-    // @SceneStorage("MainView.selectedRoomId")
     var selectedRoomId: String?
-
-    // @SceneStorage("MainView.inspectorVisible")
     var inspectorVisible: Bool = false
 
     var inspectorContent: InspectorContent = .roomInfo
 
     var requestedVerification = false
-    
+
     var searchQuery: String = ""
     var searchTokens: [SearchToken] = []
     var searchDirectResult: SearchDirectResult?
@@ -120,6 +117,53 @@ final class WindowState {
             inspectorVisible = true
         }
     }
+}
+
+extension WindowState: @MainActor RawRepresentable {
+    struct SceneStorageRepresentation: Codable {
+        let selectedRoomId: String?
+        let inspectorVisible: Bool
+        let sidebarSections: SidebarSectionCollapsibility
+
+        @MainActor init(windowState: WindowState) {
+            self.selectedRoomId = windowState.selectedRoomId
+            self.inspectorVisible = windowState.inspectorVisible
+            self.sidebarSections = windowState.sidebarSections
+        }
+
+        @MainActor func restore(windowState: WindowState) {
+            windowState.selectedRoomId = selectedRoomId
+            windowState.inspectorVisible = inspectorVisible
+            windowState.sidebarSections = sidebarSections
+        }
+    }
+
+    convenience init?(rawValue: String) {
+        guard
+            let data = rawValue.data(using: .utf8),
+            let decoded = try? JSONDecoder().decode(SceneStorageRepresentation.self, from: data)
+        else {
+            Logger.windowState.warning("Failed to recover WindowState from storage: \(rawValue)")
+            return nil
+        }
+
+        self.init()
+        decoded.restore(windowState: self)
+        Logger.windowState.info("WindowState recovered from storage: \(rawValue)")
+    }
+
+    var rawValue: String {
+        guard
+            let data = try? JSONEncoder().encode(SceneStorageRepresentation(windowState: self)),
+            let result = String(data: data, encoding: .utf8)
+        else {
+            return ""
+        }
+
+        return result
+    }
+
+    typealias RawValue = String
 }
 
 enum SearchToken: Hashable, Identifiable {
