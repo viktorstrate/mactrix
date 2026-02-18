@@ -1,3 +1,4 @@
+import AsyncAlgorithms
 import Foundation
 import KeychainAccess
 import MatrixRustSDK
@@ -184,10 +185,22 @@ class MatrixClient {
         roomListServiceStateHandle = _roomListService.state(listener: self)
         syncIndicatorHandle = _roomListService.syncIndicator(delayBeforeShowingInMs: 200, delayBeforeHidingInMs: 200, listener: self)
 
-        let _roomListEntriesHandle = try await _roomListService.allRooms().entriesWithDynamicAdapters(pageSize: 100, listener: self)
+        let roomEntriesListener = AsyncSDKListener<[RoomListEntriesUpdate]>()
+        let _roomListEntriesHandle = try await _roomListService.allRooms().entriesWithDynamicAdapters(pageSize: 100, listener: roomEntriesListener)
+        _ = _roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
         roomListEntriesHandle = _roomListEntriesHandle
 
-        _ = _roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
+        Task { [weak self] in
+            let throttledListener = roomEntriesListener
+                ._throttle(for: .milliseconds(500), reducing: { result, next in
+                    (result ?? []) + next
+                })
+
+            for await roomEntries in throttledListener {
+                guard let self else { break }
+                self.updateRoomEntries(roomEntriesUpdate: roomEntries)
+            }
+        }
 
         notificationClient = try await client.notificationClient(processSetup: .singleProcess(syncService: _syncService))
         await client.registerNotificationHandler(listener: notifications)

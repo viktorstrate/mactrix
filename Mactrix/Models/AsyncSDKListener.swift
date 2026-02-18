@@ -77,3 +77,9 @@ extension AsyncSDKListener: RoomInfoListener where Element == MatrixRustSDK.Room
         publishValue(roomInfo)
     }
 }
+
+extension AsyncSDKListener: RoomListEntriesListener where Element == [RoomListEntriesUpdate] {
+    func onUpdate(roomEntriesUpdate: [MatrixRustSDK.RoomListEntriesUpdate]) {
+        publishValue(roomEntriesUpdate)
+    }
+}

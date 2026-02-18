@@ -11,22 +11,20 @@ struct ChangableField: View {
     @State private var editValue: String = ""
     @State private var saving: Bool = false
 
-    private func save() {
-        Task {
-            saving = true
-            await onSave(editValue)
-            isEditing = false
-            saving = false
-        }
+    private func save() async {
+        saving = true
+        await onSave(editValue)
+        isEditing = false
+        saving = false
     }
 
     var body: some View {
         if isEditing {
             HStack {
                 TextField(name, text: $editValue)
-                    .onSubmit { save() }
+                    .onSubmit { Task { await save() } }
                     .disabled(saving)
-                Button("Save") { save() }
+                Button("Save") { Task { await save() } }
                 Button("Cancel") { isEditing = false }
             }
         } else {

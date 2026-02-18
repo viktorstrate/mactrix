@@ -12,27 +12,25 @@ struct ChatInputView: View {
     @State private var chatInput: String = ""
     @FocusState private var chatFocused: Bool
 
-    func sendMessage() {
+    func sendMessage() async {
         guard !chatInput.isEmpty else { return }
         guard let innerTimeline = timeline.timeline else { return }
 
-        Task {
-            let msg = messageEventContentFromMarkdown(md: chatInput)
+        let msg = messageEventContentFromMarkdown(md: chatInput)
 
-            do {
-                if let replyTo {
-                    let _ = try await innerTimeline.sendReply(msg: msg, eventId: replyTo.eventOrTransactionId.id)
-                } else {
-                    let _ = try await innerTimeline.send(msg: msg)
-                }
-            } catch {
-                Logger.viewCycle.error("failed to send message: \(error)")
+        do {
+            if let replyTo {
+                _ = try await innerTimeline.sendReply(msg: msg, eventId: replyTo.eventOrTransactionId.id)
+            } else {
+                _ = try await innerTimeline.send(msg: msg)
             }
-
-            chatInput = ""
-            replyTo = nil
-            timeline.scrollPosition.scrollTo(edge: .bottom)
+        } catch {
+            Logger.viewCycle.error("failed to send message: \(error)")
         }
+
+        chatInput = ""
+        replyTo = nil
+        timeline.scrollPosition.scrollTo(edge: .bottom)
     }
 
     var replyEmbeddedDetails: EmbeddedEventDetails? {
@@ -50,7 +48,7 @@ struct ChatInputView: View {
             }
             TextField("Message room", text: $chatInput, axis: .vertical)
                 .focused($chatFocused)
-                .onSubmit { sendMessage() }
+                .onSubmit { Task { await sendMessage() } }
                 .textFieldStyle(.plain)
                 .lineLimit(nil)
                 .scrollContentBackground(.hidden)
@@ -78,9 +76,12 @@ struct ChatInputView: View {
         .onTapGesture {
             chatFocused = true
         }
-        .onChange(of: !chatInput.isEmpty) { _, isTyping in
-            Task {
+        .task(id: !chatInput.isEmpty) {
+            let isTyping = !chatInput.isEmpty
+            do {
                 try await room.typingNotice(isTyping: isTyping)
+            } catch {
+                Logger.viewCycle.error("Failed to set typing notice: \(error)")
             }
         }
         .pointerStyle(.horizontalText)

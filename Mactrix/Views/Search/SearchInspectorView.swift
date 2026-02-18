@@ -35,7 +35,7 @@ struct SearchResolvedRoomInspectorView: View {
                 .redacted(reason: .placeholder)
             }
         }
-        .task(id: alias) {
+        .task(id: alias, priority: .utility) {
             do {
                 let preview = try await appState.matrixClient?.client.getRoomPreviewFromRoomId(roomId: resolvedRoom.roomId, viaServers: resolvedRoom.servers)
                 self.roomPreview = preview

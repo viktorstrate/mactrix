@@ -48,7 +48,7 @@ public struct AvatarImage<Preview: View>: View {
         GeometryReader { proxy in
             imageOrPlaceholder
                 .aspectRatio(1.0, contentMode: .fit)
-                .task(id: avatarUrl) {
+                .task(id: avatarUrl, priority: .utility) {
                     guard let avatarUrl = avatarUrl else {
                         avatar = nil
                         return

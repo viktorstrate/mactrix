@@ -2,34 +2,32 @@ import Foundation
 import MatrixRustSDK
 import OSLog
 
-extension MatrixClient: RoomListEntriesListener {
-    nonisolated func onUpdate(roomEntriesUpdate: [RoomListEntriesUpdate]) {
-        Task { @MainActor in
-            for update in roomEntriesUpdate {
-                switch update {
-                case let .append(values):
-                    rooms.append(contentsOf: values.map(SidebarRoom.init(room:)))
-                case .clear:
-                    rooms.removeAll()
-                case let .pushFront(room):
-                    rooms.insert(SidebarRoom(room: room), at: 0)
-                case let .pushBack(room):
-                    rooms.append(SidebarRoom(room: room))
-                case .popFront:
-                    rooms.removeFirst()
-                case .popBack:
-                    rooms.removeLast()
-                case let .insert(index, room):
-                    rooms.insert(SidebarRoom(room: room), at: Int(index))
-                case let .set(index, room):
-                    rooms[Int(index)] = SidebarRoom(room: room)
-                case let .remove(index):
-                    rooms.remove(at: Int(index))
-                case let .truncate(length):
-                    rooms.removeSubrange(Int(length) ..< rooms.count)
-                case let .reset(values: values):
-                    rooms = values.map(SidebarRoom.init(room:))
-                }
+extension MatrixClient {
+    func updateRoomEntries(roomEntriesUpdate: [RoomListEntriesUpdate]) {
+        for update in roomEntriesUpdate {
+            switch update {
+            case let .append(values):
+                rooms.append(contentsOf: values.map(SidebarRoom.init(room:)))
+            case .clear:
+                rooms.removeAll()
+            case let .pushFront(room):
+                rooms.insert(SidebarRoom(room: room), at: 0)
+            case let .pushBack(room):
+                rooms.append(SidebarRoom(room: room))
+            case .popFront:
+                rooms.removeFirst()
+            case .popBack:
+                rooms.removeLast()
+            case let .insert(index, room):
+                rooms.insert(SidebarRoom(room: room), at: Int(index))
+            case let .set(index, room):
+                rooms[Int(index)] = SidebarRoom(room: room)
+            case let .remove(index):
+                rooms.remove(at: Int(index))
+            case let .truncate(length):
+                rooms.removeSubrange(Int(length) ..< rooms.count)
+            case let .reset(values: values):
+                rooms = values.map(SidebarRoom.init(room:))
             }
         }
     }

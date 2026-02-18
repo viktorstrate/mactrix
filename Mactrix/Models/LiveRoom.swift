@@ -29,7 +29,7 @@ public final class LiveRoom: Identifiable {
 
         startListening()
 
-        Task {
+        Task(priority: .utility) {
             do {
                 try await syncMembers()
             } catch {

@@ -20,6 +20,7 @@ struct InspectorScreen: View {
                 UI.ThreadTimelineHeader {
                     windowState.inspectorVisible = false
                     Task {
+                        // Insert sleep to delay UI update until close animation finishes
                         try? await Task.sleep(for: .milliseconds(500))
                         windowState.inspectorContent = .roomInfo
                     }

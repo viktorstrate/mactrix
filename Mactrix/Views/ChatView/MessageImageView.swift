@@ -45,7 +45,7 @@ struct MessageImageView: View {
                 }
             }
         }
-        .task(id: content.source.url()) {
+        .task(id: content.source.url(), priority: .utility) {
             guard let matrixClient = appState.matrixClient else {
                 errorMessage = "Matrix client not available"
                 return

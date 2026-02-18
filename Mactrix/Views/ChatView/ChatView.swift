@@ -97,7 +97,7 @@ struct ChatTimelineScrollView: View {
                 loadMoreMessages()
             }
         }
-        .task(id: timeline.timelineGroups) {
+        .task(id: timeline.timelineGroups, priority: .background) {
             do {
                 try await Task.sleep(for: .seconds(1))
 
@@ -138,7 +138,7 @@ struct ChatJoinedRoom: View {
             .navigationTitle(room.room.displayName() ?? "Unknown room")
             .navigationSubtitle(toolbarSubtitle)
             .frame(minWidth: 250, minHeight: 200)
-            .task {
+            .task(priority: .background) {
                 do {
                     try await Task.sleep(for: .seconds(2))
                     try await appState.matrixClient?.client.trackRecentlyVisitedRoom(room: timeline.room.id)
