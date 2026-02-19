@@ -7,7 +7,7 @@ import SwiftUI
 @MainActor @Observable
 public final class LiveTimeline {
     public let room: LiveRoom
-    public let isThreadFocus: Bool
+    public let focusedThreadId: String?
 
     public var timeline: Timeline?
 
@@ -29,7 +29,7 @@ public final class LiveTimeline {
     public private(set) var hitTimelineStart: Bool = false
 
     public init(room: LiveRoom) {
-        self.isThreadFocus = false
+        self.focusedThreadId = nil
         self.room = room
         Task {
             do {
@@ -42,7 +42,7 @@ public final class LiveTimeline {
     }
 
     public init(room: LiveRoom, focusThread threadId: String) {
-        self.isThreadFocus = true
+        self.focusedThreadId = threadId
         self.room = room
         Task {
             do {
