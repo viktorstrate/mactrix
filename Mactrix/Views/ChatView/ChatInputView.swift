@@ -60,7 +60,6 @@ struct ChatInputView: View {
         )
         do {
             try await room.saveComposerDraft(draft: draft, threadRoot: timeline.focusedThreadId)
-            Logger.viewCycle.debug("saved draft")
         } catch {
             Logger.viewCycle.error("failed save draft: \(error)")
         }
