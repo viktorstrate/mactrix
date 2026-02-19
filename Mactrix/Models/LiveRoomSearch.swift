@@ -36,32 +36,36 @@ class LiveRoomSearch {
                 guard let self else { break }
 
                 Logger.matrixClient.info("room search updating UI")
+                var newRooms = self.rooms
                 for update in roomEntriesUpdate {
                     switch update {
                     case let .append(values):
-                        self.rooms.append(contentsOf: values)
+                        newRooms.append(contentsOf: values)
                     case .clear:
-                        self.rooms.removeAll()
+                        newRooms.removeAll()
                     case let .pushFront(room):
-                        self.rooms.insert(room, at: 0)
+                        newRooms.insert(room, at: 0)
                     case let .pushBack(room):
-                        self.rooms.append(room)
+                        newRooms.append(room)
                     case .popFront:
-                        self.rooms.removeFirst()
+                        newRooms.removeFirst()
                     case .popBack:
-                        self.rooms.removeLast()
+                        newRooms.removeLast()
                     case let .insert(index, room):
-                        self.rooms.insert(room, at: Int(index))
+                        newRooms.insert(room, at: Int(index))
                     case let .set(index, room):
-                        self.rooms[Int(index)] = room
+                        newRooms[Int(index)] = room
                     case let .remove(index):
-                        self.rooms.remove(at: Int(index))
+                        newRooms.remove(at: Int(index))
                     case let .truncate(length):
-                        self.rooms.removeSubrange(Int(length) ..< self.rooms.count)
+                        newRooms.removeSubrange(Int(length) ..< newRooms.count)
                     case let .reset(values: values):
-                        self.rooms = values
+                        newRooms = values
                     }
                 }
+
+                // commit all changes at once to prevent UI from flickering
+                self.rooms = newRooms
             }
         }
     }

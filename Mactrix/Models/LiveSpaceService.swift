@@ -35,32 +35,35 @@ public final class LiveSpaceService {
             for await roomUpdates in throttledListener {
                 guard let self else { break }
 
+                var newSpaceRooms = self.spaceRooms
                 for update in roomUpdates {
                     switch update {
                     case let .append(values):
-                        self.spaceRooms.append(contentsOf: values.map { SidebarSpaceRoom(spaceService: self, spaceRoom: $0) })
+                        newSpaceRooms.append(contentsOf: values.map { SidebarSpaceRoom(spaceService: self, spaceRoom: $0) })
                     case .clear:
-                        self.spaceRooms.removeAll()
+                        newSpaceRooms.removeAll()
                     case let .pushFront(room):
-                        self.spaceRooms.insert(SidebarSpaceRoom(spaceService: self, spaceRoom: room), at: 0)
+                        newSpaceRooms.insert(SidebarSpaceRoom(spaceService: self, spaceRoom: room), at: 0)
                     case let .pushBack(room):
-                        self.spaceRooms.append(SidebarSpaceRoom(spaceService: self, spaceRoom: room))
+                        newSpaceRooms.append(SidebarSpaceRoom(spaceService: self, spaceRoom: room))
                     case .popFront:
-                        self.spaceRooms.removeFirst()
+                        newSpaceRooms.removeFirst()
                     case .popBack:
-                        self.spaceRooms.removeLast()
+                        newSpaceRooms.removeLast()
                     case let .insert(index, room):
-                        self.spaceRooms.insert(SidebarSpaceRoom(spaceService: self, spaceRoom: room), at: Int(index))
+                        newSpaceRooms.insert(SidebarSpaceRoom(spaceService: self, spaceRoom: room), at: Int(index))
                     case let .set(index, room):
-                        self.spaceRooms[Int(index)] = SidebarSpaceRoom(spaceService: self, spaceRoom: room)
+                        newSpaceRooms[Int(index)] = SidebarSpaceRoom(spaceService: self, spaceRoom: room)
                     case let .remove(index):
-                        self.spaceRooms.remove(at: Int(index))
+                        newSpaceRooms.remove(at: Int(index))
                     case let .truncate(length):
-                        self.spaceRooms.removeSubrange(Int(length) ..< self.spaceRooms.count)
+                        newSpaceRooms.removeSubrange(Int(length) ..< newSpaceRooms.count)
                     case let .reset(values: values):
-                        self.spaceRooms = values.map { SidebarSpaceRoom(spaceService: self, spaceRoom: $0) }
+                        newSpaceRooms = values.map { SidebarSpaceRoom(spaceService: self, spaceRoom: $0) }
                     }
                 }
+
+                self.spaceRooms = newSpaceRooms
             }
         }
     }
