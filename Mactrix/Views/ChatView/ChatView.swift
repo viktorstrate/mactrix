@@ -22,95 +22,95 @@ struct TimelineGroupView: View {
     }
 }
 
-struct TimelineItemsView: View {
-    let timeline: LiveTimeline
+/* struct TimelineItemsView: View {
+     let timeline: LiveTimeline
 
-    var body: some View {
-        if !timeline.timelineGroups.groups.isEmpty {
-            LazyVStack {
-                ForEach(timeline.timelineGroups.groups) { item in
-                    TimelineGroupView(timeline: timeline, timelineGroup: item)
-                }
-            }
-            .scrollTargetLayout()
-        } else {
-            ProgressView()
-        }
-    }
-}
+     var body: some View {
+         if !timeline.timelineGroups.groups.isEmpty {
+             LazyVStack {
+                 ForEach(timeline.timelineGroups.groups) { item in
+                     TimelineGroupView(timeline: timeline, timelineGroup: item)
+                 }
+             }
+             .scrollTargetLayout()
+         } else {
+             ProgressView()
+         }
+     }
+ } */
 
-struct ChatTimelineScrollView: View {
-    @Bindable var timeline: LiveTimeline
+/* struct ChatTimelineScrollView: View {
+     @Bindable var timeline: LiveTimeline
 
-    @State private var scrollNearTop: Bool = false
+     @State private var scrollNearTop: Bool = false
 
-    func loadMoreMessages() {
-        guard scrollNearTop else { return }
-        guard timeline.paginating == .idle(hitTimelineStart: false) else {
-            let p = timeline.paginating.debugDescription
-            Logger.viewCycle.info("Fetching messages cancelled, already: paginating \(p)")
-            return
-        }
-        Logger.viewCycle.info("Reached top, fetching more messages...")
+     func loadMoreMessages() {
+         guard scrollNearTop else { return }
+         guard timeline.paginating == .idle(hitTimelineStart: false) else {
+             let p = timeline.paginating.debugDescription
+             Logger.viewCycle.info("Fetching messages cancelled, already: paginating \(p)")
+             return
+         }
+         Logger.viewCycle.info("Reached top, fetching more messages...")
 
-        Task {
-            do {
-                try await self.timeline.fetchOlderMessages()
+         Task {
+             do {
+                 try await self.timeline.fetchOlderMessages()
 
-//                if scrollNearTop {
-//                    try await Task.sleep(for: .seconds(1))
-//                    loadMoreMessages()
-//                }
-            } catch {
-                Logger.viewCycle.error("failed to fetch more message for timeline: \(error)")
-            }
-        }
-    }
+ //                if scrollNearTop {
+ //                    try await Task.sleep(for: .seconds(1))
+ //                    loadMoreMessages()
+ //                }
+             } catch {
+                 Logger.viewCycle.error("failed to fetch more message for timeline: \(error)")
+             }
+         }
+     }
 
-    var body: some View {
-        ScrollView {
-            ProgressView("Loading more messages")
-                .opacity(timeline.paginating == .paginating ? 1 : 0)
+     var body: some View {
+         ScrollView {
+             ProgressView("Loading more messages")
+                 .opacity(timeline.paginating == .paginating ? 1 : 0)
 
-            TimelineItemsView(timeline: timeline)
+             TimelineItemsView(timeline: timeline)
 
-            if let errorMessage = timeline.errorMessage {
-                Text(errorMessage)
-                    .foregroundStyle(Color.red)
-                    .frame(maxWidth: .infinity)
-            }
+             if let errorMessage = timeline.errorMessage {
+                 Text(errorMessage)
+                     .foregroundStyle(Color.red)
+                     .frame(maxWidth: .infinity)
+             }
 
-            HStack {
-                UI.UserTypingIndicator(names: timeline.room.typingUserIds)
-                Spacer()
-            }
-            .padding(.horizontal, 10)
-        }
-        .scrollPosition($timeline.scrollPosition)
-        .defaultScrollAnchor(.bottom)
-        .onScrollGeometryChange(for: Bool.self) { geo in
-            geo.visibleRect.maxY - geo.containerSize.height < 400.0
-        } action: { _, nearTop in
-            Logger.viewCycle.info("scroll near top: \(nearTop)")
-            scrollNearTop = nearTop
-            if nearTop {
-                loadMoreMessages()
-            }
-        }
-        .task(id: timeline.timelineGroups, priority: .background) {
-            do {
-                try await Task.sleep(for: .seconds(1))
+             HStack {
+                 UI.UserTypingIndicator(names: timeline.room.typingUserIds)
+                 Spacer()
+             }
+             .padding(.horizontal, 10)
+         }
+         .scrollPosition($timeline.scrollPosition)
+         .defaultScrollAnchor(.bottom)
+         .onScrollGeometryChange(for: Bool.self) { geo in
+             geo.visibleRect.maxY - geo.containerSize.height < 400.0
+         } action: { _, nearTop in
+             Logger.viewCycle.info("scroll near top: \(nearTop)")
+             scrollNearTop = nearTop
+             if nearTop {
+                 loadMoreMessages()
+             }
+         }
+         .task(id: timeline.timelineGroups, priority: .background) {
+             do {
+                 try await Task.sleep(for: .seconds(1))
 
-                Logger.viewCycle.debug("Mark room as read")
-                try await timeline.timeline?.markAsRead(receiptType: .read)
-            } catch is CancellationError {
-                /* sleep cancelled */
-            } catch {
-                Logger.viewCycle.error("failed to send timeline read receipt: \(error)")
-            }
-        }
-    }
-}
+                 Logger.viewCycle.debug("Mark room as read")
+                 try await timeline.timeline?.markAsRead(receiptType: .read)
+             } catch is CancellationError {
+                 /* sleep cancelled */
+             } catch {
+                 Logger.viewCycle.error("failed to send timeline read receipt: \(error)")
+             }
+         }
+     }
+ } */
 
 struct ChatJoinedRoom: View {
     @Environment(AppState.self) private var appState
@@ -130,7 +130,7 @@ struct ChatJoinedRoom: View {
 
     var body: some View {
         // ChatTimelineScrollView(timeline: timeline)
-        TimelineViewRepresentable()
+        TimelineViewRepresentable(timelineItems: timeline.timelineItems)
             .safeAreaPadding(.bottom, inputHeight ?? 60) // chat input overlay
             .overlay(alignment: .bottom) {
                 ChatInputView(room: room.room, timeline: timeline, replyTo: $timeline.sendReplyTo, height: $inputHeight)
