@@ -129,7 +129,8 @@ struct ChatJoinedRoom: View {
     }
 
     var body: some View {
-        ChatTimelineScrollView(timeline: timeline)
+        // ChatTimelineScrollView(timeline: timeline)
+        TimelineViewRepresentable()
             .safeAreaPadding(.bottom, inputHeight ?? 60) // chat input overlay
             .overlay(alignment: .bottom) {
                 ChatInputView(room: room.room, timeline: timeline, replyTo: $timeline.sendReplyTo, height: $inputHeight)
