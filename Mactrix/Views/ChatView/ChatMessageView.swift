@@ -9,7 +9,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
     @Environment(WindowState.self) private var windowState
     @AppStorage("fontSize") private var fontSize = 13
 
-    let timeline: LiveTimeline
+    let timeline: LiveTimeline?
     let event: MatrixRustSDK.EventTimelineItem
     let msg: MatrixRustSDK.MsgLikeContent
     let includeProfileHeader: Bool
@@ -23,7 +23,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
 
     func toggleReaction(key: String) {
         Task {
-            guard let innerTimeline = timeline.timeline else { return }
+            guard let innerTimeline = timeline?.timeline else { return }
             do {
                 let reactionWasAdded = try await innerTimeline.toggleReaction(itemId: event.eventOrTransactionId, key: key)
                 Logger.viewCycle.debug("reaction \(reactionWasAdded ? "added" : "removed"): \(key)")
@@ -35,7 +35,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
 
     func reply() {
         Logger.viewCycle.info("Reply to event: \(event.eventOrTransactionId.id)")
-        timeline.sendReplyTo = event
+        timeline?.sendReplyTo = event
     }
 
     func replyInThread() {
@@ -47,7 +47,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
         guard case let .eventId(eventId: eventId) = event.eventOrTransactionId else { return }
         Task {
             do {
-                let _ = try await timeline.timeline?.pinEvent(eventId: eventId)
+                let _ = try await timeline?.timeline?.pinEvent(eventId: eventId)
             } catch {
                 Logger.viewCycle.error("Failed to ping message: \(error)")
             }
@@ -80,8 +80,11 @@ struct ChatMessageView: View, UI.MessageEventActions {
                 Text(content.body.formatAsMarkdown)
                     .textSelection(.enabled)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             case let .text(content: content):
-                Text(content.body.formatAsMarkdown).textSelection(.enabled)
+                Text(content.body.formatAsMarkdown)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
             case let .location(content: content):
                 Text("Location: \(content.body) \(content.geoUri)").textSelection(.enabled)
             case let .other(msgtype: msgtype, body: body):
@@ -109,7 +112,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
     }
 
     var isEventFocused: Bool {
-        return timeline.focusedTimelineEventId == event.eventOrTransactionId
+        return timeline?.focusedTimelineEventId == event.eventOrTransactionId
     }
 
     var ownUserId: String {
@@ -126,11 +129,11 @@ struct ChatMessageView: View, UI.MessageEventActions {
             UI.MessageEventProfileView(event: event, actions: self, imageLoader: appState.matrixClient)
                 .font(.system(size: .init(fontSize)))
         }
-        UI.MessageEventBodyView(event: event, focused: isEventFocused, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient, roomMembers: timeline.room.members) {
+        UI.MessageEventBodyView(event: event, focused: isEventFocused, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient, roomMembers: timeline?.room.members ?? []) {
             VStack(alignment: .leading, spacing: 10) {
                 if let replyTo = msg.inReplyTo {
                     EmbeddedMessageView(embeddedEvent: replyTo.event()) {
-                        timeline.focusEvent(id: .eventId(eventId: replyTo.eventId()))
+                        timeline?.focusEvent(id: .eventId(eventId: replyTo.eventId()))
                     }
                     .padding(.bottom, 10)
                 }
