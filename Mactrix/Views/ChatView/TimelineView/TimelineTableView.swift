@@ -20,6 +20,27 @@ enum TimelineItemRowInfo {
     }
 }
 
+struct TimelineItemRowView: View {
+    let rowInfo: TimelineItemRowInfo
+    let appState: AppState
+
+    @ViewBuilder
+    var contentView: some View {
+        switch rowInfo {
+        case .message(let event, let content):
+            ChatMessageView(timeline: nil, event: event, msg: content, includeProfileHeader: true)
+        case .state(let event):
+            UI.GenericEventView(event: event, name: event.content.description)
+        case .virtual(let virtual):
+            UI.VirtualItemView(item: virtual.asModel)
+        }
+    }
+
+    var body: some View {
+        contentView.environment(appState)
+    }
+}
+
 extension TimelineItem {
     var rowInfo: TimelineItemRowInfo {
         if let virtual = asVirtual() {
@@ -65,8 +86,10 @@ class TimelineViewController: NSViewController {
         tableView.style = .plain
         tableView.allowsColumnSelection = false
 
-        tableView.rowHeight = -1
-        tableView.usesAutomaticRowHeights = true
+        tableView.rowHeight = 50 // estimate
+        tableView.usesAutomaticRowHeights = false
+
+        oldWidth = tableView.frame.width
 
         dataSource = .init(tableView: tableView) { [weak self] tableView, _, row, identifier in
             guard let self else { return NSView() }
@@ -75,51 +98,44 @@ class TimelineViewController: NSViewController {
             print("Data source called \(row) \(identifier) \(hostView == nil ? "fresh" : "reuse")")
 
             let item = timelineItems[row]
+            let view = TimelineItemRowView(rowInfo: item.rowInfo, appState: coordinator.appState)
 
-            switch item.rowInfo {
-            case .message(event: let event, content: let content):
-                let view = ChatMessageView(timeline: nil, event: event, msg: content, includeProfileHeader: true)
-
-                if let hostView = hostView as? NSHostingView<ChatMessageView> {
-                    print("reusing message view")
-                    hostView.rootView = view
-                    return hostView
-                } else {
-                    let newHostView = NSHostingView<ChatMessageView>(rootView: view)
-                    newHostView.identifier = TimelineItemCell.reuseIdentifier
-                    return newHostView
-                }
-            case .state(event: let event):
-                let view = UI.GenericEventView(event: event, name: event.content.description)
-
-                if let hostView = hostView as? NSHostingView<UI.GenericEventView<EventTimelineItem>> {
-                    print("reusing state view")
-                    hostView.rootView = view
-                    return hostView
-                } else {
-                    let newHostView = NSHostingView<UI.GenericEventView<EventTimelineItem>>(rootView: view)
-                    newHostView.identifier = TimelineItemCell.reuseIdentifier
-                    return newHostView
-                }
-            case .virtual(virtual: let virtual):
-                let view = UI.VirtualItemView(item: virtual.asModel)
-
-                if let hostView = hostView as? NSHostingView<UI.VirtualItemView> {
-                    print("reusing virtual view")
-                    hostView.rootView = view
-                    return hostView
-                } else {
-                    let newHostView = NSHostingView<UI.VirtualItemView>(rootView: view)
-                    newHostView.identifier = TimelineItemCell.reuseIdentifier
-                    return newHostView
-                }
+            if let hostView = hostView as? NSHostingView<TimelineItemRowView> {
+                print("reusing message view")
+                hostView.rootView = view
+                return hostView
+            } else {
+                let newHostView = NSHostingView<TimelineItemRowView>(rootView: view)
+                newHostView.identifier = item.rowInfo.reuseIdentifier
+                return newHostView
             }
         }
+
         tableView.delegate = self
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
         view = scrollView
+
+        // 1. Tell the clip view to post notifications when its bounds change (resize)
+        scrollView.contentView.postsBoundsChangedNotifications = true
+
+        // 2. Observe that notification
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(handleTableResize),
+            name: NSView.frameDidChangeNotification,
+            object: scrollView.contentView
+        )
+    }
+
+    @objc func handleTableResize(_ notification: Notification) {
+        print("table view resize \(oldWidth.debugDescription) \(tableView.frame.width)")
+        // 3. This forces the table to re-call `heightOfRow` for all visible rows
+        if oldWidth != tableView.frame.width {
+            oldWidth = tableView.frame.width
+            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0 ..< timelineItems.count))
+        }
     }
 
     @available(*, unavailable)
@@ -145,6 +161,10 @@ class TimelineViewController: NSViewController {
 
         dataSource?.apply(snapshot, animatingDifferences: false)
     }
+
+    // values used to calculate height of a row
+    var oldWidth: CGFloat?
+    let measurementHostingView = NSHostingController(rootView: AnyView(EmptyView()))
 }
 
 extension TimelineViewController: NSTableViewDelegate {
@@ -154,6 +174,19 @@ extension TimelineViewController: NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
         return false
+    }
+
+    func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+        let item = timelineItems[row]
+
+        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, appState: coordinator.appState))
+
+        let proposedSize = CGSize(width: tableView.frame.width, height: CGFloat.greatestFiniteMagnitude)
+
+        let size = measurementHostingView.sizeThatFits(in: proposedSize)
+        print("Size of row \(row): \(size)")
+
+        return size.height
     }
 }
 
