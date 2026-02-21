@@ -80,8 +80,11 @@ struct ChatMessageView: View, UI.MessageEventActions {
                 Text(content.body.formatAsMarkdown)
                     .textSelection(.enabled)
                     .foregroundColor(.secondary)
+                    .fixedSize(horizontal: false, vertical: true)
             case let .text(content: content):
-                Text(content.body.formatAsMarkdown).textSelection(.enabled)
+                Text(content.body.formatAsMarkdown)
+                    .textSelection(.enabled)
+                    .fixedSize(horizontal: false, vertical: true)
             case let .location(content: content):
                 Text("Location: \(content.body) \(content.geoUri)").textSelection(.enabled)
             case let .other(msgtype: msgtype, body: body):

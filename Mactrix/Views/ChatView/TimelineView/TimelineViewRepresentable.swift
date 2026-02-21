@@ -2,23 +2,33 @@ import MatrixRustSDK
 import SwiftUI
 
 struct TimelineViewRepresentable: NSViewControllerRepresentable {
-    let timelineItems: [TimelineItem]
+    @Environment(AppState.self) private var appState
 
-    init(timelineItems: [TimelineItem]) {
-        self.timelineItems = timelineItems
+    let timeline: LiveTimeline
+    let items: [TimelineItem]
+
+    init(timeline: LiveTimeline, items: [TimelineItem]) {
+        self.timeline = timeline
+        self.items = items
     }
 
     func makeCoordinator() -> Coordinator {
-        return Coordinator()
+        return Coordinator(appState: appState)
     }
 
-    class Coordinator {}
+    class Coordinator {
+        let appState: AppState
+
+        init(appState: AppState) {
+            self.appState = appState
+        }
+    }
 
     func makeNSViewController(context: Context) -> TimelineViewController {
-        return TimelineViewController(coordinator: context.coordinator, timelineItems: timelineItems)
+        return TimelineViewController(coordinator: context.coordinator, timeline: timeline, timelineItems: items)
     }
 
     func updateNSViewController(_ timelineViewController: TimelineViewController, context: Context) {
-        timelineViewController.updateTimelineItems(timelineItems)
+        timelineViewController.updateTimelineItems(items)
     }
 }

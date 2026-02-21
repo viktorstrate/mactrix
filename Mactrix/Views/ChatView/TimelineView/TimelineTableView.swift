@@ -3,21 +3,39 @@ import MatrixRustSDK
 import SwiftUI
 import UI
 
-struct TimelineItemView: View {
-    let item: TimelineItem
+enum TimelineItemRowInfo {
+    case message(event: EventTimelineItem, content: MsgLikeContent)
+    case state(event: EventTimelineItem)
+    case virtual(virtual: VirtualTimelineItem)
 
-    var body: some View {
-        if let virtual = item.asVirtual() {
-            UI.VirtualItemView(item: virtual.asModel)
-        } else if let event = item.asEvent() {
-            if case let .msgLike(content: content) = event.content {
-                ChatMessageView(timeline: nil, event: event, msg: content, includeProfileHeader: true)
-            } else {
-                Text("Not msg like")
-            }
-        } else {
-            Text("Invalid timeline item")
+    var reuseIdentifier: NSUserInterfaceItemIdentifier {
+        switch self {
+        case .message:
+            return NSUserInterfaceItemIdentifier("message")
+        case .state:
+            return NSUserInterfaceItemIdentifier("state")
+        case .virtual:
+            return NSUserInterfaceItemIdentifier("virtual")
         }
+    }
+}
+
+extension TimelineItem {
+    var rowInfo: TimelineItemRowInfo {
+        if let virtual = asVirtual() {
+            return .virtual(virtual: virtual)
+        }
+
+        if let event = asEvent() {
+            switch event.content {
+            case .msgLike(content: let content):
+                return .message(event: event, content: content)
+            default:
+                return .state(event: event)
+            }
+        }
+
+        fatalError("unreachable state: item must be either virtual or event")
     }
 }
 
@@ -29,10 +47,12 @@ class TimelineViewController: NSViewController {
     let scrollView = NSScrollView()
     let tableView = BottomStickyTableView()
 
+    let timeline: LiveTimeline
     var timelineItems: [TimelineItem]
 
-    init(coordinator: TimelineViewRepresentable.Coordinator, timelineItems: [TimelineItem]) {
+    init(coordinator: TimelineViewRepresentable.Coordinator, timeline: LiveTimeline, timelineItems: [TimelineItem]) {
         self.coordinator = coordinator
+        self.timeline = timeline
         self.timelineItems = timelineItems
         super.init(nibName: nil, bundle: nil)
     }
@@ -48,30 +68,52 @@ class TimelineViewController: NSViewController {
         tableView.rowHeight = -1
         tableView.usesAutomaticRowHeights = true
 
-        dataSource = .init(tableView: tableView) { [weak self] tableView, tableColumn, row, identifier in
-            _ = tableView
-            _ = tableColumn
-            _ = row
-            _ = identifier
-
+        dataSource = .init(tableView: tableView) { [weak self] tableView, _, row, identifier in
             guard let self else { return NSView() }
 
             let hostView = tableView.makeView(withIdentifier: TimelineItemCell.reuseIdentifier, owner: self)
             print("Data source called \(row) \(identifier) \(hostView == nil ? "fresh" : "reuse")")
 
-            // let view = Text("SwiftUI Text \(row)")
+            let item = timelineItems[row]
 
-            let view = TimelineItemView(item: timelineItems[row])
+            switch item.rowInfo {
+            case .message(event: let event, content: let content):
+                let view = ChatMessageView(timeline: nil, event: event, msg: content, includeProfileHeader: true)
 
-            if let hostView = hostView as? NSHostingView<TimelineItemView> {
-                print("reusing swift ui view")
-                hostView.rootView = view
-                return hostView
+                if let hostView = hostView as? NSHostingView<ChatMessageView> {
+                    print("reusing message view")
+                    hostView.rootView = view
+                    return hostView
+                } else {
+                    let newHostView = NSHostingView<ChatMessageView>(rootView: view)
+                    newHostView.identifier = TimelineItemCell.reuseIdentifier
+                    return newHostView
+                }
+            case .state(event: let event):
+                let view = UI.GenericEventView(event: event, name: event.content.description)
+
+                if let hostView = hostView as? NSHostingView<UI.GenericEventView<EventTimelineItem>> {
+                    print("reusing state view")
+                    hostView.rootView = view
+                    return hostView
+                } else {
+                    let newHostView = NSHostingView<UI.GenericEventView<EventTimelineItem>>(rootView: view)
+                    newHostView.identifier = TimelineItemCell.reuseIdentifier
+                    return newHostView
+                }
+            case .virtual(virtual: let virtual):
+                let view = UI.VirtualItemView(item: virtual.asModel)
+
+                if let hostView = hostView as? NSHostingView<UI.VirtualItemView> {
+                    print("reusing virtual view")
+                    hostView.rootView = view
+                    return hostView
+                } else {
+                    let newHostView = NSHostingView<UI.VirtualItemView>(rootView: view)
+                    newHostView.identifier = TimelineItemCell.reuseIdentifier
+                    return newHostView
+                }
             }
-
-            let newHostView = NSHostingView<TimelineItemView>(rootView: view)
-            newHostView.identifier = TimelineItemCell.reuseIdentifier
-            return newHostView
         }
         tableView.delegate = self
 
