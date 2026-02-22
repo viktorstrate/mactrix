@@ -99,8 +99,8 @@ class TimelineViewController: NSViewController {
         tableView.style = .plain
         tableView.allowsColumnSelection = false
 
-        tableView.rowHeight = 50 // estimate
-        tableView.usesAutomaticRowHeights = false
+        tableView.rowHeight = -1
+        tableView.usesAutomaticRowHeights = true
 
         oldWidth = tableView.frame.width
 
@@ -113,7 +113,7 @@ class TimelineViewController: NSViewController {
             let view = TimelineItemRowView(rowInfo: item.rowInfo, coordinator: coordinator)
 
             let hostView: NSHostingView<TimelineItemRowView>
-            if let recycledView = tableView.makeView(withIdentifier: TimelineItemCell.reuseIdentifier, owner: self)
+            if let recycledView = tableView.makeView(withIdentifier: item.rowInfo.reuseIdentifier, owner: self)
                 as? NSHostingView<TimelineItemRowView>
             {
                 print("reusing message view")
@@ -122,6 +122,9 @@ class TimelineViewController: NSViewController {
             } else {
                 hostView = NSHostingView<TimelineItemRowView>(rootView: view)
                 hostView.identifier = item.rowInfo.reuseIdentifier
+                hostView.autoresizingMask = [.width, .height]
+                hostView.sizingOptions = [.preferredContentSize]
+                hostView.setContentHuggingPriority(.required, for: .vertical)
             }
 
             return hostView
@@ -147,10 +150,14 @@ class TimelineViewController: NSViewController {
 
     @objc func handleTableResize(_ notification: Notification) {
         print("table view resize \(oldWidth.debugDescription) \(tableView.frame.width)")
-        // 3. This forces the table to re-call `heightOfRow` for all visible rows
         if oldWidth != tableView.frame.width {
             oldWidth = tableView.frame.width
-            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0 ..< timelineItems.count))
+
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = 0
+                context.allowsImplicitAnimation = false
+                tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0 ..< timelineItems.count))
+            }
         }
     }
 
@@ -180,7 +187,11 @@ class TimelineViewController: NSViewController {
 
     // values used to calculate height of a row
     var oldWidth: CGFloat?
-    let measurementHostingView = NSHostingController(rootView: AnyView(EmptyView()))
+    let measurementHostingView = {
+        let hostView = NSHostingController(rootView: AnyView(EmptyView()))
+        hostView.sizingOptions = [.preferredContentSize]
+        return hostView
+    }()
 }
 
 extension TimelineViewController: NSTableViewDelegate {
@@ -197,17 +208,14 @@ extension TimelineViewController: NSTableViewDelegate {
 
         measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, coordinator: coordinator))
 
-        let proposedSize = CGSize(width: tableView.frame.width, height: CGFloat.greatestFiniteMagnitude)
+        let targetWidth = tableView.tableColumns[0].width
+        let proposedSize = CGSize(width: targetWidth, height: CGFloat.greatestFiniteMagnitude)
 
         let size = measurementHostingView.sizeThatFits(in: proposedSize)
         print("Size of row \(row): \(size)")
 
         return size.height
     }
-}
-
-class TimelineItemCell: NSTableCellView {
-    static var reuseIdentifier: NSUserInterfaceItemIdentifier = .init("TimelineItemCell")
 }
 
 class BottomStickyTableView: NSTableView {
