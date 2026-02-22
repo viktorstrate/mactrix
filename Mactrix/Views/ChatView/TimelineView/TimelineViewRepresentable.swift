@@ -3,6 +3,7 @@ import SwiftUI
 
 struct TimelineViewRepresentable: NSViewControllerRepresentable {
     @Environment(AppState.self) private var appState
+    @Environment(WindowState.self) private var windowState
 
     let timeline: LiveTimeline
     let items: [TimelineItem]
@@ -13,14 +14,16 @@ struct TimelineViewRepresentable: NSViewControllerRepresentable {
     }
 
     func makeCoordinator() -> Coordinator {
-        return Coordinator(appState: appState)
+        return Coordinator(appState: appState, windowState: windowState)
     }
 
     class Coordinator {
         let appState: AppState
+        let windowState: WindowState
 
-        init(appState: AppState) {
+        init(appState: AppState, windowState: WindowState) {
             self.appState = appState
+            self.windowState = windowState
         }
     }
 

@@ -23,6 +23,13 @@ enum TimelineItemRowInfo {
 struct TimelineItemRowView: View {
     let rowInfo: TimelineItemRowInfo
     let appState: AppState
+    let windowState: WindowState
+
+    init(rowInfo: TimelineItemRowInfo, coordinator: TimelineViewRepresentable.Coordinator) {
+        self.rowInfo = rowInfo
+        self.appState = coordinator.appState
+        self.windowState = coordinator.windowState
+    }
 
     @ViewBuilder
     var contentView: some View {
@@ -37,7 +44,13 @@ struct TimelineItemRowView: View {
     }
 
     var body: some View {
-        contentView.environment(appState)
+        HStack(alignment: .bottom, spacing: 0) {
+            VStack(spacing: 0) {
+                contentView
+                    .environment(appState)
+                    .environment(windowState)
+            }
+        }
     }
 }
 
@@ -94,21 +107,24 @@ class TimelineViewController: NSViewController {
         dataSource = .init(tableView: tableView) { [weak self] tableView, _, row, identifier in
             guard let self else { return NSView() }
 
-            let hostView = tableView.makeView(withIdentifier: TimelineItemCell.reuseIdentifier, owner: self)
-            print("Data source called \(row) \(identifier) \(hostView == nil ? "fresh" : "reuse")")
+            print("Data source called \(row) \(identifier)")
 
             let item = timelineItems[row]
-            let view = TimelineItemRowView(rowInfo: item.rowInfo, appState: coordinator.appState)
+            let view = TimelineItemRowView(rowInfo: item.rowInfo, coordinator: coordinator)
 
-            if let hostView = hostView as? NSHostingView<TimelineItemRowView> {
+            let hostView: NSHostingView<TimelineItemRowView>
+            if let recycledView = tableView.makeView(withIdentifier: TimelineItemCell.reuseIdentifier, owner: self)
+                as? NSHostingView<TimelineItemRowView>
+            {
                 print("reusing message view")
-                hostView.rootView = view
-                return hostView
+                recycledView.rootView = view
+                hostView = recycledView
             } else {
-                let newHostView = NSHostingView<TimelineItemRowView>(rootView: view)
-                newHostView.identifier = item.rowInfo.reuseIdentifier
-                return newHostView
+                hostView = NSHostingView<TimelineItemRowView>(rootView: view)
+                hostView.identifier = item.rowInfo.reuseIdentifier
             }
+
+            return hostView
         }
 
         tableView.delegate = self
@@ -179,7 +195,7 @@ extension TimelineViewController: NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         let item = timelineItems[row]
 
-        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, appState: coordinator.appState))
+        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, coordinator: coordinator))
 
         let proposedSize = CGSize(width: tableView.frame.width, height: CGFloat.greatestFiniteMagnitude)
 
