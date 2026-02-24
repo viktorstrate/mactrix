@@ -23,11 +23,14 @@ enum TimelineItemRowInfo {
 
 struct TimelineItemRowView: View {
     let rowInfo: TimelineItemRowInfo
+    let timeline: LiveTimeline?
+
     let appState: AppState
     let windowState: WindowState
 
-    init(rowInfo: TimelineItemRowInfo, coordinator: TimelineViewRepresentable.Coordinator) {
+    init(rowInfo: TimelineItemRowInfo, timeline: LiveTimeline?, coordinator: TimelineViewRepresentable.Coordinator) {
         self.rowInfo = rowInfo
+        self.timeline = timeline
         self.appState = coordinator.appState
         self.windowState = coordinator.windowState
     }
@@ -36,7 +39,7 @@ struct TimelineItemRowView: View {
     var contentView: some View {
         switch rowInfo {
         case .message(let event, let content):
-            ChatMessageView(timeline: nil, event: event, msg: content, includeProfileHeader: true)
+            ChatMessageView(timeline: timeline, event: event, msg: content, includeProfileHeader: true)
         case .state(let event):
             UI.GenericEventView(event: event, name: event.content.description)
         case .virtual(let virtual):
@@ -109,7 +112,7 @@ class TimelineViewController: NSViewController {
             guard let self else { return NSView() }
 
             let item = timelineItems[row]
-            let view = TimelineItemRowView(rowInfo: item.rowInfo, coordinator: coordinator)
+            let view = TimelineItemRowView(rowInfo: item.rowInfo, timeline: timeline, coordinator: coordinator)
 
             let hostView: NSHostingView<TimelineItemRowView>
             if let recycledView = tableView.makeView(withIdentifier: item.rowInfo.reuseIdentifier, owner: self)
@@ -149,6 +152,8 @@ class TimelineViewController: NSViewController {
             name: NSView.boundsDidChangeNotification,
             object: scrollView.contentView
         )
+
+        listenForFocusTimelineItem()
     }
 
     @objc func handleTableResize(_ notification: Notification) {
@@ -189,6 +194,23 @@ class TimelineViewController: NSViewController {
                 timelineFetchTask = nil
             }
         }
+    }
+
+    func listenForFocusTimelineItem() {
+        Logger.timelineTableView.debug("Listen for focus timeline item")
+
+        let focusedTimelineEventId = withObservationTracking {
+            timeline.focusedTimelineEventId
+        } onChange: {
+            Task { @MainActor in self.listenForFocusTimelineItem() }
+        }
+
+        guard let focusedTimelineEventId,
+              let rowIndex = timelineItems.firstIndex(where: {
+                  $0.asEvent()?.eventOrTransactionId == focusedTimelineEventId
+              }) else { return }
+
+        tableView.animateRowToVisible(rowIndex)
     }
 
     @available(*, unavailable)
@@ -236,7 +258,7 @@ extension TimelineViewController: NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         let item = timelineItems[row]
 
-        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, coordinator: coordinator))
+        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, timeline: nil, coordinator: coordinator))
 
         let targetWidth = tableView.tableColumns[0].width
         let proposedSize = CGSize(width: targetWidth, height: CGFloat.greatestFiniteMagnitude)
