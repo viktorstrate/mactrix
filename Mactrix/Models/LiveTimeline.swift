@@ -18,7 +18,7 @@ public final class LiveTimeline {
     public var errorMessage: String?
 
     public private(set) var focusedTimelineEventId: EventOrTransactionId?
-    public private(set) var focusedTimelineGroupId: String?
+    // public private(set) var focusedTimelineGroupId: String?
 
     public var sendReplyTo: MatrixRustSDK.EventTimelineItem?
 
@@ -122,6 +122,7 @@ public final class LiveTimeline {
                 paginating = status
 
                 if paginating == .idle(hitTimelineStart: false) && timelineItems.count < 20 {
+                    try await Task.sleep(for: .milliseconds(500))
                     try await fetchOlderMessages()
                 }
             }
@@ -142,79 +143,37 @@ public final class LiveTimeline {
     public func focusEvent(id eventId: EventOrTransactionId) {
         Logger.liveTimeline.info("focus event: \(eventId.id)")
         focusedTimelineEventId = eventId
-
-        /* let group = timelineGroups.groups.first { group in
-             switch group {
-             case let .messages(messages, _, _):
-                 return messages.contains(where: { $0.event.eventOrTransactionId == eventId })
-             case .stateChanges:
-                 return false
-             case .virtual:
-                 return false
-             }
-         }
-         focusedTimelineGroupId = group?.id
-
-         if let focusedTimelineGroupId {
-             withAnimation {
-                 scrollPosition.scrollTo(id: focusedTimelineGroupId)
-             }
-         } */
     }
 }
 
 extension LiveTimeline {
     private func updateTimeline(diff: [TimelineDiff]) {
-        // let oldView = scrollPosition.viewID
-        // let oldEdge = scrollPosition.edge
-        // Logger.liveTimeline.trace("onUpdate old view \(oldView.debugDescription) \(oldEdge.debugDescription)")
-
-        // var updatedIds = Set<String>()
-
         for update in diff {
             switch update {
             case let .append(values):
                 timelineItems.append(contentsOf: values)
-            /* for value in values {
-                 updatedIds.insert(value.uniqueId().id)
-             } */
             case .clear:
                 timelineItems.removeAll()
             case let .pushFront(room):
                 timelineItems.insert(room, at: 0)
-            // updatedIds.insert(room.uniqueId().id)
             case let .pushBack(room):
                 timelineItems.append(room)
-            // updatedIds.insert(room.uniqueId().id)
             case .popFront:
                 timelineItems.removeFirst()
             case .popBack:
                 timelineItems.removeLast()
             case let .insert(index, room):
                 timelineItems.insert(room, at: Int(index))
-            // updatedIds.insert(room.uniqueId().id)
             case let .set(index, room):
                 timelineItems[Int(index)] = room
-            // updatedIds.insert(room.uniqueId().id)
             case let .remove(index):
                 timelineItems.remove(at: Int(index))
             case let .truncate(length):
                 timelineItems.removeSubrange(Int(length) ..< timelineItems.count)
             case let .reset(values: values):
                 timelineItems = values
-                /* for value in values {
-                     updatedIds.insert(value.uniqueId().id)
-                 } */
             }
         }
-
-        /* timelineGroups.updateItems(items: timelineItems, updatedIds: updatedIds)
-
-         if let oldEdge {
-             scrollPosition.scrollTo(edge: oldEdge)
-         } else if let oldView {
-             scrollPosition.scrollTo(id: oldView, anchor: .top)
-         } */
     }
 }
 
