@@ -1,5 +1,6 @@
 import AppKit
 import MatrixRustSDK
+import OSLog
 import SwiftUI
 import UI
 
@@ -104,10 +105,8 @@ class TimelineViewController: NSViewController {
 
         oldWidth = tableView.frame.width
 
-        dataSource = .init(tableView: tableView) { [weak self] tableView, _, row, identifier in
+        dataSource = .init(tableView: tableView) { [weak self] tableView, _, row, _ in
             guard let self else { return NSView() }
-
-            print("Data source called \(row) \(identifier)")
 
             let item = timelineItems[row]
             let view = TimelineItemRowView(rowInfo: item.rowInfo, coordinator: coordinator)
@@ -116,7 +115,7 @@ class TimelineViewController: NSViewController {
             if let recycledView = tableView.makeView(withIdentifier: item.rowInfo.reuseIdentifier, owner: self)
                 as? NSHostingView<TimelineItemRowView>
             {
-                print("reusing message view")
+                Logger.timelineTableView.debug("reusing message view")
                 recycledView.rootView = view
                 hostView = recycledView
             } else {
@@ -149,14 +148,17 @@ class TimelineViewController: NSViewController {
     }
 
     @objc func handleTableResize(_ notification: Notification) {
-        print("table view resize \(oldWidth.debugDescription) \(tableView.frame.width)")
         if oldWidth != tableView.frame.width {
             oldWidth = tableView.frame.width
 
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = 0
                 context.allowsImplicitAnimation = false
-                tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: 0 ..< timelineItems.count))
+
+                // Update only the height of visible rows
+                let visibleRect = tableView.visibleRect
+                let visibleRows = tableView.rows(in: visibleRect)
+                tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
             }
         }
     }
@@ -172,13 +174,13 @@ class TimelineViewController: NSViewController {
     }
 
     func updateTimelineItems(_ timelineItems: [TimelineItem]) {
-        print("update timeline items")
-        self.timelineItems = timelineItems
+        Logger.timelineTableView.info("update timeline items")
+        self.timelineItems = timelineItems.reversed()
 
         var snapshot = NSDiffableDataSourceSnapshot<TimelineSection, TimelineUniqueId>()
         snapshot.appendSections([.main])
 
-        for item in timelineItems {
+        for item in self.timelineItems {
             snapshot.appendItems([.init(id: item.uniqueId().id)], toSection: .main)
         }
 
@@ -212,7 +214,7 @@ extension TimelineViewController: NSTableViewDelegate {
         let proposedSize = CGSize(width: targetWidth, height: CGFloat.greatestFiniteMagnitude)
 
         let size = measurementHostingView.sizeThatFits(in: proposedSize)
-        print("Size of row \(row): \(size)")
+        Logger.timelineTableView.debug("Size of row \(row): \(size.height)")
 
         return size.height
     }
