@@ -115,7 +115,6 @@ class TimelineViewController: NSViewController {
             if let recycledView = tableView.makeView(withIdentifier: item.rowInfo.reuseIdentifier, owner: self)
                 as? NSHostingView<TimelineItemRowView>
             {
-                Logger.timelineTableView.debug("reusing message view")
                 recycledView.rootView = view
                 hostView = recycledView
             } else {
@@ -135,14 +134,19 @@ class TimelineViewController: NSViewController {
         scrollView.hasVerticalScroller = true
         view = scrollView
 
-        // 1. Tell the clip view to post notifications when its bounds change (resize)
+        // Subscribe to view resize notifications
         scrollView.contentView.postsBoundsChangedNotifications = true
-
-        // 2. Observe that notification
         NotificationCenter.default.addObserver(
             self,
             selector: #selector(handleTableResize),
             name: NSView.frameDidChangeNotification,
+            object: scrollView.contentView
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(viewDidScroll(_:)),
+            name: NSView.boundsDidChangeNotification,
             object: scrollView.contentView
         )
     }
@@ -159,6 +163,30 @@ class TimelineViewController: NSViewController {
                 let visibleRect = tableView.visibleRect
                 let visibleRows = tableView.rows(in: visibleRect)
                 tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
+            }
+        }
+    }
+
+    var timelineFetchTask: Task<Void, Never>?
+
+    @objc func viewDidScroll(_ notification: Notification) {
+        let currentOffset = scrollView.contentView.bounds.origin.y
+        let timelineHeight = scrollView.contentView.documentRect.height
+        let viewHeight = scrollView.contentView.documentVisibleRect.height
+
+        let distanceFromTop = timelineHeight - viewHeight - currentOffset
+        let threshold: CGFloat = 200.0 // Pixels from the top to trigger load
+
+        if distanceFromTop <= threshold, timelineFetchTask == nil {
+            Logger.timelineTableView.info("Fetching older messages (scroll near top)")
+            timelineFetchTask = Task {
+                do {
+                    try await timeline.fetchOlderMessages()
+                } catch {
+                    Logger.timelineTableView.error("Failed to fetch older messages: \(error)")
+                }
+
+                timelineFetchTask = nil
             }
         }
     }
@@ -214,8 +242,6 @@ extension TimelineViewController: NSTableViewDelegate {
         let proposedSize = CGSize(width: targetWidth, height: CGFloat.greatestFiniteMagnitude)
 
         let size = measurementHostingView.sizeThatFits(in: proposedSize)
-        Logger.timelineTableView.debug("Size of row \(row): \(size.height)")
-
         return size.height
     }
 }

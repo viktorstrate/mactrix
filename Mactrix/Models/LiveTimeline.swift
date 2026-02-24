@@ -136,7 +136,7 @@ public final class LiveTimeline {
         }
 
         Logger.liveTimeline.info("fetch more messages")
-        _ = try await timeline?.paginateBackwards(numEvents: 20)
+        _ = try await timeline?.paginateBackwards(numEvents: 100)
     }
 
     public func focusEvent(id eventId: EventOrTransactionId) {
