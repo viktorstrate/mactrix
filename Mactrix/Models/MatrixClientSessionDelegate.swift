@@ -1,5 +1,4 @@
 import Foundation
-import KeychainAccess
 import MatrixRustSDK
 import OSLog
 import SwiftUI
