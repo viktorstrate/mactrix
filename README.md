@@ -1,3 +1,5 @@
+<img width="128" height="128" src="./docs/mactrix-icon.webp">
+
 # Mactrix
 
 [![Mactrix chatroom](https://img.shields.io/badge/matrix-%23mactrix-blue?logo=matrix)](https://matrix.to/#/%23mactrix:qpqp.dk)
@@ -54,7 +56,7 @@ Then open the project in Xcode and build using `Cmd+B`.
   - [x] Show reactions
   - [ ] Group timeline virtual items:
     - Removed messages, user join / leave, username change, profile picture change
-  - [ ] Show read receipts
+  - [x] Show read receipts
   - [ ] Attachments
     - [ ] Support all formats (video, audio, files)
     - [ ] Download attachment to file
