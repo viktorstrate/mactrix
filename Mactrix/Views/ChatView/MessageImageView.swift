@@ -1,4 +1,5 @@
 import MatrixRustSDK
+import Models
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -11,6 +12,19 @@ struct MessageImageView: View {
     @State private var image: Image? = nil
     @State private var errorMessage: String? = nil
 
+    var aspectRatio: CGFloat? {
+        guard let info = content.info,
+              let height = info.height,
+              let width = info.width else { return nil }
+
+        return CGFloat(width) / CGFloat(height)
+    }
+
+    var maxHeight: CGFloat {
+        guard let height = content.info?.height else { return 300 }
+        return min(CGFloat(height), 300)
+    }
+
     var body: some View {
         VStack {
             if let errorMessage = errorMessage {
@@ -22,7 +36,6 @@ struct MessageImageView: View {
                     image
                         .resizable()
                         .scaledToFit()
-                        .frame(maxHeight: 300)
                         .clipShape(RoundedRectangle(cornerRadius: 6))
                         .onDrag {
                             let itemProvider = NSItemProvider()
@@ -40,11 +53,13 @@ struct MessageImageView: View {
                     }
                 }
                 if let caption = content.caption {
-                    Text(caption)
-                        .font(.caption)
+                    Text(caption.formatAsMarkdown)
+                        .textSelection(.enabled)
                 }
             }
         }
+        .frame(maxHeight: maxHeight)
+        .aspectRatio(aspectRatio, contentMode: .fit)
         .task(id: content.source.url(), priority: .utility) {
             guard let matrixClient = appState.matrixClient else {
                 errorMessage = "Matrix client not available"
