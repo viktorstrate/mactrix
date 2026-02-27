@@ -43,6 +43,7 @@ public struct RoomRow: View {
     @State private var joining: Bool = false
     @State private var error: Error? = nil
     @State private var isErrorVisible: Bool = false
+    @ScaledMetric(relativeTo: .body) private var roomAvatarSize: CGFloat = 22.0
 
     public init(title: String, avatarUrl: String?, roomInfo: RoomInfo?, imageLoader: ImageLoader?, joinRoom: (() async throws -> Void)?) {
         self.title = title
@@ -71,8 +72,13 @@ public struct RoomRow: View {
             },
             icon: {
                 UI.AvatarImage(avatarUrl: avatarUrl, imageLoader: imageLoader) {
-                    Image(systemName: placeholderImageName)
+                    RoundedRectangle(cornerRadius: 4)
+                        .fill(.clear)
+                        .overlay {
+                            Image(systemName: placeholderImageName)
+                        }
                 }
+                .frame(width: roomAvatarSize, height: roomAvatarSize)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
             }
         )
