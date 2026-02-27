@@ -8,6 +8,7 @@ struct ReadReciptsView<RoomMember: Models.RoomMember>: View {
 
     private let truncatedAvatarLimit = 3
     private let fullAvatarLimit = 4
+    @State private var showPopover: Bool = false
 
     var users: [String] {
         receipts
@@ -29,6 +30,10 @@ struct ReadReciptsView<RoomMember: Models.RoomMember>: View {
         users.count - visibleUsers.count
     }
 
+    var popoverUsers: [String] {
+        users.reversed()
+    }
+
     @ViewBuilder
     func avatarImage(forUserId userId: String) -> some View {
         let user = roomMembers.first(where: { $0.id == userId })
@@ -45,39 +50,98 @@ struct ReadReciptsView<RoomMember: Models.RoomMember>: View {
         return user?.displayName ?? userId
     }
 
-    func overflowTooltip(forHiddenUsers hiddenUsers: [String]) -> String {
-        let names = hiddenUsers.map { userDisplayName(forUserId: $0) }
+    func readByTooltip(forUsers userIds: [String]) -> String {
+        let names = userIds.map { userDisplayName(forUserId: $0) }
 
         switch names.count {
+        case 0:
+            return ""
         case 1:
             return "Read by \(names[0])"
         case 2:
             return "Read by \(names[0]) and \(names[1])"
         case 3:
-            return "Read by \(names[0]), \(names[1]), and 1 other"
+            return "Read by \(names[0]), \(names[1]), and \(names[2])"
         default:
             return "Read by \(names[0]), \(names[1]), and \(names.count - 2) others"
         }
     }
 
+    func formattedTimestamp(_ date: Date) -> String {
+        if Calendar.current.isDateInToday(date) {
+            return date.formatted(.dateTime.hour().minute())
+        }
+        return date.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+    }
+
+    var popoverHeader: String {
+        users.count == 1 ? "Read by 1 person" : "Read by \(users.count) people"
+    }
+
+    @ViewBuilder
+    var readReceiptsPopover: some View {
+        VStack(alignment: .leading) {
+            Text(popoverHeader)
+                .font(.headline)
+                .padding(.bottom, 4)
+
+            ScrollView {
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(popoverUsers, id: \.self) { userId in
+                        HStack(spacing: 10) {
+                            avatarImage(forUserId: userId)
+                                .frame(width: 28, height: 28)
+                                .clipShape(Circle())
+
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(userDisplayName(forUserId: userId))
+                                    .font(.body)
+                                    .lineLimit(1)
+
+                                if let timestamp = receipts[userId]?.timestamp {
+                                    Text(formattedTimestamp(timestamp))
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+        }
+        .frame(width: 200)
+        .frame(maxHeight: 250)
+        .padding()
+    }
+
     var body: some View {
-        HStack(spacing: -2) {
-            if hiddenCount > 0 {
-                Text("+\(hiddenCount)")
-                    .font(.system(.caption2))
-                    .foregroundStyle(.secondary)
-                    .help(overflowTooltip(forHiddenUsers: Array(users.dropLast(visibleUsers.count))))
-                    .padding(.trailing, 4)
+        Button {
+            showPopover.toggle()
+        } label: {
+            HStack(spacing: -2) {
+                if hiddenCount > 0 {
+                    Text("+\(hiddenCount)")
+                        .font(.system(.caption2))
+                        .foregroundStyle(.secondary)
+                        .padding(.trailing, 4)
+                }
+                ForEach(visibleUsers, id: \.self) { userId in
+                    avatarImage(forUserId: userId)
+                        .frame(width: 14, height: 14)
+                        .clipShape(Circle())
+                        .background(
+                            Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 3)
+                        )
+                }
             }
-            ForEach(visibleUsers, id: \.self) { userId in
-                avatarImage(forUserId: userId)
-                    .frame(width: 14, height: 14)
-                    .clipShape(Circle())
-                    .background(
-                        Circle().stroke(Color(NSColor.controlBackgroundColor), lineWidth: 3)
-                    )
-                    .help("Read by \(userDisplayName(forUserId: userId))")
-            }
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .pointerStyle(.link)
+        .help(readByTooltip(forUsers: users))
+        .popover(isPresented: $showPopover) {
+            readReceiptsPopover
         }
     }
 }
