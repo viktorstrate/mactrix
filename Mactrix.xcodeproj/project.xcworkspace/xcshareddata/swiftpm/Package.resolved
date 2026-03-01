@@ -29,15 +29,6 @@
       }
     },
     {
-      "identity" : "valet",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/square/Valet",
-      "state" : {
-        "revision" : "246baf6be3f9e3ff116dc05251a08f69dd7c7b9d",
-        "version" : "5.1.0"
-      }
-    },
-    {
       "identity" : "zmarkupparser",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/ZhgChgLi/ZMarkupParser.git",
