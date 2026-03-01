@@ -1,15 +1,6 @@
 {
-  "originHash" : "d084e0c9b1d3b8ac948908f0ca98de1cca938f342f749686b8062637737a5cf4",
+  "originHash" : "2e655dd159a59779ade7006421372d658386daea86b82435cbe33da36bb81efb",
   "pins" : [
-    {
-      "identity" : "keychainaccess",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/kishikawakatsumi/KeychainAccess",
-      "state" : {
-        "branch" : "master",
-        "revision" : "e0c7eebc5a4465a3c4680764f26b7a61f567cdaf"
-      }
-    },
     {
       "identity" : "matrix-rust-components-swift",
       "kind" : "remoteSourceControl",

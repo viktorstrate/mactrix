@@ -49,7 +49,11 @@ struct HomeserverLogin {
         let matrixClient = await MatrixClient(storeID: storeID, client: unauthenticatedClient)
 
         let userSession = try matrixClient.userSession()
-        try userSession.saveUserToKeychain()
+        do {
+            try userSession.saveUserToKeychain()
+        } catch {
+            print(error.localizedDescription)
+        }
 
         return matrixClient
     }

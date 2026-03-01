@@ -12,7 +12,6 @@
 		348E99882F40ABC3009F57A9 /* AsyncAlgorithms in Frameworks */ = {isa = PBXBuildFile; productRef = 348E99872F40ABC3009F57A9 /* AsyncAlgorithms */; };
 		34913F6E2EC0F532003034CB /* MatrixRustSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 34913F6D2EC0F532003034CB /* MatrixRustSDK */; };
 		34913F702EC0F59F003034CB /* Models in Frameworks */ = {isa = PBXBuildFile; productRef = 34913F6F2EC0F59F003034CB /* Models */; };
-		34F7225F2EB531F40007B2A4 /* KeychainAccess in Frameworks */ = {isa = PBXBuildFile; productRef = 34F7225E2EB531F40007B2A4 /* KeychainAccess */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -50,7 +49,6 @@
 				34913F6E2EC0F532003034CB /* MatrixRustSDK in Frameworks */,
 				345E77E82ED9F309002E5B9A /* Utils in Frameworks */,
 				34913F702EC0F59F003034CB /* Models in Frameworks */,
-				34F7225F2EB531F40007B2A4 /* KeychainAccess in Frameworks */,
 				348E99882F40ABC3009F57A9 /* AsyncAlgorithms in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -103,7 +101,6 @@
 			);
 			name = Mactrix;
 			packageProductDependencies = (
-				34F7225E2EB531F40007B2A4 /* KeychainAccess */,
 				3409F4EB2EBFD8D4009537B4 /* UI */,
 				34913F6D2EC0F532003034CB /* MatrixRustSDK */,
 				34913F6F2EC0F59F003034CB /* Models */,
@@ -140,7 +137,6 @@
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
 				342C624C2EB4DDE600E2426A /* XCRemoteSwiftPackageReference "matrix-rust-components-swift" */,
-				34F7225D2EB531F40007B2A4 /* XCRemoteSwiftPackageReference "KeychainAccess" */,
 				3409F4E82EBFD8D4009537B4 /* XCLocalSwiftPackageReference "MactrixLibrary" */,
 				348E99862F40ABC3009F57A9 /* XCRemoteSwiftPackageReference "swift-async-algorithms" */,
 			);
@@ -450,14 +446,6 @@
 				minimumVersion = 1.1.2;
 			};
 		};
-		34F7225D2EB531F40007B2A4 /* XCRemoteSwiftPackageReference "KeychainAccess" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/kishikawakatsumi/KeychainAccess";
-			requirement = {
-				branch = master;
-				kind = branch;
-			};
-		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -482,11 +470,6 @@
 		34913F6F2EC0F59F003034CB /* Models */ = {
 			isa = XCSwiftPackageProductDependency;
 			productName = Models;
-		};
-		34F7225E2EB531F40007B2A4 /* KeychainAccess */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 34F7225D2EB531F40007B2A4 /* XCRemoteSwiftPackageReference "KeychainAccess" */;
-			productName = KeychainAccess;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
