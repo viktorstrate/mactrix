@@ -16,7 +16,8 @@ struct AppKeychain {
         [
             kSecClass: kSecClassGenericPassword,
             kSecAttrService: service,
-            kSecUseDataProtectionKeychain: true,
+            /// change to true for Data Protection keychain mode
+            kSecUseDataProtectionKeychain: false,
         ]
     }
 
@@ -34,6 +35,9 @@ struct AppKeychain {
                 throw KeychainError.unexpectedStatus(addStatus)
             }
         } else if updateStatus != errSecSuccess {
+            /// with kSecUseDataProtectionKeychain set to true, this will throw with error -34018, which according to
+            /// https://github.com/apple-oss-distributions/Security/blob/09becc8fb155462f0853f99cd09c26b10a38e2f4/sec/Security/SecBasePriv.h#L113
+            /// is the error "Internal error when a required entitlement isn't present"
             throw KeychainError.unexpectedStatus(updateStatus)
         }
     }
