@@ -1,6 +1,5 @@
 import AsyncAlgorithms
 import Foundation
-import Valet
 import MatrixRustSDK
 import OSLog
 import SwiftUI
@@ -40,27 +39,16 @@ struct UserSession: Codable {
     fileprivate static var keychainKey: String { "UserSession" }
 
     func saveUserToKeychain() throws {
-        guard let identifier = Identifier(nonEmpty: Bundle.main.bundleIdentifier) else {
-            fatalError("Unable to generate keychain identifier")
-        }
-        let valet = Valet.valet(with: identifier, accessibility: .whenUnlocked)
         let keychainData = try JSONEncoder().encode(self)
-        try valet.setObject(keychainData, forKey: Self.keychainKey)
+        try AppKeychain().save(keychainData, forKey: Self.keychainKey)
     }
 
     static func loadUserFromKeychain() throws -> Self? {
         Logger.matrixClient.debug("Load user from keychain")
-        guard let identifier = Identifier(nonEmpty: Bundle.main.bundleIdentifier) else {
-            fatalError("Unable to generate keychain identifier")
+        if let keychainData = try AppKeychain().load(forKey: Self.keychainKey) {
+            return try JSONDecoder().decode(Self.self, from: keychainData)
         }
-        let valet = Valet.valet(with: identifier, accessibility: .whenUnlocked)
-        if let keychainData = try valet.object(forKey: Self.keychainKey) as Data? {
-            let sessionData = try JSONDecoder().decode(Self.self,
-                                                       from: keychainData)
-            return sessionData
-        } else {
-            return nil
-        }
+        return nil
     }
 }
 
@@ -154,11 +142,7 @@ class MatrixClient {
         try? await client.logout()
         try? FileManager.default.removeItem(at: .sessionData(for: storeID))
         try? FileManager.default.removeItem(at: .sessionCaches(for: storeID))
-        guard let identifier = Identifier(nonEmpty: Bundle.main.bundleIdentifier) else {
-            fatalError("Unable to generate keychain identifier")
-        }
-        let valet = Valet.valet(with: identifier, accessibility: .whenUnlocked)
-        try valet.removeAllObjects()
+        try AppKeychain().removeAll()
         Logger.matrixClient.debug("matrix client sign out complete")
     }
 

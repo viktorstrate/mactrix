@@ -1,5 +1,5 @@
 {
-  "originHash" : "84591e187e18eae1ade044e76490d68c9217ea50912987cebe430eb6fa4babe7",
+  "originHash" : "2e655dd159a59779ade7006421372d658386daea86b82435cbe33da36bb81efb",
   "pins" : [
     {
       "identity" : "matrix-rust-components-swift",
@@ -26,15 +26,6 @@
       "state" : {
         "revision" : "7b847a3b7008b2dc2f47ca3110d8c782fb2e5c7e",
         "version" : "1.3.0"
-      }
-    },
-    {
-      "identity" : "valet",
-      "kind" : "remoteSourceControl",
-      "location" : "https://github.com/square/Valet",
-      "state" : {
-        "revision" : "246baf6be3f9e3ff116dc05251a08f69dd7c7b9d",
-        "version" : "5.1.0"
       }
     }
   ],
