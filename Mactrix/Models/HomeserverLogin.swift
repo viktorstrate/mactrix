@@ -6,11 +6,13 @@ import SwiftUI
 
 struct HomeserverLogin {
     let storeID: String
+    let storePassphrase: String
     let unauthenticatedClient: ClientProtocol
     let loginDetails: HomeserverLoginDetailsProtocol
 
-    init(storeID: String, unauthenticatedClient: ClientProtocol, loginDetails: HomeserverLoginDetailsProtocol) {
+    init(storeID: String, storePassphrase: String, unauthenticatedClient: ClientProtocol, loginDetails: HomeserverLoginDetailsProtocol) {
         self.storeID = storeID
+        self.storePassphrase = storePassphrase
         self.unauthenticatedClient = unauthenticatedClient
         self.loginDetails = loginDetails
     }
@@ -46,7 +48,7 @@ struct HomeserverLogin {
 
     @MainActor
     fileprivate func onSuccessfullLogin() async throws -> MatrixClient {
-        let matrixClient = await MatrixClient(storeID: storeID, client: unauthenticatedClient)
+        let matrixClient = await MatrixClient(storeID: storeID, storePassphrase: storePassphrase, client: unauthenticatedClient)
 
         let userSession = try matrixClient.userSession()
         try userSession.saveUserToKeychain()

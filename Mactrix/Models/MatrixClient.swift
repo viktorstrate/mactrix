@@ -3,73 +3,16 @@ import Foundation
 import KeychainAccess
 import MatrixRustSDK
 import OSLog
+import Security
 import SwiftUI
 import UI
 import UniformTypeIdentifiers
 import Utils
 
-struct UserSession: Codable {
-    let accessToken: String
-    let refreshToken: String?
-    let userID: String
-    let deviceID: String
-    let homeserverURL: String
-    let oidcData: String?
-    let storeID: String
-
-    init(session: Session, storeID: String) {
-        accessToken = session.accessToken
-        refreshToken = session.refreshToken
-        userID = session.userId
-        deviceID = session.deviceId
-        homeserverURL = session.homeserverUrl
-        oidcData = session.oidcData
-        self.storeID = storeID
-    }
-
-    var session: Session {
-        Session(accessToken: accessToken,
-                refreshToken: refreshToken,
-                userId: userID,
-                deviceId: deviceID,
-                homeserverUrl: homeserverURL,
-                oidcData: oidcData,
-                slidingSyncVersion: .native)
-    }
-
-    fileprivate static var keychainKey: String { "UserSession" }
-
-    func saveUserToKeychain() throws {
-        let keychainData = try JSONEncoder().encode(self)
-        let keychain = Keychain(service: applicationID)
-        try keychain.set(keychainData, key: Self.keychainKey)
-    }
-
-    static func loadUserFromKeychain() throws -> Self? {
-        Logger.matrixClient.debug("Load user from keychain")
-        /* #if DEBUG
-             if true {
-                 return try JSONDecoder().decode(Self.self, from: DevSecrets.matrixSession.data(using: .utf8)!)
-             }
-         #endif */
-        let keychain = Keychain(service: applicationID)
-        guard let keychainData = try keychain.getData(keychainKey) else { return nil }
-        return try JSONDecoder().decode(Self.self, from: keychainData)
-    }
-}
-
-enum SelectedScreen {
-    case joinedRoom(timeline: LiveTimeline)
-    case loadMatrixUrl(_ url: Utils.MatrixUriScheme)
-    case previewRoom(_ room: RoomPreview)
-    case user(profile: UserProfile)
-    case newRoom
-    case none
-}
-
 @MainActor @Observable
 class MatrixClient {
     let storeID: String
+    let storePassphrase: String
     var client: ClientProtocol!
 
     var rooms: [SidebarRoom] = []
@@ -81,64 +24,83 @@ class MatrixClient {
 
     let notifications: MatrixNotifications = .init()
 
-    init(storeID: String, clientBuilder: ClientBuilderProtocol) async throws {
-        self.storeID = storeID
+    init(userSession: UserSession) async throws {
+        storeID = userSession.storeID
+        storePassphrase = userSession.storePassphrase
 
-        client = try await clientBuilder
+        client = try await Self.clientBuilder(homeServer: userSession.homeserverURL, storeId: storeID, storePassphrase: storePassphrase)
             .enableOidcRefreshLock()
             .setSessionDelegate(sessionDelegate: self)
             .build()
 
         spaceService = LiveSpaceService(spaceService: await client.spaceService())
-
         clientDelegateHandle = try? client.setDelegate(delegate: self)
     }
 
-    init(storeID: String, client: ClientProtocol) async {
+    init(storeID: String, storePassphrase: String, client: ClientProtocol) async {
         self.storeID = storeID
+        self.storePassphrase = storePassphrase
         self.client = client
-        spaceService = LiveSpaceService(spaceService: await client.spaceService())
 
+        spaceService = LiveSpaceService(spaceService: await client.spaceService())
         clientDelegateHandle = try? self.client.setDelegate(delegate: self)
     }
 
     func userSession() throws -> UserSession {
-        return try UserSession(session: client.session(), storeID: storeID)
+        return try UserSession(session: client.session(), storeID: storeID, storePassphrase: storePassphrase)
     }
 
-    static func clientBuilder(homeServer: String, storeId: String) -> ClientBuilder {
+    static func clientBuilder(homeServer: String, storeId: String, storePassphrase: String) -> ClientBuilder {
+        let sqliteConfig = SqliteStoreBuilder(
+            dataPath: URL.sessionData(for: storeId).path(percentEncoded: false),
+            cachePath: URL.sessionCaches(for: storeId).path(percentEncoded: false)
+        )
+        .passphrase(passphrase: storePassphrase)
+
         return ClientBuilder()
             .serverNameOrHomeserverUrl(serverNameOrUrl: homeServer)
-            .sessionPaths(dataPath: URL.sessionData(for: storeId).path(percentEncoded: false),
-                          cachePath: URL.sessionCaches(for: storeId).path(percentEncoded: false))
+            .sqliteStore(config: sqliteConfig)
             .slidingSyncVersionBuilder(versionBuilder: .discoverNative)
             .threadsEnabled(enabled: true, threadSubscriptions: true)
             .autoEnableCrossSigning(autoEnableCrossSigning: true)
             .userAgent(userAgent: "Mactrix macOS")
     }
 
+    struct SecureRandomBytesError: LocalizedError {
+        let code: Int32
+
+        var errorDescription: String? {
+            "Failed to generate secure bytes with status code \(code)"
+        }
+    }
+
+    static func generateStorePassphrase() throws -> String {
+        var result = [UInt8](repeating: UInt8.random(in: 0 ..< UInt8.max), count: 32)
+        let status = unsafe SecRandomCopyBytes(kSecRandomDefault, result.count, &result)
+        if status != errSecSuccess {
+            throw SecureRandomBytesError(code: status)
+        }
+
+        return Data(result).base64EncodedString()
+    }
+
     static func loginDetails(homeServer: String) async throws -> HomeserverLogin {
         let storeID = UUID().uuidString
+        let storePassphrase = try Self.generateStorePassphrase()
 
-        let client = try await Self.clientBuilder(homeServer: homeServer, storeId: storeID).build()
+        let client = try await Self.clientBuilder(homeServer: homeServer, storeId: storeID, storePassphrase: storePassphrase).build()
 
         let details = await client.homeserverLoginDetails()
-        return HomeserverLogin(storeID: storeID, unauthenticatedClient: client, loginDetails: details)
+        return HomeserverLogin(storeID: storeID, storePassphrase: storePassphrase, unauthenticatedClient: client, loginDetails: details)
     }
 
     static func attemptRestore() async throws -> MatrixClient? {
         guard let userSession = try UserSession.loadUserFromKeychain() else { return nil }
 
-        let session = userSession.session
-        let storeID = userSession.storeID
-
-        // Build a client for the homeserver.
-        let clientBuilder = Self.clientBuilder(homeServer: session.homeserverUrl, storeId: storeID)
-
-        let matrixClient = try await MatrixClient(storeID: storeID, clientBuilder: clientBuilder)
+        let matrixClient = try await MatrixClient(userSession: userSession)
 
         // Restore the client using the session.
-        try await matrixClient.client.restoreSession(session: session)
+        try await matrixClient.client.restoreSession(session: userSession.session)
 
         return matrixClient
     }
@@ -272,7 +234,7 @@ extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
     nonisolated func saveSessionInKeychain(session: MatrixRustSDK.Session) {
         Logger.matrixClient.debug("client session delegate: save session in keychain")
         do {
-            try UserSession(session: session, storeID: storeID).saveUserToKeychain()
+            try UserSession(session: session, storeID: storeID, storePassphrase: storePassphrase).saveUserToKeychain()
         } catch {
             Logger.matrixClient.error("failed to save session in keychain: \(error)")
         }

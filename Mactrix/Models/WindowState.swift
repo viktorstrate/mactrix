@@ -2,6 +2,7 @@ import Foundation
 import MatrixRustSDK
 import OSLog
 import SwiftUI
+import Utils
 
 enum InspectorContent: Equatable {
     case roomInfo
@@ -18,6 +19,15 @@ enum SearchDirectResult {
     case resolvedRoomId(roomPreview: MatrixRustSDK.RoomPreview)
     case lookingForUser(userId: String), userNotFound(userId: String)
     case resolvedUser(profile: MatrixRustSDK.UserProfile)
+}
+
+enum SelectedScreen {
+    case joinedRoom(timeline: LiveTimeline)
+    case loadMatrixUrl(_ url: Utils.MatrixUriScheme)
+    case previewRoom(_ room: RoomPreview)
+    case user(profile: UserProfile)
+    case newRoom
+    case none
 }
 
 @MainActor @Observable

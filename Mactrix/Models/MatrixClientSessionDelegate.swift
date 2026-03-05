@@ -9,9 +9,11 @@ import Utils
 
 final class MatrixClientSessionDelegate: MatrixRustSDK.ClientSessionDelegate {
     let storeID: String
+    let storePassphrase: String
 
-    init(storeID: String) {
+    init(storeID: String, storePassphrase: String) {
         self.storeID = storeID
+        self.storePassphrase = storePassphrase
     }
 
     func retrieveSessionFromKeychain(userId: String) throws -> MatrixRustSDK.Session {
@@ -35,7 +37,7 @@ final class MatrixClientSessionDelegate: MatrixRustSDK.ClientSessionDelegate {
     func saveSessionInKeychain(session: MatrixRustSDK.Session) {
         Logger.matrixClient.debug("client session delegate: save session in keychain")
         do {
-            try UserSession(session: session, storeID: storeID).saveUserToKeychain()
+            try UserSession(session: session, storeID: storeID, storePassphrase: storePassphrase).saveUserToKeychain()
         } catch {
             Logger.matrixClient.error("failed to save session in keychain: \(error)")
         }
