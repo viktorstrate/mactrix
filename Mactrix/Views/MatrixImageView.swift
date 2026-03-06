@@ -33,14 +33,14 @@ struct MatrixImageView: View {
                     errorMessage = "Matrix client not available"
                     return
                 }
-                
+
                 guard let mediaSource else {
                     return
                 }
 
                 do {
                     let data = try await matrixClient.client.getMediaContent(mediaSource: mediaSource)
-                    let contentType = mimeType.flatMap(UTType.init)
+                    let contentType = mimeType.flatMap { UTType(mimeType: $0) }
                     image = try await Image(importing: data, contentType: contentType)
                 } catch {
                     errorMessage = error.localizedDescription

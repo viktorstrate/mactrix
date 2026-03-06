@@ -57,6 +57,11 @@ struct MessageVideoView: View {
                     MatrixImageView(mediaSource: content.info?.thumbnailSource, mimeType: content.info?.thumbnailInfo?.mimetype)
                         .overlay {
                             Image(systemName: "play.fill")
+                                .resizable()
+                                .foregroundStyle(.white)
+                                .shadow(radius: 4)
+                                .frame(width: 48, height: 48)
+                                .opacity(0.9)
                         }
                 }
                 .buttonStyle(.plain)
