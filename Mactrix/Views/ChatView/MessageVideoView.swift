@@ -41,6 +41,7 @@ struct MessageVideoView: View {
             let url = URL(filePath: path, directoryHint: .notDirectory)
 
             video = AVPlayer(url: url)
+            video?.play()
         } catch {
             Logger.viewCycle.error("Failed to load video: \(error)")
         }
@@ -49,12 +50,16 @@ struct MessageVideoView: View {
     var body: some View {
         VStack {
             if let video {
-                VideoPlayer(player: video)
+                TimelineVideoPlayer(videoPlayer: video)
                     .cornerRadius(6)
             } else {
                 Button(action: { Task { await loadVideo() } }) {
-                    Text("Load video")
+                    MatrixImageView(mediaSource: content.info?.thumbnailSource, mimeType: content.info?.thumbnailInfo?.mimetype)
+                        .overlay {
+                            Image(systemName: "play.fill")
+                        }
                 }
+                .buttonStyle(.plain)
             }
             if let caption = content.caption, !caption.isEmpty {
                 Text(caption.formatAsMarkdown)
