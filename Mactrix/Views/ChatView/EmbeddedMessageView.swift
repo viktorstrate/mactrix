@@ -15,8 +15,15 @@ struct EmbeddedMessageView: View {
                 action: action
             )
             .redacted(reason: .placeholder)
-        case let .ready(content, sender, _, _, _):
-            UI.MessageReplyView(username: sender, message: content.description, action: action)
+        case let .ready(content, sender, senderProfile, _, _):
+            UI.MessageReplyView(
+                username: {
+                    if case let .ready(name, _, _) = senderProfile, let name { return name }
+                    return sender
+                }(),
+                message: content.description,
+                action: action
+            )
         case let .error(message):
             Text("error: \(message)")
         }
