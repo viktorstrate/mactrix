@@ -23,6 +23,7 @@ public final class LiveTimeline {
     public var sendReplyTo: MatrixRustSDK.EventTimelineItem?
 
     public private(set) var timelineItems: [TimelineItem] = []
+    public private(set) var loadedReplyDetails: [String: InReplyToDetails] = [:]
     // public private(set) var timelineGroups: TimelineGroups = .init()
 
     public private(set) var paginating: RoomPaginationStatus = .idle(hitTimelineStart: false)
@@ -172,6 +173,32 @@ extension LiveTimeline {
                 timelineItems.removeSubrange(Int(length) ..< timelineItems.count)
             case let .reset(values: values):
                 timelineItems = values
+            }
+        }
+
+        loadPendingReplyDetails()
+    }
+
+    private func loadPendingReplyDetails() {
+        guard let sdkTimeline = timeline else { return }
+        for item in timelineItems {
+            guard let event = item.asEvent() else { continue }
+            guard case let .msgLike(content: msgLike) = event.content else { continue }
+            guard let inReplyTo = msgLike.inReplyTo else { continue }
+            let eventId = inReplyTo.eventId()
+            switch inReplyTo.event() {
+            case .ready, .error: continue
+            case .pending, .unavailable: break
+            }
+            guard loadedReplyDetails[eventId] == nil else { continue }
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    let details = try await sdkTimeline.loadReplyDetails(eventIdStr: eventId)
+                    self.loadedReplyDetails[eventId] = details
+                } catch {
+                    Logger.liveTimeline.error("loadPendingReplyDetails: failed \(eventId): \(error)")
+                }
             }
         }
     }

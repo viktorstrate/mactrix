@@ -132,8 +132,10 @@ struct ChatMessageView: View, UI.MessageEventActions {
         UI.MessageEventBodyView(event: event, focused: isEventFocused, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient, roomMembers: timeline?.room.members ?? []) {
             VStack(alignment: .leading, spacing: 10) {
                 if let replyTo = msg.inReplyTo {
-                    EmbeddedMessageView(embeddedEvent: replyTo.event()) {
-                        timeline?.focusEvent(id: .eventId(eventId: replyTo.eventId()))
+                    let eventId = replyTo.eventId()
+                    let embeddedEvent = timeline?.loadedReplyDetails[eventId]?.event() ?? replyTo.event()
+                    EmbeddedMessageView(embeddedEvent: embeddedEvent) {
+                        timeline?.focusEvent(id: .eventId(eventId: eventId))
                     }
                     .padding(.bottom, 10)
                 }
