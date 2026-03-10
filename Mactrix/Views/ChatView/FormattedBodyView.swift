@@ -3,6 +3,8 @@ import MessageFormatting
 import SwiftUI
 
 struct FormattedBodyView: View {
+    @AppStorage("fontSize") private var fontSize = 13
+    
     let rawBody: String
     let htmlBody: String?
     
@@ -18,7 +20,7 @@ struct FormattedBodyView: View {
     
     var body: some View {
         if let htmlBody {
-            AttributedTextView(attributedString: parseFormattedBody(htmlBody))
+            AttributedTextView(attributedString: parseFormattedBody(htmlBody, baseFontSize: CGFloat(fontSize)))
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             Text(rawBody)
