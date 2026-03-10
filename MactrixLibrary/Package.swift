@@ -17,10 +17,12 @@ let package = Package(
             targets: ["Models"]
         ),
         .library(name: "Utils", targets: ["Utils"]),
+        .library(name: "MessageFormatting", targets: ["MessageFormatting"]),
     ],
-    /* dependencies: [
-            .package(url: "https://github.com/matrix-org/matrix-rust-components-swift", from: "25.10.27"),
-        ], */
+    dependencies: [
+        .package(url: "https://github.com/ZhgChgLi/ZMarkupParser.git", from: "1.12.0"),
+        // .package(url: "https://github.com/matrix-org/matrix-rust-components-swift", from: "25.10.27"),
+    ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
         // Targets can depend on other targets in this package and products from dependencies.
@@ -36,6 +38,12 @@ let package = Package(
             ), */
         .target(
             name: "Models"
+        ),
+        .target(
+            name: "MessageFormatting",
+            dependencies: [
+                "ZMarkupParser",
+            ]
         ),
     ]
 )

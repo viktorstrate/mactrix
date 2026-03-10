@@ -1,5 +1,5 @@
 {
-  "originHash" : "d084e0c9b1d3b8ac948908f0ca98de1cca938f342f749686b8062637737a5cf4",
+  "originHash" : "cef1eb81361acd9acea13764bdc16f4787935d4b09f5dcc6bd8e53e93b503c29",
   "pins" : [
     {
       "identity" : "keychainaccess",
@@ -35,6 +35,24 @@
       "state" : {
         "revision" : "7b847a3b7008b2dc2f47ca3110d8c782fb2e5c7e",
         "version" : "1.3.0"
+      }
+    },
+    {
+      "identity" : "zmarkupparser",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ZhgChgLi/ZMarkupParser.git",
+      "state" : {
+        "revision" : "f25c9838e9e77ae49cc3f434ee26e669cb4043c7",
+        "version" : "1.12.0"
+      }
+    },
+    {
+      "identity" : "znstextattachment",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/ZhgChgLi/ZNSTextAttachment",
+      "state" : {
+        "revision" : "8c6c34e82eb31ad373b209cb88c2a2aff76c6cdf",
+        "version" : "1.1.9"
       }
     }
   ],
