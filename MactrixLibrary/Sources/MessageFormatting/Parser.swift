@@ -11,7 +11,7 @@ let headingParagraphSpacing = MarkupStyleParagraphStyle(
 @MainActor
 let parser = ZHTMLParserBuilder
     .initWithDefault()
-    .set(rootStyle: MarkupStyle(font: MarkupStyleFont(size: 12)))
+    .set(rootStyle: MarkupStyle(font: MarkupStyleFont(size: 13)))
     .add(
         H1_HTMLTagName(),
         withCustomStyle: MarkupStyle(
@@ -43,14 +43,14 @@ let parser = ZHTMLParserBuilder
     .add(
         H5_HTMLTagName(),
         withCustomStyle: MarkupStyle(
-            font: MarkupStyleFont(size: 12, weight: .style(.semibold)),
+            font: MarkupStyleFont(size: 13, weight: .style(.semibold)),
             paragraphStyle: headingParagraphSpacing
         )
     )
     .add(
         H6_HTMLTagName(),
         withCustomStyle: MarkupStyle(
-            font: MarkupStyleFont(size: 12, weight: .style(.semibold)),
+            font: MarkupStyleFont(size: 13, weight: .style(.semibold)),
             paragraphStyle: headingParagraphSpacing
         )
     )
@@ -66,7 +66,7 @@ let parser = ZHTMLParserBuilder
     .add(
         CODE_HTMLTagName(),
         withCustomStyle: MarkupStyle(
-            font: MarkupStyleFont(size: 12, familyName: .familyNames(["Menlo"]))
+            font: MarkupStyleFont(size: 13, familyName: .familyNames(["Menlo"])),
             // backgroundColor: .init(color: NSColor(red: 0.8, green: 0.8, blue: 1, alpha: 0.5))
         )
     )

@@ -10,20 +10,13 @@ public struct AttributedTextView: NSViewRepresentable {
     public func makeNSView(context: Context) -> NSTextField {
         let textField = NSTextField(labelWithAttributedString: attributedString)
 
-        // Behavior settings
         textField.isEditable = false
         textField.isSelectable = true
         textField.allowsEditingTextAttributes = true
 
-        // Enable text wrapping
-        textField.cell?.wraps = true
-        textField.cell?.isScrollable = false
         textField.lineBreakStrategy = .standard
         textField.lineBreakMode = .byWordWrapping
-
-        // Layout Priority, this helps SwiftUI understand it should stretch vertically
-        textField.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        textField.setContentCompressionResistancePriority(.required, for: .vertical)
+        textField.usesSingleLineMode = false
 
         return textField
     }
@@ -32,5 +25,12 @@ public struct AttributedTextView: NSViewRepresentable {
         if textField.attributedStringValue != attributedString {
             textField.attributedStringValue = attributedString
         }
+    }
+
+    public func sizeThatFits(_ proposal: ProposedViewSize, nsView textField: NSTextField, context: Context) -> CGSize? {
+        guard let width = proposal.width, width > 0, width != .infinity else { return nil }
+
+        textField.preferredMaxLayoutWidth = width
+        return textField.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: width, height: CGFloat.greatestFiniteMagnitude))
     }
 }

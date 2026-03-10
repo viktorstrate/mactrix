@@ -4,6 +4,19 @@ import SwiftUI
     let sample = """
     <h1>This is a title</h1>
 
+    <h1>Header 1</h1>
+    <h2>Header 2</h2>
+    <ul>
+    <li>Bullet one</li>
+    <li>Bullet two</li>
+    <li>Bullet three</li>
+    </ul>
+    <pre><code>This is code
+    Another code line
+    </code></pre>
+    <p><em>this was all rendered from Element X</em></p>
+
+
     <h2>This is header 2</h2>
     <h3>This is header 3</h3>
     <h4>This is header 4</h4>
@@ -55,5 +68,5 @@ import SwiftUI
     """
 
     AttributedTextView(attributedString: parseFormattedBody(sample))
-        .frame(height: 600)
+        .padding()
 }
