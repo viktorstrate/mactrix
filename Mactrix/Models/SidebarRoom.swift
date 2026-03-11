@@ -35,7 +35,14 @@ public final class SidebarRoom: Identifiable {
         room = newRoom
         listenerTask?.cancel()
         roomInfoHandle = nil
-        listenToRoomInfo()
+        Task {
+            do {
+                roomInfo = try await room.roomInfo()
+            } catch {
+                Logger.SidebarRoom.error("Failed to fetch room info on update: \(error)")
+            }
+            listenToRoomInfo()
+        }
     }
 
     private func listenToRoomInfo() {
