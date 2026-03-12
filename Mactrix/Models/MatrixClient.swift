@@ -242,7 +242,19 @@ extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
 }
 
 extension MatrixClient: UI.ImageLoader {
+    static let imageCache = NSCache<NSString, NSImage>()
+
+    func cachedImage(matrixUrl: String) -> Image? {
+        guard let nsImage = Self.imageCache.object(forKey: NSString(string: matrixUrl)) else { return nil }
+        return Image(nsImage: nsImage)
+    }
+
     func loadImage(matrixUrl: String, size: CGSize?) async throws -> Image? {
+        let cacheKey = NSString(string: matrixUrl)
+        if let cached = Self.imageCache.object(forKey: cacheKey) {
+            return Image(nsImage: cached)
+        }
+
         let imageData: Data
         if let size {
             let width = UInt64(size.width)
@@ -253,7 +265,11 @@ extension MatrixClient: UI.ImageLoader {
         }
 
         do {
-            return try imageData.toOrientedImage(contentType: imageData.computeMimeType())
+            let image = try imageData.toOrientedImage(contentType: imageData.computeMimeType())
+            if let nsImage = NSImage(data: imageData) {
+                Self.imageCache.setObject(nsImage, forKey: cacheKey)
+            }
+            return image
         } catch {
             Logger.matrixClient.error("failed convert matrix media data to Image: \(error) \(imageData)")
             throw error

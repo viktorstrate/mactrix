@@ -6,7 +6,6 @@ struct ChatInputView: View {
     let room: Room
     let timeline: LiveTimeline
     @Binding var replyTo: MatrixRustSDK.EventTimelineItem?
-    @Binding var height: CGFloat?
     @AppStorage("fontSize") var fontSize: Int = 13
 
     @State private var isDraftLoaded: Bool = false
@@ -135,14 +134,7 @@ struct ChatInputView: View {
                 .disabled(!isDraftLoaded)  // avoid inputs until we've tried to load a draft
         }
         .font(.system(size: .init(fontSize)))
-        .background(
-            GeometryReader { proxy in
-                Color(NSColor.textBackgroundColor)
-                    .onChange(of: proxy.size.height) { _, inputHeight in
-                        self.height = inputHeight
-                    }
-            }
-        )
+        .background(Color(NSColor.textBackgroundColor))
         .cornerRadius(4)
         .lineSpacing(2)
         .frame(minHeight: 20)

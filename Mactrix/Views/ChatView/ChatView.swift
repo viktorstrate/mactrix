@@ -30,8 +30,6 @@ struct ChatJoinedRoom: View {
         timeline.room
     }
 
-    @State private var inputHeight: CGFloat?
-
     var toolbarSubtitle: String {
         guard let topic = room.room.topic() else { return "" }
         let firstLine = topic.split(whereSeparator: \.isNewline).first ?? ""
@@ -40,9 +38,8 @@ struct ChatJoinedRoom: View {
 
     var body: some View {
         TimelineViewRepresentable(timeline: timeline, items: timeline.timelineItems)
-            .safeAreaPadding(.bottom, inputHeight ?? 60) // chat input overlay
-            .overlay(alignment: .bottom) {
-                ChatInputView(room: room.room, timeline: timeline, replyTo: $timeline.sendReplyTo, height: $inputHeight)
+            .safeAreaInset(edge: .bottom, spacing: 0) {
+                ChatInputView(room: room.room, timeline: timeline, replyTo: $timeline.sendReplyTo)
             }
             .background(Color(NSColor.controlBackgroundColor))
             .navigationTitle(room.room.displayName() ?? "Unknown room")

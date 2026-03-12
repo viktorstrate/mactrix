@@ -165,10 +165,11 @@ class TimelineViewController: NSViewController {
                 context.duration = 0
                 context.allowsImplicitAnimation = false
 
-                // Update only the height of visible rows
                 let visibleRect = tableView.visibleRect
                 let visibleRows = tableView.rows(in: visibleRect)
-                tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
+                if visibleRows.length > 0 {
+                    tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
+                }
             }
         }
     }
@@ -226,7 +227,20 @@ class TimelineViewController: NSViewController {
 
     func updateTimelineItems(_ timelineItems: [TimelineItem]) {
         Logger.timelineTableView.info("update timeline items")
+
+        let oldIds = self.timelineItems.map { $0.uniqueId().id }
         self.timelineItems = timelineItems.reversed()
+        let newIds = self.timelineItems.map { $0.uniqueId().id }
+
+        // If the IDs haven't changed, just reload visible rows in place (content update only)
+        if oldIds == newIds {
+            let visibleRows = tableView.rows(in: tableView.visibleRect)
+            if visibleRows.length > 0 {
+                tableView.reloadData(forRowIndexes: IndexSet(integersIn: visibleRows.lowerBound..<visibleRows.upperBound),
+                                     columnIndexes: IndexSet(integer: 0))
+            }
+            return
+        }
 
         var snapshot = NSDiffableDataSourceSnapshot<TimelineSection, TimelineUniqueId>()
         snapshot.appendSections([.main])
@@ -238,7 +252,7 @@ class TimelineViewController: NSViewController {
         dataSource?.apply(snapshot, animatingDifferences: false)
     }
 
-    // values used to calculate height of a row
+    // values used to track width changes
     var oldWidth: CGFloat?
     let measurementHostingView = {
         let hostView = NSHostingController(rootView: AnyView(EmptyView()))
@@ -259,13 +273,13 @@ extension TimelineViewController: NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         let item = timelineItems[row]
 
-        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, timeline: nil, coordinator: coordinator))
+        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, timeline: timeline, coordinator: coordinator))
 
         let targetWidth = tableView.tableColumns[0].width
         let proposedSize = CGSize(width: targetWidth, height: CGFloat.greatestFiniteMagnitude)
 
         let size = measurementHostingView.sizeThatFits(in: proposedSize)
-        return size.height
+        return max(size.height, 1)
     }
 }
 
