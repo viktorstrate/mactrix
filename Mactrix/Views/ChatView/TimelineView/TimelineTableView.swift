@@ -250,6 +250,15 @@ class TimelineViewController: NSViewController {
         }
 
         dataSource?.apply(snapshot, animatingDifferences: false)
+
+        // Re-measure visible rows after hosting views settle
+        DispatchQueue.main.async { [weak self] in
+            guard let self else { return }
+            let visibleRows = tableView.rows(in: tableView.visibleRect)
+            if visibleRows.length > 0 {
+                tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound..<visibleRows.upperBound))
+            }
+        }
     }
 
     // values used to track width changes
