@@ -53,10 +53,18 @@ public struct AvatarImage<Preview: View>: View {
             .scaledToFill()
             .transaction { $0.animation = nil }
             .task(id: avatarUrl, priority: .utility) {
-                guard avatar == nil, let avatarUrl = avatarUrl else {
-                    if avatarUrl == nil { avatar = nil }
+                guard let avatarUrl else {
+                    avatar = nil
                     return
                 }
+
+                // Check cache first (handles cell reuse with stale @State)
+                if let cached = imageLoader?.cachedImage(matrixUrl: avatarUrl) {
+                    avatar = cached
+                    return
+                }
+
+                avatar = nil
 
                 do {
                     avatar = try await imageLoader?.loadImage(matrixUrl: avatarUrl, size: nil)
