@@ -255,19 +255,21 @@ extension MatrixClient: UI.ImageLoader {
             return Image(nsImage: cached)
         }
 
+        let mediaSource = try MediaSource.fromUrl(url: matrixUrl)
+
         let imageData: Data
         if let size {
             let width = UInt64(size.width)
             let height = UInt64(size.height)
-            imageData = try await client.getMediaThumbnail(mediaSource: .fromUrl(url: matrixUrl), width: UInt64(width), height: UInt64(height))
+            imageData = try await client.getMediaThumbnail(mediaSource: mediaSource, width: width, height: height)
         } else {
-            imageData = try await client.getMediaContent(mediaSource: .fromUrl(url: matrixUrl))
+            imageData = try await client.getMediaContent(mediaSource: mediaSource)
         }
 
         do {
             let image = try imageData.toOrientedImage(contentType: imageData.computeMimeType())
             if let nsImage = NSImage(data: imageData) {
-                Self.imageCache.setObject(nsImage, forKey: cacheKey)
+                Self.imageCache.setObject(nsImage, forKey: cacheKey, cost: imageData.count)
             }
             return image
         } catch {

@@ -60,7 +60,7 @@ struct MatrixImageView: View {
                     let contentType = mimeType.flatMap { UTType(mimeType: $0) }
                     image = try await Image(importing: data, contentType: contentType)
                     if let nsImage = NSImage(data: data) {
-                        MatrixClient.imageCache.setObject(nsImage, forKey: cacheKey)
+                        MatrixClient.imageCache.setObject(nsImage, forKey: cacheKey, cost: data.count)
                     }
                 } catch {
                     errorMessage = error.localizedDescription

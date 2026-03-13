@@ -107,7 +107,7 @@ struct MessageImageView: View {
                 imageData = data
                 image = try data.toOrientedImage(contentType: contentType)
                 if let nsImage = NSImage(data: data) {
-                    MatrixClient.imageCache.setObject(nsImage, forKey: cacheKey)
+                    MatrixClient.imageCache.setObject(nsImage, forKey: cacheKey, cost: data.count)
                 }
             } catch {
                 errorMessage = error.localizedDescription
