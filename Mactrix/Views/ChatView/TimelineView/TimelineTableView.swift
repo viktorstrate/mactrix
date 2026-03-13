@@ -136,6 +136,8 @@ class TimelineViewController: NSViewController {
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
+        scrollView.drawsBackground = false
+        tableView.backgroundColor = .clear
         view = scrollView
 
         // Subscribe to view resize notifications
