@@ -38,7 +38,7 @@ struct ChatJoinedRoom: View {
 
     var body: some View {
         TimelineViewRepresentable(timeline: timeline, items: timeline.timelineItems)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
+            .safeAreaInset(edge: .bottom, spacing: 8) {
                 ChatInputView(room: room.room, timeline: timeline, replyTo: $timeline.sendReplyTo)
             }
             .background(Color(NSColor.controlBackgroundColor))

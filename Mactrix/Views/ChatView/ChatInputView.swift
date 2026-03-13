@@ -159,7 +159,6 @@ struct ChatInputView: View {
         }
         .pointerStyle(.horizontalText)
         .padding([.horizontal, .bottom], 10)
-        .background(Color(NSColor.controlBackgroundColor))
     }
 }
 
