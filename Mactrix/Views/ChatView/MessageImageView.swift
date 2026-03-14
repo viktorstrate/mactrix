@@ -18,7 +18,6 @@ struct MessageImageView: View {
         self.content = content
         if let cached = MatrixClient.imageCache.object(forKey: NSString(string: content.source.url())) {
             self._image = State(initialValue: Image(nsImage: cached))
-            self._imageData = State(initialValue: cached.tiffRepresentation)
         }
     }
 
