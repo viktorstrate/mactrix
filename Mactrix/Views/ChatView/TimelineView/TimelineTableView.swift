@@ -24,13 +24,15 @@ enum TimelineItemRowInfo {
 struct TimelineItemRowView: View {
     let rowInfo: TimelineItemRowInfo
     let timeline: LiveTimeline?
+    let includeProfileHeader: Bool
 
     let appState: AppState
     let windowState: WindowState
 
-    init(rowInfo: TimelineItemRowInfo, timeline: LiveTimeline?, coordinator: TimelineViewRepresentable.Coordinator) {
+    init(rowInfo: TimelineItemRowInfo, timeline: LiveTimeline?, includeProfileHeader: Bool = true, coordinator: TimelineViewRepresentable.Coordinator) {
         self.rowInfo = rowInfo
         self.timeline = timeline
+        self.includeProfileHeader = includeProfileHeader
         self.appState = coordinator.appState
         self.windowState = coordinator.windowState
     }
@@ -39,7 +41,7 @@ struct TimelineItemRowView: View {
     var contentView: some View {
         switch rowInfo {
         case .message(let event, let content):
-            ChatMessageView(timeline: timeline, event: event, msg: content, includeProfileHeader: true)
+            ChatMessageView(timeline: timeline, event: event, msg: content, includeProfileHeader: includeProfileHeader)
         case .state(let event):
             UI.GenericEventView(event: event, name: event.content.description)
         case .virtual(let virtual):
@@ -97,6 +99,17 @@ class TimelineViewController: NSViewController {
         super.init(nibName: nil, bundle: nil)
     }
 
+    /// Whether the message at `row` is the first in a consecutive group from the same sender.
+    /// The table is reversed (bottom-sticky), so the visually previous item is at row + 1.
+    func shouldIncludeProfileHeader(at row: Int) -> Bool {
+        guard case .message(let event, _) = timelineItems[row].rowInfo else { return true }
+        let previousRow = row + 1
+        guard previousRow < timelineItems.count,
+              case .message(let previousEvent, _) = timelineItems[previousRow].rowInfo,
+              previousEvent.sender == event.sender else { return true }
+        return false
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
 
@@ -113,7 +126,7 @@ class TimelineViewController: NSViewController {
             guard let self else { return NSView() }
 
             let item = timelineItems[row]
-            let view = TimelineItemRowView(rowInfo: item.rowInfo, timeline: timeline, coordinator: coordinator)
+            let view = TimelineItemRowView(rowInfo: item.rowInfo, timeline: timeline, includeProfileHeader: shouldIncludeProfileHeader(at: row), coordinator: coordinator)
 
             let hostView: SelfSizingHostingView<TimelineItemRowView>
             if let recycledView = tableView.makeView(withIdentifier: item.rowInfo.reuseIdentifier, owner: self)
