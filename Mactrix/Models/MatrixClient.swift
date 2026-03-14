@@ -250,7 +250,11 @@ extension MatrixClient: UI.ImageLoader {
     }
 
     func loadImage(matrixUrl: String, size: CGSize?) async throws -> Image? {
-        let cacheKey = NSString(string: matrixUrl)
+        let cacheKey: NSString = if let size {
+            NSString(string: "\(matrixUrl)_\(Int(size.width))x\(Int(size.height))")
+        } else {
+            NSString(string: matrixUrl)
+        }
         if let cached = Self.imageCache.object(forKey: cacheKey) {
             return Image(nsImage: cached)
         }
