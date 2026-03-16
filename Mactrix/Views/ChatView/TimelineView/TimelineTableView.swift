@@ -169,9 +169,7 @@ class TimelineViewController: NSViewController {
 
                 let visibleRect = tableView.visibleRect
                 let visibleRows = tableView.rows(in: visibleRect)
-                if visibleRows.length > 0 {
-                    tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
-                }
+                tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
             }
         }
     }
@@ -234,13 +232,11 @@ class TimelineViewController: NSViewController {
         self.timelineItems = timelineItems.reversed()
         let newIds = self.timelineItems.map { $0.uniqueId().id }
 
-        // If the IDs haven't changed, just reload visible rows in place (content update only)
+        // If the IDs haven't changed, reload all rows in place (content-only update: reactions, read receipts, etc.)
+        // Reloads all rows rather than just visible ones to avoid stale content in NSTableView's prepared/cached views.
         if oldIds == newIds {
-            let visibleRows = tableView.rows(in: tableView.visibleRect)
-            if visibleRows.length > 0 {
-                tableView.reloadData(forRowIndexes: IndexSet(integersIn: visibleRows.lowerBound..<visibleRows.upperBound),
-                                     columnIndexes: IndexSet(integer: 0))
-            }
+            tableView.reloadData(forRowIndexes: IndexSet(integersIn: 0..<self.timelineItems.count),
+                                 columnIndexes: IndexSet(integer: 0))
             return
         }
 
@@ -257,9 +253,7 @@ class TimelineViewController: NSViewController {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             let visibleRows = tableView.rows(in: tableView.visibleRect)
-            if visibleRows.length > 0 {
-                tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound..<visibleRows.upperBound))
-            }
+            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound..<visibleRows.upperBound))
         }
     }
 
@@ -290,6 +284,7 @@ extension TimelineViewController: NSTableViewDelegate {
         let proposedSize = CGSize(width: targetWidth, height: CGFloat.greatestFiniteMagnitude)
 
         let size = measurementHostingView.sizeThatFits(in: proposedSize)
+        // Avoid undefined-height rows which can cause NSTableView layout issues
         return max(size.height, 1)
     }
 }
