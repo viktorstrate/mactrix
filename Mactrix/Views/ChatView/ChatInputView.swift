@@ -29,6 +29,7 @@ struct ChatInputView: View {
         }
 
         chatInput = ""
+        NSLog("HOVER: replyTo cleared by sendMessage")
         replyTo = nil
         timeline.scrollPosition.scrollTo(edge: .bottom)
     }
@@ -120,6 +121,7 @@ struct ChatInputView: View {
         VStack(alignment: .leading) {
             if let replyEmbeddedDetails {
                 EmbeddedMessageView(embeddedEvent: replyEmbeddedDetails) {
+                    NSLog("HOVER: replyTo cleared by EmbeddedMessageView tap")
                     replyTo = nil
                 }
             }

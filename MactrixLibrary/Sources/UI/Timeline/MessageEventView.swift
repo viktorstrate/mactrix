@@ -1,17 +1,23 @@
 import Models
 import SwiftUI
 
-struct HoverButton<Icon: View>: View {
+public struct HoverButton<Icon: View>: View {
     @State private var hovering = false
 
     @ViewBuilder
-    let icon: () -> Icon
-    let tooltip: LocalizedStringKey
-    let action: () -> Void
+    public let icon: () -> Icon
+    public let tooltip: LocalizedStringKey
+    public let action: () -> Void
 
     let size: CGFloat = 24.0
 
-    var body: some View {
+    public init(icon: @escaping () -> Icon, tooltip: LocalizedStringKey, action: @escaping () -> Void) {
+        self.icon = icon
+        self.tooltip = tooltip
+        self.action = action
+    }
+
+    public var body: some View {
         Button(action: action) {
             icon()
         }
@@ -138,6 +144,7 @@ public struct MessageEventBodyView<
     let imageLoader: ImageLoader?
     let ownUserId: String
     let roomMembers: [RoomMember]
+    let isExternallyHovered: Bool
 
     public init(
         event: EventTimelineItem,
@@ -147,6 +154,7 @@ public struct MessageEventBodyView<
         ownUserID: String,
         imageLoader: ImageLoader?,
         roomMembers: [RoomMember],
+        isExternallyHovered: Bool = false,
         @ViewBuilder message: () -> MessageView
     ) {
         self.event = event
@@ -156,6 +164,7 @@ public struct MessageEventBodyView<
         self.ownUserId = ownUserID
         self.imageLoader = imageLoader
         self.roomMembers = roomMembers
+        self.isExternallyHovered = isExternallyHovered
         self.message = message()
     }
 
@@ -168,89 +177,38 @@ public struct MessageEventBodyView<
 
     @State private var hoverText: Bool = false
 
-    @ViewBuilder
-    var hoverActions: some View {
-        HStack(spacing: 0) {
-            HoverButton(icon: { Text("👍") }, tooltip: "React") {
-                actions.toggleReaction(key: "👍")
-            }
-            HoverButton(icon: { Text("🎉") }, tooltip: "React") {
-                actions.toggleReaction(key: "🎉")
-            }
-            HoverButton(icon: { Text("❤️") }, tooltip: "React") {
-                actions.toggleReaction(key: "❤️")
-            }
-            Divider().frame(height: 18)
-            HoverButton(icon: { Image(systemName: "face.smiling") }, tooltip: "React") {}
-
-            if event.canBeRepliedTo {
-                HoverButton(icon: { Image(systemName: "arrowshape.turn.up.left") }, tooltip: "Reply") {
-                    actions.reply()
-                }
-
-                HoverButton(icon: { Image(systemName: "ellipsis.message") }, tooltip: "Reply in thread") {
-                    actions.replyInThread()
-                }
-            }
-
-            HoverButton(icon: { Image(systemName: "pin") }, tooltip: "Pin") {
-                actions.pin()
-            }
-        }
-        .padding(2)
-        .background(
-            RoundedRectangle(cornerRadius: 4)
-                .fill(Color(NSColor.controlBackgroundColor))
-                .stroke(Color(NSColor.separatorColor), lineWidth: 1)
-                .shadow(color: .black.opacity(0.1), radius: 4)
-        )
-        .padding(.trailing, 20)
-        .padding(.top, -30)
-        .opacity(hoverText ? 1 : 0)
-    }
-
     func reactionIsActive(_ reaction: Reaction) -> Bool {
         return reaction.senders.contains(where: { $0.senderId == ownUserId })
     }
 
     public var body: some View {
-        ZStack(alignment: .topTrailing) {
-            VStack(spacing: 0) {
-                MessageMainBody(
-                    event: event,
-                    message: message,
-                    hover: hoverText,
-                    focused: focused
-                )
+        VStack(spacing: 0) {
+            MessageMainBody(
+                event: event,
+                message: message,
+                hover: hoverText || isExternallyHovered,
+                focused: focused
+            )
 
-                // Reactions
-                if !reactions.isEmpty {
-                    HStack {
-                        Spacer().frame(width: 64)
-                        ForEach(reactions) { reaction in
-                            MessageReactionView(
-                                reaction: reaction,
-                                active: Binding(
-                                    get: { reactionIsActive(reaction) },
-                                    set: { if $0 != reactionIsActive(reaction) { actions.toggleReaction(key: reaction.key) } }
-                                )
+            // Reactions and read receipts
+            if !reactions.isEmpty || !event.userReadReceipts.isEmpty {
+                HStack {
+                    Spacer().frame(width: 64)
+                    ForEach(reactions) { reaction in
+                        MessageReactionView(
+                            reaction: reaction,
+                            active: Binding(
+                                get: { reactionIsActive(reaction) },
+                                set: { if $0 != reactionIsActive(reaction) { actions.toggleReaction(key: reaction.key) } }
                             )
-                        }
-                        Spacer()
-                        ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader, roomMembers: roomMembers)
-                            .padding(.horizontal, 10)
+                        )
                     }
-                    .padding(.top, 10)
-                } else if !event.userReadReceipts.isEmpty {
-                    HStack {
-                        Spacer()
-                        ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader, roomMembers: roomMembers)
-                            .padding(.horizontal, 10)
-                    }.padding(.top, 10)
+                    Spacer()
+                    ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader, roomMembers: roomMembers)
+                        .padding(.horizontal, 10)
                 }
+                .padding(.top, 10)
             }
-
-            hoverActions
         }
         .onHover { hover in
             hoverText = hover

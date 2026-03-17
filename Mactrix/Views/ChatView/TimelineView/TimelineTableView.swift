@@ -92,6 +92,9 @@ class TimelineViewController: NSViewController {
     var rowHeights: [Int: CGFloat] = [:]
     private var pendingHeightUpdate = false
 
+    private let hoverPanel = HoverActionsPanel()
+    private var hideTimer: Timer?
+
     init(coordinator: TimelineViewRepresentable.Coordinator, timeline: LiveTimeline, timelineItems: [TimelineItem]) {
         self.coordinator = coordinator
         self.timeline = timeline
@@ -154,6 +157,11 @@ class TimelineViewController: NSViewController {
         tableView.backgroundColor = .clear
         view = scrollView
 
+        // Hover actions panel
+        tableView.onHoveredRowChanged = { [weak self] row in
+            self?.handleHoveredRowChanged(row)
+        }
+
         // Subscribe to view resize notifications
         scrollView.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
@@ -163,12 +171,82 @@ class TimelineViewController: NSViewController {
             object: scrollView.contentView
         )
 
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(windowDidResignKey),
+            name: NSWindow.didResignKeyNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(dismissHoverPanelNotification),
+            name: NSWindow.didMoveNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(dismissHoverPanelNotification),
+            name: NSWindow.didMiniaturizeNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(dismissHoverPanelNotification),
+            name: NSWindow.willEnterFullScreenNotification,
+            object: nil
+        )
+
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(dismissHoverPanelNotification),
+            name: NSWindow.willExitFullScreenNotification,
+            object: nil
+        )
+
+        tableView.postsFrameChangedNotifications = true
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(tableDidResize),
+            name: NSView.frameDidChangeNotification,
+            object: tableView
+        )
+
         listenForFocusTimelineItem()
+    }
+
+    @objc func windowDidResignKey(_ notification: Notification) {
+        dismissHoverPanel()
+    }
+
+    @objc func dismissHoverPanelNotification(_ notification: Notification) {
+        dismissHoverPanel()
+    }
+
+    @objc func tableDidResize(_ notification: Notification) {
+        dismissHoverPanel()
+    }
+
+    func dismissHoverPanel() {
+        hoverPanel.orderOut(nil)
+        timeline.hoveredEventId = nil
+    }
+
+    private func repositionHoverPanel() {
+        if let hoveredRow = tableView.hoveredRow {
+            handleHoveredRowChanged(hoveredRow)
+        } else {
+            dismissHoverPanel()
+        }
     }
 
     var timelineFetchTask: Task<Void, Never>?
 
     @objc func viewDidScroll(_ notification: Notification) {
+        dismissHoverPanel()
+
         let currentOffset = scrollView.contentView.bounds.origin.y
         let timelineHeight = scrollView.contentView.documentRect.height
         let viewHeight = scrollView.contentView.documentVisibleRect.height
@@ -212,6 +290,72 @@ class TimelineViewController: NSViewController {
         fatalError("init(coder:) is not available")
     }
 
+    // MARK: - Hover actions panel
+
+    private func handleHoveredRowChanged(_ row: Int?) {
+        hideTimer?.invalidate()
+        hideTimer = nil
+
+        guard let row,
+              case .message(let event, _) = timelineItems[row].rowInfo else {
+            // Delay hiding so mouse can move from row to panel
+            hideTimer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: false) { [weak self] _ in
+                guard let self else { return }
+                if !self.hoverPanel.isMouseInside {
+                    self.dismissHoverPanel()
+                }
+            }
+            return
+        }
+
+        let timeline = self.timeline
+        let windowState = self.coordinator.windowState
+
+        timeline.hoveredEventId = event.eventOrTransactionId
+        hoverPanel.update(
+            eventId: event.eventOrTransactionId.id,
+            onReaction: { key in
+                Task {
+                    guard let inner = timeline.timeline else { return }
+                    do {
+                        let _ = try await inner.toggleReaction(itemId: event.eventOrTransactionId, key: key)
+                    } catch {
+                        Logger.timelineTableView.error("Failed to toggle reaction: \(error)")
+                    }
+                }
+            },
+            onReply: {
+                timeline.sendReplyTo = event
+            },
+            onReplyInThread: { windowState.focusThread(rootEventId: event.eventOrTransactionId.id) },
+            onPin: {
+                guard case let .eventId(eventId: eventId) = event.eventOrTransactionId else { return }
+                Task {
+                    do {
+                        let _ = try await timeline.timeline?.pinEvent(eventId: eventId)
+                    } catch {
+                        Logger.timelineTableView.error("Failed to pin message: \(error)")
+                    }
+                }
+            }
+        )
+
+        // Position relative to the row, offset past profile header if present
+        let rowRect = tableView.rect(ofRow: row)
+        guard tableView.visibleRect.contains(CGPoint(x: rowRect.midX, y: rowRect.maxY)) else {
+            return dismissHoverPanel()
+        }
+        let rowRectInWindow = tableView.convert(rowRect, to: nil)
+        let profileHeaderOffset: CGFloat = shouldIncludeProfileHeader(at: row) ? 32 : 0
+        if let window = tableView.window {
+            hoverPanel.position(relativeTo: rowRectInWindow, in: window, topOffset: profileHeaderOffset)
+            if hoverPanel.parent != window {
+                window.addChildWindow(hoverPanel, ordered: .above)
+            }
+            hoverPanel.orderFront(nil)
+        }
+    }
+
     enum TimelineSection {
         case main
         case typingIndicator
@@ -219,6 +363,7 @@ class TimelineViewController: NSViewController {
 
     func updateTimelineItems(_ timelineItems: [TimelineItem]) {
         Logger.timelineTableView.info("update timeline items")
+        dismissHoverPanel()
 
         let oldIds = self.timelineItems.map { $0.uniqueId().id }
         self.timelineItems = timelineItems.reversed()
@@ -229,6 +374,7 @@ class TimelineViewController: NSViewController {
         if oldIds == newIds {
             tableView.reloadData(forRowIndexes: IndexSet(integersIn: 0..<self.timelineItems.count),
                                  columnIndexes: IndexSet(integer: 0))
+            repositionHoverPanel()
             return
         }
 
@@ -240,6 +386,8 @@ class TimelineViewController: NSViewController {
         }
 
         dataSource?.apply(snapshot, animatingDifferences: false)
+
+        repositionHoverPanel()
 
         // Re-measure visible rows after hosting views settle
         DispatchQueue.main.async { [weak self] in
@@ -297,6 +445,37 @@ class BottomStickyTableView: NSTableView {
     // By returning false, the table starts drawing from the bottom up
     override var isFlipped: Bool {
         return false
+    }
+
+    var onHoveredRowChanged: ((Int?) -> Void)?
+    private var trackingArea: NSTrackingArea?
+    private(set) var hoveredRow: Int? = nil
+
+    override func updateTrackingAreas() {
+        super.updateTrackingAreas()
+        if let existing = trackingArea { removeTrackingArea(existing) }
+        let area = NSTrackingArea(
+            rect: bounds,
+            options: [.mouseMoved, .mouseEnteredAndExited, .activeInActiveApp],
+            owner: self
+        )
+        addTrackingArea(area)
+        trackingArea = area
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        let point = convert(event.locationInWindow, from: nil)
+        let row = self.row(at: point)
+        let newRow = row >= 0 ? row : nil
+        if newRow != hoveredRow {
+            hoveredRow = newRow
+            onHoveredRowChanged?(newRow)
+        }
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        hoveredRow = nil
+        onHoveredRowChanged?(nil)
     }
 }
 

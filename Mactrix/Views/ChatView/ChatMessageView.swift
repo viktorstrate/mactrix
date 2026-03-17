@@ -128,7 +128,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
             UI.MessageEventProfileView(event: event, actions: self, imageLoader: appState.matrixClient)
                 .font(.system(size: .init(fontSize)))
         }
-        UI.MessageEventBodyView(event: event, focused: isEventFocused, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient, roomMembers: timeline?.room.members ?? []) {
+        UI.MessageEventBodyView(event: event, focused: isEventFocused, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient, roomMembers: timeline?.room.members ?? [], isExternallyHovered: timeline?.hoveredEventId == event.eventOrTransactionId) {
             VStack(alignment: .leading, spacing: 10) {
                 if let replyTo = msg.inReplyTo {
                     let eventId = replyTo.eventId()

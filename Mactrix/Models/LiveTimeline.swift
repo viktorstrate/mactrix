@@ -20,7 +20,26 @@ public final class LiveTimeline {
     public private(set) var focusedTimelineEventId: EventOrTransactionId?
     // public private(set) var focusedTimelineGroupId: String?
 
-    public var sendReplyTo: MatrixRustSDK.EventTimelineItem?
+    public var sendReplyTo: MatrixRustSDK.EventTimelineItem? {
+        get { _sendReplyTo }
+        set {
+            let id = newValue?.eventOrTransactionId.id ?? "nil"
+            let msg = "sendReplyTo changed to \(id)"
+            if newValue == nil && _sendReplyTo != nil {
+                let stack = Thread.callStackSymbols.prefix(15).joined(separator: "\n  ")
+                Self.debugLog("\(msg) — CLEARED\n  \(stack)")
+            } else {
+                Self.debugLog(msg)
+            }
+            _sendReplyTo = newValue
+        }
+    }
+    private var _sendReplyTo: MatrixRustSDK.EventTimelineItem?
+
+    private static func debugLog(_ msg: String) {
+        fputs("HOVER: \(msg)\n", stderr)
+    }
+    public var hoveredEventId: EventOrTransactionId?
 
     public private(set) var timelineItems: [TimelineItem] = []
     public private(set) var loadedReplyDetails: [String: InReplyToDetails] = [:]
