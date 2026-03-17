@@ -87,6 +87,8 @@ class TimelineViewController: NSViewController {
 
     let timeline: LiveTimeline
     var timelineItems: [TimelineItem]
+    var rowHeights: [Int: CGFloat] = [:]
+    private var pendingHeightUpdate = false
 
     init(coordinator: TimelineViewRepresentable.Coordinator, timeline: LiveTimeline, timelineItems: [TimelineItem]) {
         self.coordinator = coordinator
@@ -104,10 +106,8 @@ class TimelineViewController: NSViewController {
         tableView.allowsColumnSelection = false
         tableView.selectionHighlightStyle = .none
 
-        tableView.rowHeight = -1
-        tableView.usesAutomaticRowHeights = true
-
-        oldWidth = tableView.frame.width
+        tableView.usesAutomaticRowHeights = false
+        tableView.rowHeight = 60
 
         dataSource = .init(tableView: tableView) { [weak self] tableView, _, row, _ in
             guard let self else { return NSView() }
@@ -115,19 +115,20 @@ class TimelineViewController: NSViewController {
             let item = timelineItems[row]
             let view = TimelineItemRowView(rowInfo: item.rowInfo, timeline: timeline, coordinator: coordinator)
 
-            let hostView: NSHostingView<TimelineItemRowView>
+            let hostView: SelfSizingHostingView<TimelineItemRowView>
             if let recycledView = tableView.makeView(withIdentifier: item.rowInfo.reuseIdentifier, owner: self)
-                as? NSHostingView<TimelineItemRowView>
+                as? SelfSizingHostingView<TimelineItemRowView>
             {
                 recycledView.rootView = view
                 hostView = recycledView
             } else {
-                hostView = NSHostingView<TimelineItemRowView>(rootView: view)
+                hostView = SelfSizingHostingView<TimelineItemRowView>(rootView: view)
                 hostView.identifier = item.rowInfo.reuseIdentifier
+                hostView.sizingOptions = []
                 hostView.autoresizingMask = [.width, .height]
-                hostView.sizingOptions = [.preferredContentSize]
-                hostView.setContentHuggingPriority(.required, for: .vertical)
             }
+            hostView.row = row
+            hostView.controller = self
 
             return hostView
         }
@@ -144,34 +145,12 @@ class TimelineViewController: NSViewController {
         scrollView.contentView.postsBoundsChangedNotifications = true
         NotificationCenter.default.addObserver(
             self,
-            selector: #selector(handleTableResize),
-            name: NSView.frameDidChangeNotification,
-            object: scrollView.contentView
-        )
-
-        NotificationCenter.default.addObserver(
-            self,
             selector: #selector(viewDidScroll(_:)),
             name: NSView.boundsDidChangeNotification,
             object: scrollView.contentView
         )
 
         listenForFocusTimelineItem()
-    }
-
-    @objc func handleTableResize(_ notification: Notification) {
-        if oldWidth != tableView.frame.width {
-            oldWidth = tableView.frame.width
-
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = 0
-                context.allowsImplicitAnimation = false
-
-                let visibleRect = tableView.visibleRect
-                let visibleRows = tableView.rows(in: visibleRect)
-                tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
-            }
-        }
     }
 
     var timelineFetchTask: Task<Void, Never>?
@@ -252,18 +231,10 @@ class TimelineViewController: NSViewController {
         // Re-measure visible rows after hosting views settle
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
-            let visibleRows = tableView.rows(in: tableView.visibleRect)
-            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound..<visibleRows.upperBound))
+            self.rowHeights.removeAll()
+            self.scheduleHeightUpdate()
         }
     }
-
-    // values used to track width changes
-    var oldWidth: CGFloat?
-    let measurementHostingView = {
-        let hostView = NSHostingController(rootView: AnyView(EmptyView()))
-        hostView.sizingOptions = [.preferredContentSize]
-        return hostView
-    }()
 }
 
 extension TimelineViewController: NSTableViewDelegate {
@@ -276,16 +247,36 @@ extension TimelineViewController: NSTableViewDelegate {
     }
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-        let item = timelineItems[row]
+        return rowHeights[row] ?? 60
+    }
 
-        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, timeline: timeline, coordinator: coordinator))
+    func scheduleHeightUpdate() {
+        guard !pendingHeightUpdate else { return }
+        pendingHeightUpdate = true
+        DispatchQueue.main.async { [weak self] in
+            self?.pendingHeightUpdate = false
+            self?.updateVisibleRowHeights()
+        }
+    }
 
-        let targetWidth = tableView.tableColumns[0].width
-        let proposedSize = CGSize(width: targetWidth, height: CGFloat.greatestFiniteMagnitude)
-
-        let size = measurementHostingView.sizeThatFits(in: proposedSize)
-        // Avoid undefined-height rows which can cause NSTableView layout issues
-        return max(size.height, 1)
+    private func updateVisibleRowHeights() {
+        let visibleRows = tableView.rows(in: tableView.visibleRect)
+        var changed = IndexSet()
+        for row in visibleRows.lowerBound..<visibleRows.upperBound {
+            guard let cellView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false)
+                    as? SelfSizingHostingView<TimelineItemRowView> else { continue }
+            let h = cellView.measureHeight()
+            if h > 0, abs(h - (rowHeights[row] ?? 60)) > 1 {
+                rowHeights[row] = h
+                changed.insert(row)
+            }
+        }
+        if !changed.isEmpty {
+            NSAnimationContext.beginGrouping()
+            NSAnimationContext.current.duration = 0
+            tableView.noteHeightOfRows(withIndexesChanged: changed)
+            NSAnimationContext.endGrouping()
+        }
     }
 }
 
@@ -293,5 +284,30 @@ class BottomStickyTableView: NSTableView {
     // By returning false, the table starts drawing from the bottom up
     override var isFlipped: Bool {
         return false
+    }
+}
+
+class SelfSizingHostingView<Content: View>: NSHostingView<Content> {
+    weak var controller: TimelineViewController?
+    var row: Int = 0
+
+    override func layout() {
+        super.layout()
+        controller?.scheduleHeightUpdate()
+    }
+
+    override func invalidateIntrinsicContentSize() {
+        // Don't call super — prevents constraint loop
+        // Instead schedule a deferred height update
+        controller?.scheduleHeightUpdate()
+    }
+
+    func measureHeight() -> CGFloat {
+        let width = frame.width
+        guard width > 0 else { return 0 }
+        let controller = NSHostingController(rootView: rootView)
+        controller.sizingOptions = [.preferredContentSize]
+        let size = controller.sizeThatFits(in: CGSize(width: width, height: CGFloat.greatestFiniteMagnitude))
+        return max(size.height, 1)
     }
 }

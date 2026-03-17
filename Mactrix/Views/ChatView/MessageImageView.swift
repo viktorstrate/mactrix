@@ -23,14 +23,14 @@ struct MessageImageView: View {
 
     var aspectRatio: CGFloat? {
         guard let info = content.info,
-              let height = info.height,
-              let width = info.width else { return nil }
+              let height = info.height, height > 0,
+              let width = info.width, width > 0 else { return nil }
 
         return CGFloat(width) / CGFloat(height)
     }
 
     var maxHeight: CGFloat {
-        guard let height = content.info?.height else { return 300 }
+        guard let height = content.info?.height, height > 0 else { return 300 }
         return min(CGFloat(height), 300)
     }
 
