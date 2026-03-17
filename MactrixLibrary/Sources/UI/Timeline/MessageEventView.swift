@@ -223,31 +223,27 @@ public struct MessageEventBodyView<
                     focused: focused
                 )
 
-                // Reactions
-                if !reactions.isEmpty {
-                    HStack {
-                        Spacer().frame(width: 64)
-                        ForEach(reactions) { reaction in
-                            MessageReactionView(
-                                reaction: reaction,
-                                active: Binding(
-                                    get: { reactionIsActive(reaction) },
-                                    set: { if $0 != reactionIsActive(reaction) { actions.toggleReaction(key: reaction.key) } }
-                                )
+                // Always present to keep view tree stable (avoids NSHostingView layout loop)
+                HStack {
+                    Spacer().frame(width: 64)
+                    ForEach(reactions) { reaction in
+                        MessageReactionView(
+                            reaction: reaction,
+                            active: Binding(
+                                get: { reactionIsActive(reaction) },
+                                set: { if $0 != reactionIsActive(reaction) { actions.toggleReaction(key: reaction.key) } }
                             )
-                        }
-                        Spacer()
+                        )
+                    }
+                    Spacer()
+                    if !event.userReadReceipts.isEmpty {
                         ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader, roomMembers: roomMembers)
                             .padding(.horizontal, 10)
                     }
-                    .padding(.top, 10)
-                } else if !event.userReadReceipts.isEmpty {
-                    HStack {
-                        Spacer()
-                        ReadReciptsView(receipts: event.userReadReceipts, imageLoader: imageLoader, roomMembers: roomMembers)
-                            .padding(.horizontal, 10)
-                    }.padding(.top, 10)
                 }
+                .padding(.top, hasBottomContent ? 10 : 0)
+                .frame(height: hasBottomContent ? nil : 0)
+                .clipped()
             }
 
             hoverActions
@@ -256,6 +252,10 @@ public struct MessageEventBodyView<
             hoverText = hover
         }
         .padding(.bottom, reactions.isEmpty ? 0 : 10)
+    }
+
+    private var hasBottomContent: Bool {
+        !reactions.isEmpty || !event.userReadReceipts.isEmpty
     }
 }
 
