@@ -10,7 +10,6 @@ struct ChatInputView: View {
 
     @State private var isDraftLoaded: Bool = false
     @State private var chatInput: String = ""
-    @FocusState private var chatFocused: Bool
 
     func sendMessage() async {
         guard !chatInput.isEmpty else { return }
@@ -124,33 +123,14 @@ struct ChatInputView: View {
                 }
             }
             ChatTextView(text: $chatInput, disabled: !isDraftLoaded, onSubmit: { Task { await sendMessage() }})
-                // .frame(maxWidth: .infinity)
-                .border(.red)
-            /* TextField("Message room", text: $chatInput, axis: .vertical)
-             .focused($chatFocused)
-             .onSubmit { Task { await sendMessage() } }
-             .textFieldStyle(.plain)
-             .lineLimit(nil)
-             .scrollContentBackground(.hidden)
-             .background(.clear)
-             .padding(10)
-             .disabled(!isDraftLoaded)  // avoid inputs until we've tried to load a draft
-             */
         }
-        .border(.blue)
         .font(.system(size: .init(fontSize)))
         .background(Color(NSColor.textBackgroundColor))
         .cornerRadius(4)
-        .lineSpacing(2)
-        .frame(minHeight: 20)
         .overlay(
             RoundedRectangle(cornerRadius: 4)
                 .stroke(Color(NSColor.separatorColor), lineWidth: 1)
         )
-        // .shadow(color: .black.opacity(0.1), radius: 4)
-        .onTapGesture {
-            chatFocused = true
-        }
         .task(id: chatInput) {
             await chatInputChanged()
         }

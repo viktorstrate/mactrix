@@ -9,8 +9,10 @@ struct ChatTextView: NSViewRepresentable {
     let disabled: Bool
     let onSubmit: () -> Void
     
-    func makeNSView(context: Context) -> NSTextView {
+    func makeNSView(context: Context) -> DynamicTextView {
         let textView = DynamicTextView()
+        
+        textView.onSubmit = onSubmit
         
         context.coordinator.textView = textView
         textView.delegate = context.coordinator
@@ -27,8 +29,10 @@ struct ChatTextView: NSViewRepresentable {
         return textView
     }
     
-    func updateNSView(_ textView: NSTextView, context: Context) {
+    func updateNSView(_ textView: DynamicTextView, context: Context) {
         context.coordinator.text = text
+        
+        textView.onSubmit = onSubmit
         
         if textView.string != text.wrappedValue {
             textView.string = text.wrappedValue
@@ -70,6 +74,8 @@ struct ChatTextView: NSViewRepresentable {
 class DynamicTextView: NSTextView {
     static let padding = 4
     
+    var onSubmit: (() -> Void)?
+    
     override var intrinsicContentSize: NSSize {
         guard let container = unsafe textContainer, let manager = unsafe layoutManager else {
             return .zero
@@ -95,5 +101,29 @@ class DynamicTextView: NSTextView {
     override func didChangeText() {
         super.didChangeText()
         invalidateIntrinsicContentSize()
+    }
+    
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        // Always submit on cmd+enter
+        if (event.specialKey == .enter || event.specialKey == .carriageReturn)
+            && event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command]
+        {
+            onSubmit?()
+            return true
+        }
+        
+        return super.performKeyEquivalent(with: event)
+    }
+    
+    override func keyDown(with event: NSEvent) {
+        // Handle enter as submit instead of newline
+        if event.specialKey == .enter || event.specialKey == .carriageReturn,
+           event.modifierFlags.intersection(.deviceIndependentFlagsMask) == []
+        {
+            onSubmit?()
+            return
+        }
+        
+        super.keyDown(with: event)
     }
 }
