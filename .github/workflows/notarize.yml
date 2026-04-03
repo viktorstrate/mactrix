@@ -5,8 +5,8 @@ on:
     types: [notarize]
   workflow_dispatch:
     inputs:
-      run_id:
-        description: "Upstream workflow run ID"
+      tag:
+        description: "Release tag to notarize (e.g. v0.1.0)"
         required: true
       repo:
         description: "Upstream repo (owner/name)"
@@ -24,31 +24,18 @@ jobs:
         id: inputs
         run: |
           if [ "${{ github.event_name }}" = "repository_dispatch" ]; then
-            echo "run_id=${{ github.event.client_payload.run_id }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ github.event.client_payload.tag }}" >> $GITHUB_OUTPUT
             echo "repo=${{ github.event.client_payload.repo }}" >> $GITHUB_OUTPUT
           else
-            echo "run_id=${{ inputs.run_id }}" >> $GITHUB_OUTPUT
+            echo "tag=${{ inputs.tag }}" >> $GITHUB_OUTPUT
             echo "repo=${{ inputs.repo }}" >> $GITHUB_OUTPUT
           fi
 
-      - name: Download artifact from upstream
-        uses: actions/github-script@v7
-        with:
-          github-token: ${{ secrets.UPSTREAM_READ_TOKEN }}
-          script: |
-            const [owner, repo] = '${{ steps.inputs.outputs.repo }}'.split('/');
-            const runId = parseInt('${{ steps.inputs.outputs.run_id }}');
-            const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
-              owner, repo, run_id: runId
-            });
-            const artifact = artifacts.data.artifacts.find(a => a.name === 'Mactrix.app');
-            if (!artifact) throw new Error('Mactrix.app artifact not found');
-            const download = await github.rest.actions.downloadArtifact({
-              owner, repo,
-              artifact_id: artifact.id,
-              archive_format: 'zip'
-            });
-            require('fs').writeFileSync('Mactrix.zip', Buffer.from(download.data));
+      - name: Download release asset
+        run: |
+          curl -L \
+            "https://github.com/${{ steps.inputs.outputs.repo }}/releases/download/${{ steps.inputs.outputs.tag }}/Mactrix.app.zip" \
+            -o Mactrix.zip
 
       - name: Unzip artifact
         run: |
@@ -90,6 +77,6 @@ jobs:
       - name: Upload notarized artifact
         uses: actions/upload-artifact@v4
         with:
-          name: Mactrix-notarized
+          name: Mactrix-notarized-${{ steps.inputs.outputs.tag }}
           path: ./export/Mactrix.dmg
           retention-days: 14
