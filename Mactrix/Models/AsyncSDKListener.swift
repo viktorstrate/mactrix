@@ -66,8 +66,8 @@ extension AsyncSDKListener: TimelineListener where Element == [MatrixRustSDK.Tim
     }
 }
 
-extension AsyncSDKListener: PaginationStatusListener where Element == MatrixRustSDK.RoomPaginationStatus {
-    func onUpdate(status: MatrixRustSDK.RoomPaginationStatus) {
+extension AsyncSDKListener: PaginationStatusListener where Element == MatrixRustSDK.PaginationStatus {
+    func onUpdate(status: MatrixRustSDK.PaginationStatus) {
         publishValue(status)
     }
 }

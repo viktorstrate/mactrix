@@ -78,6 +78,10 @@ extension MatrixClient: RoomListServiceSyncIndicatorListener {
 }
 
 extension MatrixClient: MatrixRustSDK.ClientDelegate {
+    nonisolated func onBackgroundTaskErrorReport(taskName: String, error: MatrixRustSDK.BackgroundTaskFailureReason) {
+        Logger.matrixClient.error("onBackgroundTaskErrorReport taskName: \(taskName)")
+    }
+
     nonisolated func didReceiveAuthError(isSoftLogout: Bool) {
         Task { @MainActor in
             Logger.matrixClient.debug("did receive auth error: soft logout \(isSoftLogout, privacy: .public)")

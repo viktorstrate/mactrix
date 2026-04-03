@@ -183,24 +183,24 @@ extension MatrixRustSDK.EventTimelineItem: Models.EventTimelineItem {
     public var date: Date {
         timestamp.date
     }
-    
+
     public var userId: String {
         sender
     }
-    
+
     public var displayName: String? {
         if case let .ready(displayName: displayName, displayNameAmbiguous: _, avatarUrl: _) = senderProfileDetails {
             return displayName
         }
-        
+
         return nil
     }
-    
+
     public var avatarUrl: String? {
         if case let .ready(displayName: _, displayNameAmbiguous: _, avatarUrl: avatarUrl) = senderProfileDetails {
             return avatarUrl
         }
-        
+
         return nil
     }
 }
@@ -307,6 +307,8 @@ extension MatrixRustSDK.MsgLikeKind: @retroactive CustomStringConvertible {
             return "Unable to decrypt"
         case let .other(eventType: eventType):
             return "Other: \(eventType)"
+        case let .liveLocation(content: content):
+            return "Live location: \(content.description ?? "no description")"
         }
     }
 }
@@ -402,47 +404,47 @@ extension MatrixRustSDK.OtherState: @retroactive CustomStringConvertible {
     public var description: String {
         switch self {
         case .policyRuleRoom:
-            "changed policy rules for room"
+            return "changed policy rules for room"
         case .policyRuleServer:
-            "changed policy rules for server"
+            return "changed policy rules for server"
         case .policyRuleUser:
-            "changed policy rule for user"
+            return "changed policy rule for user"
         case .roomAliases:
-            "changed room aliases"
+            return "changed room aliases"
         case .roomAvatar(url: _):
-            "changed room avatar"
+            return "changed room avatar"
         case .roomCanonicalAlias:
-            "changed room canonical alias"
+            return "changed room canonical alias"
         case .roomCreate:
-            "created room"
+            return "created room"
         case .roomEncryption:
-            "changed room encryption"
+            return "changed room encryption"
         case .roomGuestAccess:
-            "changed room guest access"
+            return "changed room guest access"
         case .roomHistoryVisibility:
-            "change room history visibility"
+            return "change room history visibility"
         case .roomJoinRules:
-            "changed room join rules"
+            return "changed room join rules"
         case let .roomName(name: name):
-            "changed room name to '\(name ?? "empty")'"
+            return "changed room name to '\(name ?? "empty")'"
         case .roomPinnedEvents(change: _):
-            "changed room pinned events"
-        case .roomPowerLevels(users: _, previous: _):
-            "changed room power levels"
+            return "changed room pinned events"
+        case .roomPowerLevels(events: _, previousEvents: _, users: _, previousUsers: _, thresholds: _, previousThresholds: _):
+            return "changed room power levels"
         case .roomServerAcl:
-            "changed room server acl"
+            return "changed room server acl"
         case .roomThirdPartyInvite(displayName: _):
-            "changed room third party invite"
+            return "changed room third party invite"
         case .roomTombstone:
-            "room tombstone"
+            return "room tombstone"
         case let .roomTopic(topic: topic):
-            "changed room topic to '\(topic ?? "none")'"
+            return "changed room topic to '\(topic ?? "none")'"
         case .spaceChild:
-            "changed space child"
+            return "changed space child"
         case .spaceParent:
-            "changed space parent"
+            return "changed space parent"
         case let .custom(eventType: eventType):
-            "changed custom state '\(eventType)'"
+            return "changed custom state '\(eventType)'"
         }
     }
 }
@@ -514,7 +516,7 @@ extension MatrixRustSDK.SessionVerificationData {
     }
 }
 
-extension MatrixRustSDK.RoomPaginationStatus: @retroactive CustomDebugStringConvertible {
+extension MatrixRustSDK.PaginationStatus: @retroactive CustomDebugStringConvertible {
     public var debugDescription: String {
         switch self {
         case let .idle(hitTimelineStart):

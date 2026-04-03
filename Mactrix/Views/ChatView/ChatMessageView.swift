@@ -107,6 +107,8 @@ struct ChatMessageView: View, UI.MessageEventActions {
             let eventText = eventType.description
 
             Text("Custom event: \(eventText)").textSelection(.enabled)
+        case .liveLocation(content: let content):
+            Text("Live location: \(content.description ?? "no description")")
         }
     }
 

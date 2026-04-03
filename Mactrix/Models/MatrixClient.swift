@@ -28,7 +28,7 @@ class MatrixClient {
         storePassphrase = userSession.storePassphrase
 
         client = try await Self.clientBuilder(homeServer: userSession.homeserverURL, storeId: storeID, storePassphrase: storePassphrase)
-            .enableOidcRefreshLock()
+            //.enableOidcRefreshLock()
             .setSessionDelegate(sessionDelegate: self)
             .build()
 

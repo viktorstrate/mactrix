@@ -26,7 +26,7 @@ public final class LiveTimeline {
     public private(set) var loadedReplyDetails: [String: InReplyToDetails] = [:]
     // public private(set) var timelineGroups: TimelineGroups = .init()
 
-    public private(set) var paginating: RoomPaginationStatus = .idle(hitTimelineStart: false)
+    public private(set) var paginating: PaginationStatus = .idle(hitTimelineStart: false)
     public private(set) var hitTimelineStart: Bool = false
 
     public init(room: LiveRoom) {
@@ -112,7 +112,7 @@ public final class LiveTimeline {
     private func listenToPaginationStatus() async throws {
         guard let timeline else { return }
 
-        let listener = AsyncSDKListener<RoomPaginationStatus>()
+        let listener = AsyncSDKListener<PaginationStatus>()
         paginateHandle = try await timeline.subscribeToBackPaginationStatus(listener: listener)
 
         Task { [weak self] in
