@@ -18,7 +18,7 @@ jobs:
     runs-on: macos-15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set inputs
         id: inputs
@@ -90,7 +90,7 @@ jobs:
         run: xcrun stapler staple dist/Mactrix.dmg
 
       - name: Upload notarized artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: Mactrix-notarized-${{ steps.inputs.outputs.tag }}
           path: dist/Mactrix.dmg
