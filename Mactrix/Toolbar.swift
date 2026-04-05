@@ -1,9 +1,9 @@
-import SwiftUI
 import OSLog
+import SwiftUI
 
 struct ToolbarViewModifier: ViewModifier {
     @Environment(WindowState.self) var windowState
-    
+
     func body(content: Content) -> some View {
         content
             .toolbar {
@@ -25,7 +25,7 @@ struct ToolbarViewModifier: ViewModifier {
                 .help("Show Threads")
                 .disabled(windowState.selectedRoomId == nil)
 
-                if !windowState.inspectorVisible {
+                if #unavailable(macOS 26), !windowState.inspectorVisible {
                     HStack {
                         Divider()
                     }

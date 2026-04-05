@@ -12,7 +12,7 @@ struct MactrixApp: App {
         WindowGroup(id: "main") {
             MainView()
         }
-        .windowToolbarStyle(.unifiedCompact)
+        .windowToolbarStyle(.automatic)
         .environment(appState)
         .commands {
             AppCommands()

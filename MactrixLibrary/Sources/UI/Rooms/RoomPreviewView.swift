@@ -17,6 +17,7 @@ struct SmallBadgeModifier: ViewModifier {
     }
 }
 
+@MainActor
 public protocol RoomPreviewActions {
     func joinRoom() async throws
     func knockRoom() async throws

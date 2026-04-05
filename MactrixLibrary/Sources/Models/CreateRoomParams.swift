@@ -1,14 +1,14 @@
 import Foundation
 
-public enum RoomAccess: Hashable {
+public enum RoomAccess: Sendable, Hashable {
     case publicRoom, privateRoom
 }
 
-public enum RoomVisibility {
+public enum RoomVisibility: Sendable {
     case published, unpublished
 }
 
-public struct CreateRoomParams {
+public struct CreateRoomParams: Sendable {
     public var name: String
     public var topic: String
     public var enableEncryption: Bool
