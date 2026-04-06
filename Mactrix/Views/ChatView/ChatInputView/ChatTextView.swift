@@ -6,6 +6,7 @@ struct ChatTextView: NSViewRepresentable {
     typealias NSViewRepresentableType = NSTextView
     
     let text: Binding<String>
+    let placeholder: String
     let disabled: Bool
     let onSubmit: () -> Void
     
@@ -14,10 +15,18 @@ struct ChatTextView: NSViewRepresentable {
         
         textView.onSubmit = onSubmit
         
+        textView.placeholderAttributedString = NSAttributedString(
+            string: placeholder,
+            attributes: [.foregroundColor: NSColor.secondaryLabelColor]
+        )
+        
+        textView.backgroundColor = .clear
+        textView.drawsBackground = false
+        
         context.coordinator.textView = textView
         textView.delegate = context.coordinator
         
-        textView.textContainerInset = NSSize(width: DynamicTextView.padding, height: DynamicTextView.padding)
+        textView.textContainerInset = DynamicTextView.padding
         
         textView.isVerticallyResizable = true
         textView.isHorizontallyResizable = false
@@ -37,6 +46,13 @@ struct ChatTextView: NSViewRepresentable {
         if textView.string != text.wrappedValue {
             textView.string = text.wrappedValue
             textView.invalidateIntrinsicContentSize()
+        }
+        
+        if textView.placeholderAttributedString?.string != placeholder {
+            textView.placeholderAttributedString = NSAttributedString(
+                string: placeholder,
+                attributes: [.foregroundColor: NSColor.secondaryLabelColor]
+            )
         }
         
         if textView.isEditable != !disabled {
@@ -72,7 +88,9 @@ struct ChatTextView: NSViewRepresentable {
 }
 
 class DynamicTextView: NSTextView {
-    static let padding = 4
+    @objc var placeholderAttributedString: NSAttributedString?
+    
+    static let padding = NSSize(width: 10, height: 10)
     
     var onSubmit: (() -> Void)?
     
@@ -86,7 +104,7 @@ class DynamicTextView: NSTextView {
         let usedRect = manager.usedRect(for: container)
         
         // Return a flexible width but a fixed height based on text
-        return NSSize(width: NSView.noIntrinsicMetric, height: ceil(usedRect.height) + CGFloat(2 * Self.padding))
+        return NSSize(width: NSView.noIntrinsicMetric, height: ceil(usedRect.height) + CGFloat(2 * Self.padding.height))
     }
     
     override func setFrameSize(_ newSize: NSSize) {
