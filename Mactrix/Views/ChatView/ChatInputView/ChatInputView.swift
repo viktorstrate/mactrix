@@ -3,6 +3,8 @@ import OSLog
 import SwiftUI
 
 struct ChatInputView: View {
+    @Environment(\.accessibilityReduceTransparency) var reduceTransparency
+
     let room: Room
     let timeline: LiveTimeline
     @Binding var replyTo: MatrixRustSDK.EventTimelineItem?
@@ -115,22 +117,21 @@ struct ChatInputView: View {
         return .ready(content: replyTo.content, sender: replyTo.sender, senderProfile: replyTo.senderProfile, timestamp: replyTo.timestamp, eventOrTransactionId: replyTo.eventOrTransactionId)
     }
 
-    var body: some View {
+    var content: some View {
         VStack(alignment: .leading) {
             if let replyEmbeddedDetails {
                 EmbeddedMessageView(embeddedEvent: replyEmbeddedDetails) {
                     replyTo = nil
                 }
             }
-            ChatTextView(text: $chatInput, disabled: !isDraftLoaded, onSubmit: { Task { await sendMessage() }})
+            ChatTextView(
+                text: $chatInput,
+                placeholder: "Message \(room.displayName() ?? "room")",
+                disabled: !isDraftLoaded,
+                onSubmit: { Task { await sendMessage() } }
+            )
         }
         .font(.system(size: .init(fontSize)))
-        .background(Color(NSColor.textBackgroundColor))
-        .cornerRadius(4)
-        .overlay(
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(Color(NSColor.separatorColor), lineWidth: 1)
-        )
         .task(id: chatInput) {
             await chatInputChanged()
         }
@@ -142,8 +143,34 @@ struct ChatInputView: View {
             // (in case the draft holds a reply)
             await loadDraft()
         }
-        .pointerStyle(.horizontalText)
-        .padding([.horizontal, .bottom], 10)
+    }
+
+    @available(macOS 26.0, *)
+    var tahoeView: some View {
+        content
+            .glassEffect(in: .rect(cornerRadius: 16.0))
+            .padding(.horizontal)
+            .padding(.bottom, 10)
+    }
+
+    var oldView: some View {
+        content
+            .background(Color(NSColor.textBackgroundColor))
+            .cornerRadius(4)
+            .overlay(
+                RoundedRectangle(cornerRadius: 16.0)
+                    .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+            )
+            .padding(.horizontal)
+            .padding(.bottom, 10)
+    }
+
+    var body: some View {
+        if #available(macOS 26.0, *), !reduceTransparency {
+            tahoeView
+        } else {
+            oldView
+        }
     }
 }
 

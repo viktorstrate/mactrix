@@ -136,6 +136,9 @@ class TimelineViewController: NSViewController {
 
         scrollView.documentView = tableView
         scrollView.hasVerticalScroller = true
+
+        scrollView.automaticallyAdjustsContentInsets = false
+
         scrollView.drawsBackground = false
         tableView.backgroundColor = .clear
         view = scrollView
@@ -235,7 +238,7 @@ class TimelineViewController: NSViewController {
         // If the IDs haven't changed, reload all rows in place (content-only update: reactions, read receipts, etc.)
         // Reloads all rows rather than just visible ones to avoid stale content in NSTableView's prepared/cached views.
         if oldIds == newIds {
-            tableView.reloadData(forRowIndexes: IndexSet(integersIn: 0..<self.timelineItems.count),
+            tableView.reloadData(forRowIndexes: IndexSet(integersIn: 0 ..< self.timelineItems.count),
                                  columnIndexes: IndexSet(integer: 0))
             return
         }
@@ -253,7 +256,7 @@ class TimelineViewController: NSViewController {
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             let visibleRows = tableView.rows(in: tableView.visibleRect)
-            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound..<visibleRows.upperBound))
+            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
         }
     }
 

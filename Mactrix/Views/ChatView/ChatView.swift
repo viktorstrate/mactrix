@@ -38,6 +38,7 @@ struct ChatJoinedRoom: View {
 
     var body: some View {
         TimelineViewRepresentable(timeline: timeline, items: timeline.timelineItems)
+            .ignoresSafeArea(edges: .top)
             .safeAreaInset(edge: .bottom, spacing: 8) {
                 ChatInputView(room: room.room, timeline: timeline, replyTo: $timeline.sendReplyTo)
             }
