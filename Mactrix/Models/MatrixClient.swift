@@ -240,7 +240,25 @@ extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
 }
 
 extension MatrixClient: UI.ImageLoader {
-    static let imageCache = NSCache<NSString, NSImage>()
+    // In-memory cache of decoded NSImage objects. Purpose is rendering performance —
+    // keeping decoded bitmaps ready to display prevents flicker when scrolling back to
+    // previously viewed images. This is distinct from the SDK-level media download cache
+    // (see clearCaches / getMediaFile(useCache:)) which avoids re-fetching from the server.
+    // Costs are tracked in decoded RGBA bytes (width × height × 4), not compressed sizes,
+    // since a typical JPEG can be 20-50× larger once decoded.
+    static let imageCache: NSCache<NSString, NSImage> = {
+        let cache = NSCache<NSString, NSImage>()
+        cache.totalCostLimit = 256 * 1024 * 1024  // 256MB decoded pixels
+        return cache
+    }()
+
+    private static let imageCacheMaxObjectCost = 64 * 1024 * 1024  // 64MB per object (~8000x2000px RGBA)
+
+    static func setCachedImage(_ image: NSImage, forKey key: NSString) {
+        let cost = Int(image.size.width * image.size.height) * 4  // decoded RGBA bytes
+        guard cost <= imageCacheMaxObjectCost else { return }
+        imageCache.setObject(image, forKey: key, cost: cost)
+    }
 
     func cachedImage(matrixUrl: String) -> Image? {
         guard let nsImage = Self.imageCache.object(forKey: NSString(string: matrixUrl)) else { return nil }
@@ -270,7 +288,7 @@ extension MatrixClient: UI.ImageLoader {
 
         do {
             let nsImage = try imageData.toOrientedImage(contentType: imageData.computeMimeType())
-            Self.imageCache.setObject(nsImage, forKey: cacheKey, cost: imageData.count)
+            Self.setCachedImage(nsImage, forKey: cacheKey)
             return Image(nsImage: nsImage)
         } catch {
             Logger.matrixClient.error("failed convert matrix media data to Image: \(error) \(imageData)")

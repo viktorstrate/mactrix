@@ -102,7 +102,7 @@ struct MessageImageView: View {
                 let data = try await matrixClient.client.getMediaContent(mediaSource: content.source)
                 imageData = data
                 let nsImage = try data.toOrientedImage(contentType: contentType)
-                MatrixClient.imageCache.setObject(nsImage, forKey: cacheKey, cost: data.count)
+                MatrixClient.setCachedImage(nsImage, forKey: cacheKey)
                 image = Image(nsImage: nsImage)
             } catch {
                 errorMessage = error.localizedDescription
