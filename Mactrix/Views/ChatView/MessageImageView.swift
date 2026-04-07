@@ -93,14 +93,23 @@ struct MessageImageView: View {
                 return
             }
 
-            let cacheKey = NSString(string: content.source.url())
-            if let cached = MatrixClient.imageCache.object(forKey: cacheKey) {
-                image = Image(nsImage: cached)
-            }
-
+            // Two caching layers serve different purposes:
+            // - NSCache (checked in init): synchronously pre-populates `image` before the
+            //   view appears, preventing flicker on scroll/revisit. Also skips the expensive
+            //   decode step (toOrientedImage) on repeat loads below.
+            // - SDK media cache (getMediaContent): avoids network re-fetches. Always called
+            //   here so `imageData` is populated for drag-and-drop, even when the decoded
+            //   NSImage is already in the NSCache.
             do {
                 let data = try await matrixClient.client.getMediaContent(mediaSource: content.source)
                 imageData = data
+
+                let cacheKey = NSString(string: content.source.url())
+                if let cached = MatrixClient.imageCache.object(forKey: cacheKey) {
+                    image = Image(nsImage: cached)
+                    return
+                }
+
                 let nsImage = try data.toOrientedImage(contentType: contentType)
                 MatrixClient.imageCache.setObject(nsImage, forKey: cacheKey, cost: data.count)
                 image = Image(nsImage: nsImage)
