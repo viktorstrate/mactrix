@@ -206,8 +206,8 @@ class TimelineViewController: NSViewController {
 
         let focusedTimelineEventId = withObservationTracking {
             timeline.focusedTimelineEventId
-        } onChange: {
-            Task { @MainActor in self.listenForFocusTimelineItem() }
+        } onChange: { [weak self] in
+            Task { @MainActor in self?.listenForFocusTimelineItem() }
         }
 
         guard let focusedTimelineEventId,
