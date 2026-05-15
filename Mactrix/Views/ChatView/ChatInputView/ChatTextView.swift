@@ -4,6 +4,8 @@ import SwiftUI
 
 struct ChatTextView: NSViewRepresentable {
     typealias NSViewRepresentableType = NSTextView
+
+    @AppStorage("fontSize") var fontSize: Int = 13
     
     let text: Binding<String>
     let placeholder: String
@@ -17,7 +19,10 @@ struct ChatTextView: NSViewRepresentable {
         
         textView.placeholderAttributedString = NSAttributedString(
             string: placeholder,
-            attributes: [.foregroundColor: NSColor.secondaryLabelColor]
+            attributes: [
+              .foregroundColor: NSColor.secondaryLabelColor,
+              .font: NSFont.systemFont(ofSize: CGFloat(fontSize))
+            ]
         )
         
         textView.backgroundColor = .clear
@@ -34,6 +39,8 @@ struct ChatTextView: NSViewRepresentable {
         
         textView.setContentHuggingPriority(.required, for: .vertical)
         textView.setContentCompressionResistancePriority(.required, for: .vertical)
+
+        textView.font = NSFont.systemFont(ofSize: CGFloat(fontSize))
         
         return textView
     }
@@ -47,11 +54,25 @@ struct ChatTextView: NSViewRepresentable {
             textView.string = text.wrappedValue
             textView.invalidateIntrinsicContentSize()
         }
-        
-        if textView.placeholderAttributedString?.string != placeholder {
+
+        let currentPlaceholderFont =
+          textView.placeholderAttributedString?
+              .attribute(
+                .font,
+                at: 0,
+                effectiveRange: nil
+              ) as? NSFont
+        let placeholderFontChanged =
+          currentPlaceholderFont?.pointSize != CGFloat(fontSize)
+        if textView.placeholderAttributedString?.string != placeholder ||
+             placeholderFontChanged
+        {
             textView.placeholderAttributedString = NSAttributedString(
                 string: placeholder,
-                attributes: [.foregroundColor: NSColor.secondaryLabelColor]
+                attributes: [
+                  .foregroundColor: NSColor.secondaryLabelColor,
+                  .font: NSFont.systemFont(ofSize: CGFloat(fontSize))
+                ]
             )
         }
         
@@ -64,6 +85,12 @@ struct ChatTextView: NSViewRepresentable {
                 // resign first responder
                 unsafe textView.window?.makeFirstResponder(nil)
             }
+        }
+
+        let currentFont = NSFont.systemFont(ofSize: CGFloat(fontSize))
+        if textView.font?.pointSize != currentFont.pointSize {
+            textView.font = currentFont
+            textView.invalidateIntrinsicContentSize()
         }
     }
     
