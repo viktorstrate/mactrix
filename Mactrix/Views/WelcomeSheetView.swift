@@ -114,9 +114,23 @@ struct WelcomeSheetView: View {
             .frame(maxWidth: 300)
 
             if let showError = showError {
-                Text(showError.localizedDescription)
-                    .foregroundStyle(Color.red)
-                    .textSelection(.enabled)
+                let message: String = {
+                    switch showError {
+                    case let MatrixRustSDK.ClientBuildError
+                           .InvalidServerName(message: msg):
+                        return msg
+                    case let MatrixRustSDK.ClientBuildError
+                           .ServerUnreachable(message: msg):
+                        return msg
+                    default:
+                        Logger.matrixClient.error("\(showError.localizedDescription)")
+                        return "Something went wrong!"
+                    }
+                }()
+
+                Text(message)
+                  .foregroundStyle(Color.red)
+                  .textSelection(.enabled)
             }
         }
         .padding()
