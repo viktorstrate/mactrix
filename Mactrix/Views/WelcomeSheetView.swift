@@ -17,7 +17,12 @@ struct WelcomeSheetView: View {
     @State private var loading: Bool = false
     @State private var showError: Error? = nil
 
+    private let defaultHomeserver = "matrix.org"
+
     func loadHomeserver() {
+        if homeserverField.isEmpty {
+            homeserverField = defaultHomeserver
+        }
         Task {
             loading = true
             defer { loading = false }
@@ -99,7 +104,8 @@ struct WelcomeSheetView: View {
                 .padding(.bottom)
 
             Form {
-                TextField("Homeserver", text: $homeserverField, prompt: Text("matrix.org"))
+                TextField("Homeserver", text: $homeserverField, prompt:
+                    Text(defaultHomeserver))
                     .disabled(loading)
                     .onSubmit { loadHomeserver() }
 
@@ -114,9 +120,22 @@ struct WelcomeSheetView: View {
             .frame(maxWidth: 300)
 
             if let showError = showError {
-                Text(showError.localizedDescription)
-                    .foregroundStyle(Color.red)
-                    .textSelection(.enabled)
+                let message: String = {
+                    switch showError {
+                    case let MatrixRustSDK.ClientBuildError
+                           .InvalidServerName(message: msg):
+                        return msg
+                    case let MatrixRustSDK.ClientBuildError
+                           .ServerUnreachable(message: msg):
+                        return msg
+                    default:
+                        return showError.localizedDescription
+                    }
+                }()
+
+                Text(message)
+                  .foregroundStyle(Color.red)
+                  .textSelection(.enabled)
             }
         }
         .padding()
