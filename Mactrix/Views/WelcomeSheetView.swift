@@ -1,7 +1,6 @@
 import AuthenticationServices
 import MatrixRustSDK
 import SwiftUI
-import OSLog
 
 struct WelcomeSheetView: View {
     @Environment(AppState.self) private var appState
@@ -130,8 +129,7 @@ struct WelcomeSheetView: View {
                            .ServerUnreachable(message: msg):
                         return msg
                     default:
-                        Logger.matrixClient.error("\(showError.localizedDescription)")
-                        return "Something went wrong!"
+                        return showError.localizedDescription
                     }
                 }()
 
