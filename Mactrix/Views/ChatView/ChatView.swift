@@ -22,8 +22,14 @@ struct TimelineGroupView: View {
     }
 }
 
+private struct TimelineReadKey: Equatable {
+    let count: Int
+    let active: Bool
+}
+
 struct ChatJoinedRoom: View {
     @Environment(AppState.self) private var appState
+    @Environment(\.appearsActive) private var appearsActive
     @Bindable var timeline: LiveTimeline
 
     var room: LiveRoom {
@@ -57,10 +63,10 @@ struct ChatJoinedRoom: View {
                     Logger.viewCycle.error("failed to mark room as recently visited: \(error)")
                 }
             }
-            .task(id: timeline.timelineItems.count, priority: .background) {
+            .task(id: TimelineReadKey(count: timeline.timelineItems.count, active: appearsActive), priority: .background) {
+                guard appearsActive else { return }
                 do {
                     try await Task.sleep(for: .seconds(1))
-
                     Logger.viewCycle.debug("Mark room as read")
                     try await timeline.timeline?.markAsRead(receiptType: .read)
                 } catch is CancellationError {
