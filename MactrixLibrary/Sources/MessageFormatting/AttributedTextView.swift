@@ -37,11 +37,13 @@ public struct AttributedTextView: NSViewRepresentable {
         guard let layoutManager = textView.layoutManager,
               let textContainer = textView.textContainer else { return nil }
 
+        let savedSize = textContainer.size
         textContainer.size = CGSize(width: width, height: .greatestFiniteMagnitude)
         layoutManager.ensureLayout(for: textContainer)
-
         let rect = layoutManager.usedRect(for: textContainer)
-        return CGSize(width: ceil(rect.width), height: ceil(rect.height))
+        textContainer.size = savedSize
+
+        return CGSize(width: width, height: ceil(rect.height))
     }
 }
 
