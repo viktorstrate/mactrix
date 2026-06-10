@@ -22,7 +22,7 @@ Mactrix is currently in early development, which means that distribution with au
 
 ### Requirements
 
-- macOS 15 or later
+- macOS 15.7 or later
 - Up-to-date Xcode installed
 
 Xcode will automatically download all dependencies when building the project for the first time.
