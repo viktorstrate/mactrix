@@ -27,12 +27,7 @@ public final class LiveSpaceService {
         self.spaceHandle = await self.spaceService.subscribeToTopLevelJoinedSpaces(listener: listener)
 
         Task { [weak self] in
-            let throttledListener = listener
-                ._throttle(for: .milliseconds(500), reducing: { result, next in
-                    (result ?? []) + next
-                })
-
-            for await roomUpdates in throttledListener {
+            for await roomUpdates in listener {
                 guard let self else { break }
 
                 for update in roomUpdates {

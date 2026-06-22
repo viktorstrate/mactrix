@@ -97,12 +97,7 @@ public final class LiveTimeline {
         timelineHandle = await timeline.addListener(listener: listener)
 
         Task { [weak self] in
-            let throttledListener = listener
-                ._throttle(for: .milliseconds(500), reducing: { result, next in
-                    (result ?? []) + next
-                })
-
-            for await diff in throttledListener {
+            for await diff in listener {
                 guard let self else { break }
                 updateTimeline(diff: diff)
             }

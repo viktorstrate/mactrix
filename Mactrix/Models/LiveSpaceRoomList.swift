@@ -38,7 +38,7 @@ final class LiveSpaceRoomList {
         spaceHandle = spaceRoomList.subscribeToSpaceUpdates(listener: spaceListener)
 
         Task { [weak self] in
-            for await space in spaceListener._throttle(for: .milliseconds(500)) {
+            for await space in spaceListener.debounce(for: .milliseconds(500)) {
                 guard let self else { break }
                 self.space = space
             }
@@ -50,12 +50,7 @@ final class LiveSpaceRoomList {
         roomsHandle = spaceRoomList.subscribeToRoomUpdate(listener: roomsListener)
 
         Task { [weak self] in
-            let throttledListener = roomsListener
-                ._throttle(for: .milliseconds(500), reducing: { result, next in
-                    (result ?? []) + next
-                })
-
-            for await roomUpdates in throttledListener {
+            for await roomUpdates in roomsListener {
                 guard let self else { return }
 
                 for update in roomUpdates {
@@ -93,7 +88,7 @@ final class LiveSpaceRoomList {
         paginateHandle = spaceRoomList.subscribeToPaginationStateUpdates(listener: paginateListener)
 
         Task { [weak self] in
-            for await state in paginateListener._throttle(for: .milliseconds(500)) {
+            for await state in paginateListener.debounce(for: .milliseconds(500)) {
                 self?.paginationState = state
             }
         }

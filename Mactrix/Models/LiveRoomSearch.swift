@@ -27,12 +27,7 @@ class LiveRoomSearch {
         resultsHandle = await roomDirectorySearch.results(listener: listener)
 
         Task { [weak self] in
-            let throttledListener = listener
-                ._throttle(for: .milliseconds(500), reducing: { result, next in
-                    (result ?? []) + next
-                })
-
-            for await roomEntriesUpdate in throttledListener {
+            for await roomEntriesUpdate in listener {
                 guard let self else { break }
 
                 Logger.matrixClient.info("room search updating UI")
