@@ -18,7 +18,7 @@ public final class SidebarRoom: Identifiable {
 
         Task {
             do {
-                roomInfo = try await room.roomInfo()
+                self.roomInfo = try await room.roomInfo()
             } catch {
                 Logger.SidebarRoom.error("Failed to fetch initial room info: \(error)")
             }
@@ -50,7 +50,7 @@ public final class SidebarRoom: Identifiable {
         roomInfoHandle = room.subscribeToRoomInfoUpdates(listener: listener)
 
         listenerTask = Task { [weak self] in
-            for await roomInfo in listener._throttle(for: .milliseconds(500)) {
+            for await roomInfo in listener.debounce(for: .milliseconds(500)) {
                 guard let self, !Task.isCancelled else { break }
                 self.roomInfo = roomInfo
             }

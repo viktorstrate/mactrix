@@ -28,7 +28,7 @@ class MatrixClient {
         storePassphrase = userSession.storePassphrase
 
         client = try await Self.clientBuilder(homeServer: userSession.homeserverURL, storeId: storeID, storePassphrase: storePassphrase)
-            //.enableOidcRefreshLock()
+            // .enableOidcRefreshLock()
             .setSessionDelegate(sessionDelegate: self)
             .build()
 
@@ -151,12 +151,7 @@ class MatrixClient {
         roomListEntriesHandle = _roomListEntriesHandle
 
         Task { [weak self] in
-            let throttledListener = roomEntriesListener
-                ._throttle(for: .milliseconds(500), reducing: { result, next in
-                    (result ?? []) + next
-                })
-
-            for await roomEntries in throttledListener {
+            for await roomEntries in roomEntriesListener {
                 guard let self else { break }
                 self.updateRoomEntries(roomEntriesUpdate: roomEntries)
             }
@@ -248,14 +243,14 @@ extension MatrixClient: UI.ImageLoader {
     // since a typical JPEG can be 20-50× larger once decoded.
     static let imageCache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
-        cache.totalCostLimit = 256 * 1024 * 1024  // 256MB decoded pixels
+        cache.totalCostLimit = 256 * 1024 * 1024 // 256MB decoded pixels
         return cache
     }()
 
-    private static let imageCacheMaxObjectCost = 64 * 1024 * 1024  // 64MB per object (~8000x2000px RGBA)
+    private static let imageCacheMaxObjectCost = 64 * 1024 * 1024 // 64MB per object (~8000x2000px RGBA)
 
     static func setCachedImage(_ image: NSImage, forKey key: NSString) {
-        let cost = Int(image.size.width * image.size.height) * 4  // decoded RGBA bytes
+        let cost = Int(image.size.width * image.size.height) * 4 // decoded RGBA bytes
         guard cost <= imageCacheMaxObjectCost else { return }
         imageCache.setObject(image, forKey: key, cost: cost)
     }
@@ -266,7 +261,7 @@ extension MatrixClient: UI.ImageLoader {
     }
 
     func loadImage(matrixUrl: String, size: CGSize?) async throws -> Image? {
-        let cacheKey: NSString = if let size {
+        let cacheKey = if let size {
             NSString(string: "\(matrixUrl)_\(Int(size.width))x\(Int(size.height))")
         } else {
             NSString(string: matrixUrl)
