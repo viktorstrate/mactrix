@@ -11,7 +11,7 @@ public func parseFormattedBody(_ body: String, baseFontSize: CGFloat = 13) -> NS
 
     let parser = ZHTMLParserBuilder
         .initWithDefault()
-        .set(rootStyle: MarkupStyle(font: MarkupStyleFont(size: baseFontSize)))
+        .set(rootStyle: MarkupStyle(font: MarkupStyleFont(size: baseFontSize), foregroundColor: MarkupStyleColor(color: NSColor.labelColor)))
         .add(
             H1_HTMLTagName(),
             withCustomStyle: MarkupStyle(
