@@ -12,7 +12,7 @@ public struct ThreadTimelineHeader: View {
             Divider()
             HStack(alignment: .firstTextBaseline) {
                 Button(action: dismiss) {
-                    Label("Close thread", systemImage: "x.circle.fill")
+                    Label("Close thread", systemImage: "xmark.circle.fill")
                 }
                 .buttonStyle(.plain)
                 .labelStyle(.iconOnly)
