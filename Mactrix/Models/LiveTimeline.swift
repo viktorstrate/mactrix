@@ -201,6 +201,6 @@ extension LiveTimeline {
 
 extension LiveTimeline: Equatable {
     public nonisolated static func == (lhs: LiveTimeline, rhs: LiveTimeline) -> Bool {
-        lhs.room.id == rhs.room.id
+		lhs.room.id == rhs.room.id && lhs.focusedThreadId == rhs.focusedThreadId
     }
 }
