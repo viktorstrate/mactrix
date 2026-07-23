@@ -6,21 +6,21 @@ struct FormattedBodyView: View {
     @AppStorage("fontSize") private var fontSize = 13
     
     let rawBody: String
-    let htmlBody: String?
+    var formattedBody: AttributedString? = nil
     
     init(messageContent: some MessageContent) {
         self.rawBody = messageContent.body
         
         if let formatted = messageContent.formatted, formatted.format == .html {
-            self.htmlBody = formatted.body
-        } else {
-            self.htmlBody = nil
+			let parsed = parseFormattedBody(formatted.body, baseFontSize: CGFloat(fontSize))
+			self.formattedBody = AttributedString(parsed.trimmed)
         }
     }
     
     var body: some View {
-        if let htmlBody {
-            AttributedTextView(attributedString: parseFormattedBody(htmlBody, baseFontSize: CGFloat(fontSize)))
+        if let formattedBody {
+			Text(formattedBody)
+				.textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
         } else {
             Text(rawBody)
