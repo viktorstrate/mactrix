@@ -86,7 +86,7 @@ struct SessionVerificationStatusView: View {
             }
             .padding(10)
             .background(Color.green.opacity(0.2))
-            .foregroundStyle(Color.green.mix(with: .black, by: 0.5))
+            .foregroundStyle(Color.green.mix(with: colorScheme == .light ? .black : .white, by: 0.5))
             .clipShape(RoundedRectangle(cornerRadius: 8))
         } else {
             selfVerificationView
