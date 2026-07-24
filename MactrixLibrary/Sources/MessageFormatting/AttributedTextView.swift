@@ -40,7 +40,7 @@ public struct AttributedTextView: NSViewRepresentable {
 }
 
 extension NSAttributedString {
-    var trimmed: NSAttributedString {
+    public var trimmed: NSAttributedString {
         let nonWhitespaces = CharacterSet.whitespacesAndNewlines.inverted
         let startRange = string.rangeOfCharacter(from: nonWhitespaces)
         let endRange = string.rangeOfCharacter(from: nonWhitespaces, options: .backwards)
