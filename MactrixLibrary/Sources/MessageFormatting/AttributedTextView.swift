@@ -7,35 +7,43 @@ public struct AttributedTextView: NSViewRepresentable {
         self.attributedString = attributedString.trimmed
     }
 
-    public func makeNSView(context: Context) -> NSTextField {
-        let textField = NSTextField(labelWithAttributedString: attributedString)
+    public func makeNSView(context: Context) -> NSTextView {
+        let textView = NSTextView()
 
-        textField.isEditable = false
-        textField.isSelectable = true
-        textField.allowsEditingTextAttributes = true
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.drawsBackground = false
+        textView.focusRingType = .none
 
-        textField.lineBreakStrategy = .standard
-        textField.lineBreakMode = .byWordWrapping
-        textField.usesSingleLineMode = false
+        textView.textContainerInset = .zero
+        textView.textContainer?.lineFragmentPadding = 0
+        textView.textContainer?.widthTracksTextView = true
+        textView.isVerticallyResizable = false
+        textView.isHorizontallyResizable = false
 
-        return textField
+        textView.textStorage?.setAttributedString(attributedString)
+
+        return textView
     }
 
-    public func updateNSView(_ textField: NSTextField, context: Context) {
-        if textField.attributedStringValue != attributedString {
-            textField.attributedStringValue = attributedString
+    public func updateNSView(_ textView: NSTextView, context: Context) {
+        if textView.attributedString() != attributedString {
+            textView.textStorage?.setAttributedString(attributedString)
         }
     }
 
-    public func sizeThatFits(_ proposal: ProposedViewSize, nsView textField: NSTextField, context: Context) -> CGSize? {
+    public func sizeThatFits(_ proposal: ProposedViewSize, nsView textView: NSTextView, context: Context) -> CGSize? {
         guard let width = proposal.width, width > 0, width != .infinity else { return nil }
+        guard let layoutManager = textView.layoutManager,
+              let textContainer = textView.textContainer else { return nil }
 
-        textField.preferredMaxLayoutWidth = width
-        guard let size = textField.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: width, height: CGFloat.greatestFiniteMagnitude)) else {
-            return nil
-        }
-        
-        return CGSize(width: ceil(size.width), height: ceil(size.height))
+        let savedSize = textContainer.size
+        textContainer.size = CGSize(width: width, height: .greatestFiniteMagnitude)
+        layoutManager.ensureLayout(for: textContainer)
+        let rect = layoutManager.usedRect(for: textContainer)
+        textContainer.size = savedSize
+
+        return CGSize(width: width, height: ceil(rect.height))
     }
 }
 
