@@ -77,13 +77,9 @@ struct ChatMessageView: View, UI.MessageEventActions {
             case let .gallery(content: content):
                 Text("Gallery: \(content.body)").textSelection(.enabled)
             case let .notice(content: content):
-                Text(content.body.formatAsMarkdown)
-                    .textSelection(.enabled)
-                    .foregroundColor(.secondary)
-                    .fixedSize(horizontal: false, vertical: true)
+				FormattedBodyView(messageContent: content, color: .secondaryLabelColor)
             case let .text(content: content):
                 FormattedBodyView(messageContent: content)
-                //Text(content.body.formatAsMarkdown)
             case let .location(content: content):
                 Text("Location: \(content.body) \(content.geoUri)").textSelection(.enabled)
             case let .other(msgtype: msgtype, body: body):

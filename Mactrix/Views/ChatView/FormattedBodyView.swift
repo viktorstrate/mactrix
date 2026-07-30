@@ -6,26 +6,45 @@ struct FormattedBodyView: View {
     @AppStorage("fontSize") private var fontSize = 13
     
     let rawBody: String
-    let htmlBody: String?
+	var formattedBody: NSAttributedString? = nil
+	var color: NSColor? = nil
     
-    init(messageContent: some MessageContent) {
+	init(messageContent: some MessageContent) {
+		self.rawBody = messageContent.body
+		
+		if let formatted = messageContent.formatted, formatted.format == .html {
+			self.formattedBody = parseFormattedBody(formatted.body, baseFontSize: CGFloat(fontSize))
+		}
+	}
+	
+	// accepts a custom foreground color (for use in grayed out messages)
+	init(messageContent: some MessageContent, color: NSColor) {
         self.rawBody = messageContent.body
+		self.color = color
         
-        if let formatted = messageContent.formatted, formatted.format == .html {
-            self.htmlBody = formatted.body
-        } else {
-            self.htmlBody = nil
+		if let formatted = messageContent.formatted, formatted.format == .html {
+			let parsed = parseFormattedBody(formatted.body, baseFontSize: CGFloat(fontSize))
+			
+			let mutable = NSMutableAttributedString(attributedString: parsed)
+			mutable.addAttribute(.foregroundColor, value: color, range: NSRange(location: 0, length: mutable.length))
+			
+			self.formattedBody = mutable
         }
     }
     
     var body: some View {
-        if let htmlBody {
-            AttributedTextView(attributedString: parseFormattedBody(htmlBody, baseFontSize: CGFloat(fontSize)))
+        if let formattedBody {
+            AttributedTextView(attributedString: formattedBody)
                 .fixedSize(horizontal: false, vertical: true)
-        } else {
+        } else if let color {
             Text(rawBody)
                 .textSelection(.enabled)
                 .fixedSize(horizontal: false, vertical: true)
-        }
+				.foregroundStyle(Color(nsColor: color))
+		} else {
+			Text(rawBody)
+				.textSelection(.enabled)
+				.fixedSize(horizontal: false, vertical: true)
+		}
     }
 }
