@@ -21,10 +21,10 @@ final class LiveSpaceRoomList {
         self.spaceRoomList = spaceRoomList
 
         listenToSpaceRoom()
-        listenToRooms()
         listenToPagination()
 
         Task {
+            await listenToRooms()
             await loadChildRooms()
         }
     }
@@ -45,9 +45,9 @@ final class LiveSpaceRoomList {
         }
     }
 
-    fileprivate func listenToRooms() {
+    fileprivate func listenToRooms() async {
         let roomsListener = AsyncSDKListener<[SpaceListUpdate]>()
-        roomsHandle = spaceRoomList.subscribeToRoomUpdate(listener: roomsListener)
+        roomsHandle = await spaceRoomList.subscribeToRoomUpdate(listener: roomsListener)
 
         Task { [weak self] in
             for await roomUpdates in roomsListener {

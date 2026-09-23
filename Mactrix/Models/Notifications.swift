@@ -151,6 +151,8 @@ extension MatrixNotifications {
                         return "Message redacted"
                     case .sticker:
                         return "Sent a sticker"
+                    case .beacon:
+                        return "Beacon"
                     }
                 case .state(content:):
                     return "State change"

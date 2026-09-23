@@ -14,7 +14,7 @@ struct UserSession: Codable {
     let userID: String
     let deviceID: String
     let homeserverURL: String
-    let oidcData: String?
+    let oauthData: String?
     let storeID: String
     let storePassphrase: String
 
@@ -24,7 +24,7 @@ struct UserSession: Codable {
         userID = session.userId
         deviceID = session.deviceId
         homeserverURL = session.homeserverUrl
-        oidcData = session.oidcData
+        oauthData = session.oauthData
         self.storeID = storeID
         self.storePassphrase = storePassphrase
     }
@@ -35,7 +35,7 @@ struct UserSession: Codable {
                 userId: userID,
                 deviceId: deviceID,
                 homeserverUrl: homeserverURL,
-                oidcData: oidcData,
+                oauthData: oauthData,
                 slidingSyncVersion: .native)
     }
 
@@ -48,7 +48,7 @@ struct UserSession: Codable {
 
     static func loadUserFromKeychain() throws -> Self? {
         Logger.matrixClient.debug("Load user from keychain")
-        if let keychainData = try AppKeychain().load(forKey: Self.keychainKey) {
+        if let keychainData = try AppKeychain().load(forKey: keychainKey) {
             return try JSONDecoder().decode(Self.self, from: keychainData)
         }
         return nil

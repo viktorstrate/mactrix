@@ -20,8 +20,8 @@ struct ChatTextView: NSViewRepresentable {
         textView.placeholderAttributedString = NSAttributedString(
             string: placeholder,
             attributes: [
-              .foregroundColor: NSColor.secondaryLabelColor,
-              .font: NSFont.systemFont(ofSize: CGFloat(fontSize))
+                .foregroundColor: NSColor.secondaryLabelColor,
+                .font: NSFont.systemFont(ofSize: CGFloat(fontSize))
             ]
         )
         
@@ -56,22 +56,22 @@ struct ChatTextView: NSViewRepresentable {
         }
 
         let currentPlaceholderFont =
-          textView.placeholderAttributedString?
-              .attribute(
-                .font,
-                at: 0,
-                effectiveRange: nil
-              ) as? NSFont
+            unsafe textView.placeholderAttributedString?
+                .attribute(
+                    .font,
+                    at: 0,
+                    effectiveRange: nil
+                ) as? NSFont
         let placeholderFontChanged =
-          currentPlaceholderFont?.pointSize != CGFloat(fontSize)
+            currentPlaceholderFont?.pointSize != CGFloat(fontSize)
         if textView.placeholderAttributedString?.string != placeholder ||
-             placeholderFontChanged
+            placeholderFontChanged
         {
             textView.placeholderAttributedString = NSAttributedString(
                 string: placeholder,
                 attributes: [
-                  .foregroundColor: NSColor.secondaryLabelColor,
-                  .font: NSFont.systemFont(ofSize: CGFloat(fontSize))
+                    .foregroundColor: NSColor.secondaryLabelColor,
+                    .font: NSFont.systemFont(ofSize: CGFloat(fontSize))
                 ]
             )
         }

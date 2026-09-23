@@ -24,15 +24,15 @@ struct HomeserverLogin {
         return try await onSuccessfullLogin()
     }
 
-    private var oidcConfiguration: OidcConfiguration {
+    private var oauthConfiguration: OAuthConfiguration {
         // redirect uri must be reverse domain of client uri
-        OidcConfiguration(clientName: "Mactrix", redirectUri: "com.github:/", clientUri: "https://github.com/viktorstrate/mactrix", logoUri: nil, tosUri: nil, policyUri: nil, staticRegistrations: [:])
+        OAuthConfiguration(clientName: "Mactrix", redirectUri: "com.github:/", clientUri: "https://github.com/viktorstrate/mactrix", logoUri: nil, tosUri: nil, policyUri: nil, staticRegistrations: [:])
     }
 
     @MainActor
     func loginOidc(webAuthSession: WebAuthenticationSession) async throws -> MatrixClient {
         Logger.matrixClient.debug("login oidc begin")
-        let authInfo = try await unauthenticatedClient.urlForOidc(oidcConfiguration: oidcConfiguration, prompt: .login, loginHint: nil, deviceId: nil, additionalScopes: nil)
+        let authInfo = try await unauthenticatedClient.urlForOauth(oauthConfiguration: oauthConfiguration, prompt: .login, loginHint: nil, deviceId: nil, additionalScopes: nil)
         let url = URL(string: authInfo.loginUrl())!
 
         Logger.matrixClient.debug("Auth url: \(url, privacy: .sensitive)")
@@ -41,7 +41,7 @@ struct HomeserverLogin {
 
         Logger.matrixClient.debug("after sign in")
 
-        try await unauthenticatedClient.loginWithOidcCallback(callbackUrl: callbackUrl.absoluteString)
+        try await unauthenticatedClient.loginWithOauthCallback(callbackUrl: callbackUrl.absoluteString)
 
         return try await onSuccessfullLogin()
     }

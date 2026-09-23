@@ -91,7 +91,7 @@ struct WelcomeSheetView: View {
     }
 
     @ViewBuilder
-    var oidcLogin: some View {
+    var oauthLogin: some View {
         Button("Sign in with OAuth") {
             signInOidc()
         }
@@ -109,8 +109,8 @@ struct WelcomeSheetView: View {
                     .disabled(loading)
                     .onSubmit { loadHomeserver() }
 
-                if homeserverLogin?.loginDetails.supportsOidcLogin() == true {
-                    oidcLogin
+                if homeserverLogin?.loginDetails.supportsOauthLogin() == true {
+                    oauthLogin
                 }
 
                 if homeserverLogin?.loginDetails.supportsPasswordLogin() == true {
@@ -123,10 +123,10 @@ struct WelcomeSheetView: View {
                 let message: String = {
                     switch showError {
                     case let MatrixRustSDK.ClientBuildError
-                           .InvalidServerName(message: msg):
+                        .InvalidServerName(message: msg):
                         return msg
                     case let MatrixRustSDK.ClientBuildError
-                           .ServerUnreachable(message: msg):
+                        .ServerUnreachable(message: msg):
                         return msg
                     default:
                         return showError.localizedDescription
@@ -134,8 +134,8 @@ struct WelcomeSheetView: View {
                 }()
 
                 Text(message)
-                  .foregroundStyle(Color.red)
-                  .textSelection(.enabled)
+                    .foregroundStyle(Color.red)
+                    .textSelection(.enabled)
             }
         }
         .padding()

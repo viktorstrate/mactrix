@@ -163,7 +163,7 @@ extension MatrixRustSDK.ProfileDetails {
             return .unavailable
         case .pending:
             return .pending
-        case let .ready(displayName, displayNameAmbiguous, avatarUrl):
+        case let .ready(displayName, displayNameAmbiguous, avatarUrl, _, _):
             return .ready(displayName: displayName, displayNameAmbiguous: displayNameAmbiguous, avatarUrl: avatarUrl)
         case let .error(message):
             return .error(message: message)
@@ -362,8 +362,6 @@ extension MatrixRustSDK.MessageLikeEventType: @retroactive CustomStringConvertib
             "unstable poll response"
         case .unstablePollStart:
             "unstable poll start"
-        case let .other(other):
-            other
         case .audio:
             "audio"
         case .beacon:
@@ -396,6 +394,8 @@ extension MatrixRustSDK.MessageLikeEventType: @retroactive CustomStringConvertib
             "video"
         case .voice:
             "voice"
+        case .custom:
+            "custom"
         }
     }
 }
@@ -409,8 +409,6 @@ extension MatrixRustSDK.OtherState: @retroactive CustomStringConvertible {
             return "changed policy rules for server"
         case .policyRuleUser:
             return "changed policy rule for user"
-        case .roomAliases:
-            return "changed room aliases"
         case .roomAvatar(url: _):
             return "changed room avatar"
         case .roomCanonicalAlias:

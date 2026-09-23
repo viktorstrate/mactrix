@@ -152,7 +152,11 @@ struct MainView: View {
 
     func onMatrixLoaded(matrixClient: MatrixClient) {
         Task {
-            try await matrixClient.startSync()
+            do {
+                try await matrixClient.startSync()
+            } catch {
+                Logger.matrixClient.error("Failed to start sync: \(error)")
+            }
 
             // check if a room is selected and load it
             await onRoomSelected()
@@ -161,11 +165,17 @@ struct MainView: View {
 
     func onLoginModalDismiss() {
         Task {
-            try await Task.sleep(for: .milliseconds(100))
-            if let matrixClient = appState.matrixClient {
-                onMatrixLoaded(matrixClient: matrixClient)
-            } else {
-                NSApp.terminate(nil)
+            do {
+                try await Task.sleep(for: .milliseconds(100))
+                if let matrixClient = appState.matrixClient {
+                    onMatrixLoaded(matrixClient: matrixClient)
+                } else {
+                    NSApp.terminate(nil)
+                }
+            } catch is CancellationError {
+                // ignore
+            } catch {
+                Logger.matrixClient.error("Failed in onLoginModalDismiss: \(error)")
             }
         }
     }

@@ -18,7 +18,7 @@ struct EmbeddedMessageView: View {
         case let .ready(content, sender, senderProfile, _, _):
             UI.MessageReplyView(
                 username: {
-                    if case let .ready(name, _, _) = senderProfile, let name { return name }
+                    if case let .ready(name, _, _, _, _) = senderProfile, let name { return name }
                     return sender
                 }(),
                 message: content.description,

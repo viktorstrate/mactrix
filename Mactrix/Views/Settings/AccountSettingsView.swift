@@ -95,7 +95,11 @@ struct AccountSettingsView: View {
 
                 Button("Clear cache") {
                     Task {
-                        try await appState.matrixClient?.clearCache()
+                        do {
+                            try await appState.matrixClient?.clearCache()
+                        } catch {
+                            Logger.viewCycle.error("Failed to clear cache: \(error)")
+                        }
                     }
                 }
             }
