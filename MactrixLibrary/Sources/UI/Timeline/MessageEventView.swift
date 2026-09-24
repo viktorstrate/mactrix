@@ -89,12 +89,12 @@ struct MessageMainBody<MessageView: View, EventTimelineItem: Models.EventTimelin
 
 public struct MessageEventProfileView<EventTimelineItem: Models.EventTimelineItem>: View {
     let event: EventTimelineItem
-    let actions: MessageEventActions
+    let focusUserAction: () -> Void
     let imageLoader: ImageLoader?
 
-    public init(event: EventTimelineItem, actions: MessageEventActions, imageLoader: ImageLoader?) {
+    public init(event: EventTimelineItem, focusUserAction: @escaping () -> Void, imageLoader: ImageLoader?) {
         self.event = event
-        self.actions = actions
+        self.focusUserAction = focusUserAction
         self.imageLoader = imageLoader
     }
 
@@ -107,7 +107,7 @@ public struct MessageEventProfileView<EventTimelineItem: Models.EventTimelineIte
 
     public var body: some View {
         // Profile icon and name
-        Button(action: actions.focusUser) {
+        Button(action: focusUserAction) {
             HStack(spacing: 0) {
                 HStack(spacing: 0) {
                     AvatarImage(userProfile: event, imageLoader: imageLoader)
@@ -267,7 +267,7 @@ public struct MockMessageEventActions: MessageEventActions {
 
 #Preview {
     VStack(spacing: 0) {
-        MessageEventProfileView(event: MockEventTimelineItem(), actions: MockMessageEventActions(), imageLoader: nil)
+        MessageEventProfileView(event: MockEventTimelineItem(), focusUserAction: {}, imageLoader: nil)
 
         MessageEventBodyView(
             event: MockEventTimelineItem(),

@@ -123,7 +123,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
 
     var body: some View {
         if includeProfileHeader {
-            UI.MessageEventProfileView(event: event, actions: self, imageLoader: appState.matrixClient)
+            UI.MessageEventProfileView(event: event, focusUserAction: self.focusUser, imageLoader: appState.matrixClient)
                 .font(.system(size: .init(fontSize)))
         }
         UI.MessageEventBodyView(event: event, focused: isEventFocused, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient, roomMembers: timeline?.room.members ?? []) {

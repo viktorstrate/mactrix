@@ -5,18 +5,36 @@ import SwiftUI
 import UI
 
 enum TimelineItemRowInfo {
-    case message(event: EventTimelineItem, content: MsgLikeContent)
-    case state(event: EventTimelineItem)
-    case virtual(virtual: VirtualTimelineItem)
+    case profile(item: TimelineItem, event: EventTimelineItem)
+    case message(item: TimelineItem, event: EventTimelineItem, content: MsgLikeContent)
+    case state(item: TimelineItem, event: EventTimelineItem)
+    case virtual(item: TimelineItem, virtual: VirtualTimelineItem)
 
     var reuseIdentifier: NSUserInterfaceItemIdentifier {
         switch self {
+        case .profile(profile: _):
+            return NSUserInterfaceItemIdentifier("profile")
         case .message:
             return NSUserInterfaceItemIdentifier("message")
         case .state:
             return NSUserInterfaceItemIdentifier("state")
         case .virtual:
             return NSUserInterfaceItemIdentifier("virtual")
+        }
+    }
+}
+
+extension TimelineItemRowInfo: Identifiable {
+    var id: String {
+        switch self {
+        case .profile(_, let event):
+            "profile:\(event.eventOrTransactionId.id)"
+        case .message(_, let event, _):
+            "message:\(event.eventOrTransactionId.id)"
+        case .state(_, let event):
+            "state:\(event.eventOrTransactionId.id)"
+        case .virtual(let item, _):
+            "virtual:\(item.uniqueId().id)"
         }
     }
 }
@@ -38,11 +56,13 @@ struct TimelineItemRowView: View {
     @ViewBuilder
     var contentView: some View {
         switch rowInfo {
-        case .message(let event, let content):
-            ChatMessageView(timeline: timeline, event: event, msg: content, includeProfileHeader: true)
-        case .state(let event):
+        case .profile(_, let event):
+            UI.MessageEventProfileView(event: event, focusUserAction: { windowState.focusUser(userId: event.sender) }, imageLoader: appState.matrixClient)
+        case .message(_, let event, let content):
+            ChatMessageView(timeline: timeline, event: event, msg: content, includeProfileHeader: false)
+        case .state(_, let event):
             UI.GenericEventView(event: event, name: event.content.description)
-        case .virtual(let virtual):
+        case .virtual(_, let virtual):
             UI.VirtualItemView(item: virtual.asModel)
         }
     }
@@ -58,25 +78,6 @@ struct TimelineItemRowView: View {
     }
 }
 
-extension TimelineItem {
-    var rowInfo: TimelineItemRowInfo {
-        if let virtual = asVirtual() {
-            return .virtual(virtual: virtual)
-        }
-
-        if let event = asEvent() {
-            switch event.content {
-            case .msgLike(content: let content):
-                return .message(event: event, content: content)
-            default:
-                return .state(event: event)
-            }
-        }
-
-        fatalError("unreachable state: item must be either virtual or event")
-    }
-}
-
 class TimelineViewController: NSViewController {
     let coordinator: TimelineViewRepresentable.Coordinator
 
@@ -86,13 +87,13 @@ class TimelineViewController: NSViewController {
     let tableView = BottomStickyTableView()
 
     let timeline: LiveTimeline
-    var timelineItems: [TimelineItem]
+    var timelineItems: [TimelineItemRowInfo] = []
 
     init(coordinator: TimelineViewRepresentable.Coordinator, timeline: LiveTimeline, timelineItems: [TimelineItem]) {
         self.coordinator = coordinator
         self.timeline = timeline
-        self.timelineItems = timelineItems
         super.init(nibName: nil, bundle: nil)
+        self.timelineItems = mapTimelineItems(items: timelineItems)
     }
 
     override func viewDidLoad() {
@@ -113,17 +114,17 @@ class TimelineViewController: NSViewController {
             guard let self else { return NSView() }
 
             let item = timelineItems[row]
-            let view = TimelineItemRowView(rowInfo: item.rowInfo, timeline: timeline, coordinator: coordinator)
+            let view = TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator)
 
             let hostView: NSHostingView<TimelineItemRowView>
-            if let recycledView = tableView.makeView(withIdentifier: item.rowInfo.reuseIdentifier, owner: self)
+            if let recycledView = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
                 as? NSHostingView<TimelineItemRowView>
             {
                 recycledView.rootView = view
                 hostView = recycledView
             } else {
                 hostView = NSHostingView<TimelineItemRowView>(rootView: view)
-                hostView.identifier = item.rowInfo.reuseIdentifier
+                hostView.identifier = item.reuseIdentifier
                 hostView.autoresizingMask = [.width, .height]
                 hostView.sizingOptions = [.preferredContentSize]
                 hostView.setContentHuggingPriority(.required, for: .vertical)
@@ -206,8 +207,13 @@ class TimelineViewController: NSViewController {
         }
 
         guard let focusedTimelineEventId,
-              let rowIndex = timelineItems.firstIndex(where: {
-                  $0.asEvent()?.eventOrTransactionId == focusedTimelineEventId
+              let rowIndex = timelineItems.firstIndex(where: { item in
+                  switch item {
+                  case .message(item: _, event: let event, content: _):
+                      return event.eventOrTransactionId == focusedTimelineEventId
+                  default:
+                      return false
+                  }
               }) else { return }
 
         tableView.animateRowToVisible(rowIndex)
@@ -226,9 +232,9 @@ class TimelineViewController: NSViewController {
     func updateTimelineItems(_ timelineItems: [TimelineItem]) {
         Logger.timelineTableView.info("update timeline items")
 
-        let oldIds = self.timelineItems.map { $0.uniqueId().id }
-        self.timelineItems = timelineItems.reversed()
-        let newIds = self.timelineItems.map { $0.uniqueId().id }
+        let oldIds = self.timelineItems.map { $0.id }
+        self.timelineItems = mapTimelineItems(items: timelineItems)
+        let newIds = self.timelineItems.map { $0.id }
 
         // If the IDs haven't changed, reload all rows in place (content-only update: reactions, read receipts, etc.)
         // Reloads all rows rather than just visible ones to avoid stale content in NSTableView's prepared/cached views.
@@ -242,7 +248,7 @@ class TimelineViewController: NSViewController {
         snapshot.appendSections([.main])
 
         for item in self.timelineItems {
-            snapshot.appendItems([.init(id: item.uniqueId().id)], toSection: .main)
+            snapshot.appendItems([.init(id: item.id)], toSection: .main)
         }
 
         dataSource?.apply(snapshot, animatingDifferences: false)
@@ -253,6 +259,36 @@ class TimelineViewController: NSViewController {
             let visibleRows = tableView.rows(in: tableView.visibleRect)
             tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
         }
+    }
+
+    private func mapTimelineItems(items: [TimelineItem]) -> [TimelineItemRowInfo] {
+        var result = [TimelineItemRowInfo]()
+
+        var currentSender: String? = nil
+        for item in items {
+            if let event = item.asEvent() {
+                switch event.content {
+                case .msgLike(content: let content):
+                    if event.sender != currentSender {
+                        currentSender = event.sender
+                        result.append(.profile(item: item, event: event))
+                    }
+                    result.append(.message(item: item, event: event, content: content))
+                default:
+                    currentSender = nil
+                    result.append(.state(item: item, event: event))
+                }
+            }
+
+            if let virtual = item.asVirtual() {
+                currentSender = nil
+                result.append(.virtual(item: item, virtual: virtual))
+            }
+        }
+
+        result.reverse()
+
+        return result
     }
 
     // values used to track width changes
@@ -276,7 +312,7 @@ extension TimelineViewController: NSTableViewDelegate {
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         let item = timelineItems[row]
 
-        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item.rowInfo, timeline: timeline, coordinator: coordinator))
+        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator))
 
         let targetWidth = tableView.tableColumns[0].width
         let proposedSize = CGSize(width: targetWidth, height: CGFloat.greatestFiniteMagnitude)
