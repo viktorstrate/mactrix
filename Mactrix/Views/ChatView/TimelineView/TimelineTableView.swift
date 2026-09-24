@@ -114,8 +114,25 @@ class TimelineViewController: NSViewController {
             guard let self else { return NSView() }
 
             let item = timelineItems[row]
-            let view = TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator)
 
+            if case .profile(item: _, event: let event) = item {
+                if let recycledView = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
+                    as? MessageProfileRowView
+                {
+                    recycledView.configure(event: event)
+                    return recycledView
+                } else {
+                    let view = MessageProfileRowView()
+                    view.initialize(imageLoader: coordinator.appState.matrixClient, focusUser: { [weak self] in
+                        self?.coordinator.windowState.focusUser(userId: $0)
+                    })
+                    view.configure(event: event)
+                    view.identifier = item.reuseIdentifier
+                    return view
+                }
+            }
+
+            let view = TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator)
             let hostView: NSHostingView<TimelineItemRowView>
             if let recycledView = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
                 as? NSHostingView<TimelineItemRowView>
@@ -311,6 +328,10 @@ extension TimelineViewController: NSTableViewDelegate {
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
         let item = timelineItems[row]
+
+        if case .profile = item {
+            return MessageProfileRowView.ROW_HEIGHT
+        }
 
         measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator))
 
