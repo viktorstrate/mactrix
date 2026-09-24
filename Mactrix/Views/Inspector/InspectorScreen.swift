@@ -27,7 +27,7 @@ struct InspectorScreen: View {
                 }
                 ChatView(timeline: thread)
             }
-            .inspectorColumnWidth(min: 200, ideal: 400, max: nil)
+            .inspectorColumnWidth(min: 200, ideal: 400, max: 900)
         case .roomInfo:
             switch windowState.selectedScreen {
             case let .joinedRoom(timeline: timeline):

@@ -28,6 +28,8 @@ public final class LiveTimeline {
 
     public private(set) var paginating: PaginationStatus = .idle(hitTimelineStart: false)
     public private(set) var hitTimelineStart: Bool = false
+    private var fetchMessagesAgain: Bool = false
+    private var fetchingOlderMessages: Bool = false
 
     public init(room: LiveRoom) {
         self.focusedThreadId = nil
@@ -114,34 +116,43 @@ public final class LiveTimeline {
         }
 
         Task { [weak self] in
-            do {
-                for await status in listener {
-                    guard let self else { break }
+            for await status in listener {
+                guard let self else { break }
 
-                    Logger.liveTimeline.debug("updating timeline paginating: \(status.debugDescription)")
-                    paginating = status
+                Logger.liveTimeline.debug("updating timeline paginating: \(status.debugDescription)")
+                paginating = status
 
-                    if paginating == .idle(hitTimelineStart: false) && timelineItems.count < 20 {
-                        try await Task.sleep(for: .milliseconds(500))
-                        try await fetchOlderMessages()
-                    }
+                if paginating == .idle(hitTimelineStart: false) && timelineItems.count < 100 {
+                    await fetchOlderMessages()
                 }
-            } catch is CancellationError {
-            } catch {
-                Logger.liveTimeline.error("Pagination status listener failed: \(error)")
             }
         }
     }
 
-    public func fetchOlderMessages() async throws {
-        guard paginating == .idle(hitTimelineStart: false) else {
-            let p = paginating.debugDescription
-            Logger.liveTimeline.debug("fetchOlderMessages cancelled, paginating was \(p)")
+    public func fetchOlderMessages() async {
+        guard !fetchingOlderMessages else {
+            Logger.liveTimeline.debug("fetchOlderMessages deferred, already fetching messages")
+            fetchMessagesAgain = true
+            return
+        }
+        guard !hitTimelineStart else {
+            Logger.liveTimeline.debug("fetchOlderMessages cancelled, timeline start already reached")
             return
         }
 
         Logger.liveTimeline.info("fetch more messages")
-        _ = try await timeline?.paginateBackwards(numEvents: 100)
+
+        do {
+            _ = try await timeline?.paginateBackwards(numEvents: 100)
+            fetchingOlderMessages = false
+
+            if fetchMessagesAgain {
+                fetchMessagesAgain = false
+                await fetchOlderMessages()
+            }
+        } catch {
+            Logger.liveTimeline.error("Failed to paginate backwards: \(error)")
+        }
     }
 
     public func focusEvent(id eventId: EventOrTransactionId) {
@@ -177,6 +188,10 @@ extension LiveTimeline {
             case let .reset(values: values):
                 timelineItems = values
             }
+        }
+
+        if timelineItems.first?.asVirtual() == .timelineStart {
+            hitTimelineStart = true
         }
 
         loadPendingReplyDetails()
