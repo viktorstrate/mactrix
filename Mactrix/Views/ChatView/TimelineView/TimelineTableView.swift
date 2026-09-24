@@ -9,6 +9,7 @@ enum TimelineItemRowInfo {
     case message(item: TimelineItem, event: EventTimelineItem, content: MsgLikeContent)
     case state(item: TimelineItem, event: EventTimelineItem)
     case virtual(item: TimelineItem, virtual: VirtualTimelineItem)
+    case typingIndicator
 
     var reuseIdentifier: NSUserInterfaceItemIdentifier {
         switch self {
@@ -20,6 +21,8 @@ enum TimelineItemRowInfo {
             return NSUserInterfaceItemIdentifier("state")
         case .virtual:
             return NSUserInterfaceItemIdentifier("virtual")
+        case .typingIndicator:
+            return NSUserInterfaceItemIdentifier("typing-indicator")
         }
     }
 }
@@ -35,6 +38,8 @@ extension TimelineItemRowInfo: Identifiable {
             "state:\(event.eventOrTransactionId.id)"
         case .virtual(let item, _):
             "virtual:\(item.uniqueId().id)"
+        case .typingIndicator:
+            "typing-indicator"
         }
     }
 }
@@ -56,14 +61,16 @@ struct TimelineItemRowView: View {
     @ViewBuilder
     var contentView: some View {
         switch rowInfo {
-        case .profile(_, let event):
-            UI.MessageEventProfileView(event: event, focusUserAction: { windowState.focusUser(userId: event.sender) }, imageLoader: appState.matrixClient)
+        case .profile:
+            Text("Profile rows implemented in AppKit now")
         case .message(_, let event, let content):
             ChatMessageView(timeline: timeline, event: event, msg: content, includeProfileHeader: false)
         case .state(_, let event):
             UI.GenericEventView(event: event, name: event.content.description)
         case .virtual(_, let virtual):
             UI.VirtualItemView(item: virtual.asModel)
+        case .typingIndicator:
+            Text("Typing indicator implemented in AppKit now")
         }
     }
 
@@ -115,7 +122,8 @@ class TimelineViewController: NSViewController {
 
             let item = timelineItems[row]
 
-            if case .profile(item: _, event: let event) = item {
+            switch item {
+            case .profile(item: _, event: let event):
                 if let recycledView = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
                     as? MessageProfileRowView
                 {
@@ -130,24 +138,34 @@ class TimelineViewController: NSViewController {
                     view.identifier = item.reuseIdentifier
                     return view
                 }
-            }
+            case .typingIndicator:
+                if let recycledView = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self) as? TypingIndicatorRowView {
+                    recycledView.configure(names: self.typingNames)
+                    return recycledView
+                } else {
+                    let view = TypingIndicatorRowView()
+                    view.configure(names: self.typingNames)
+                    view.identifier = item.reuseIdentifier
+                    return view
+                }
+            default:
+                let view = TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator)
+                let hostView: NSHostingView<TimelineItemRowView>
+                if let recycledView = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
+                    as? NSHostingView<TimelineItemRowView>
+                {
+                    recycledView.rootView = view
+                    hostView = recycledView
+                } else {
+                    hostView = NSHostingView<TimelineItemRowView>(rootView: view)
+                    hostView.identifier = item.reuseIdentifier
+                    hostView.autoresizingMask = [.width, .height]
+                    hostView.sizingOptions = [.preferredContentSize]
+                    hostView.setContentHuggingPriority(.required, for: .vertical)
+                }
 
-            let view = TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator)
-            let hostView: NSHostingView<TimelineItemRowView>
-            if let recycledView = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
-                as? NSHostingView<TimelineItemRowView>
-            {
-                recycledView.rootView = view
-                hostView = recycledView
-            } else {
-                hostView = NSHostingView<TimelineItemRowView>(rootView: view)
-                hostView.identifier = item.reuseIdentifier
-                hostView.autoresizingMask = [.width, .height]
-                hostView.sizingOptions = [.preferredContentSize]
-                hostView.setContentHuggingPriority(.required, for: .vertical)
+                return hostView
             }
-
-            return hostView
         }
 
         tableView.delegate = self
@@ -178,6 +196,30 @@ class TimelineViewController: NSViewController {
         )
 
         listenForFocusTimelineItem()
+        listenForTypingUsers()
+    }
+
+    private var typingNames: [String] {
+        let members = timeline.room.members
+        return timeline.room.typingUserIds.map { userId in
+            members.first(where: { $0.userId == userId })?.displayName ?? userId
+        }
+    }
+
+    private func listenForTypingUsers() {
+        withObservationTracking {
+            _ = timeline.room.typingUserIds
+            _ = timeline.room.members
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.listenForTypingUsers()
+                guard self.tableView.numberOfRows > 0,
+                      let view = self.tableView.view(atColumn: 0, row: 0, makeIfNecessary: false) as? TypingIndicatorRowView
+                else { return }
+                view.configure(names: self.typingNames)
+            }
+        }
     }
 
     @objc func handleTableResize(_ notification: Notification) {
@@ -243,7 +285,7 @@ class TimelineViewController: NSViewController {
 
     enum TimelineSection {
         case main
-        case typingIndicator
+        // case typingIndicator
     }
 
     func updateTimelineItems(_ timelineItems: [TimelineItem]) {
@@ -303,6 +345,8 @@ class TimelineViewController: NSViewController {
             }
         }
 
+        result.append(.typingIndicator)
+
         result.reverse()
 
         return result
@@ -331,6 +375,10 @@ extension TimelineViewController: NSTableViewDelegate {
 
         if case .profile = item {
             return MessageProfileRowView.ROW_HEIGHT
+        }
+
+        if case .typingIndicator = item {
+            return TypingIndicatorRowView.rowHeight
         }
 
         measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator))

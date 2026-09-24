@@ -36,6 +36,7 @@ class MessageProfileRowView: NSView {
         name.drawsBackground = false
         name.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
         name.lineBreakMode = .byTruncatingTail
+        name.maximumNumberOfLines = 1
 
         addSubview(profilePicture)
         addSubview(name)
