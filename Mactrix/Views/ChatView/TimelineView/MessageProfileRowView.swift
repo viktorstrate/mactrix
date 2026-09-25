@@ -4,7 +4,7 @@ import UI
 
 class MessageProfileRowView: NSView {
     let profilePicture = NSButton()
-    let name = NSTextField()
+    let name = NSTextField(labelWithString: "")
 
     private var sender: String?
     private var focusUserAction: (_ sender: String) -> Void = { _ in }
@@ -31,8 +31,6 @@ class MessageProfileRowView: NSView {
 
         name.translatesAutoresizingMaskIntoConstraints = false
         name.isSelectable = true
-        name.isEditable = false
-        name.isBordered = false
         name.drawsBackground = false
         name.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
         name.lineBreakMode = .byTruncatingTail

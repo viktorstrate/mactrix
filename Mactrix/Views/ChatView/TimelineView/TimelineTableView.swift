@@ -139,26 +139,28 @@ class TimelineViewController: NSViewController {
                     return view
                 }
             case .typingIndicator:
-                if let recycledView = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self) as? TypingIndicatorRowView {
-                    recycledView.configure(names: self.typingNames)
-                    return recycledView
-                } else {
-                    let view = TypingIndicatorRowView()
-                    view.configure(names: self.typingNames)
-                    view.identifier = item.reuseIdentifier
-                    return view
-                }
+                let view = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
+                    as? TypingIndicatorRowView ?? TypingIndicatorRowView()
+                view.configure(names: self.typingNames)
+                view.identifier = item.reuseIdentifier
+                return view
+            case .message(_, let event, let content) where MessageBodyRowView.supports(event: event, content: content):
+                let view = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
+                    as? MessageBodyRowView ?? MessageBodyRowView()
+                view.configure(event: event, content: content)
+                view.identifier = item.reuseIdentifier
+                return view
             default:
                 let view = TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator)
                 let hostView: NSHostingView<TimelineItemRowView>
-                if let recycledView = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
+                if let recycledView = tableView.makeView(withIdentifier: .init("swiftui-view"), owner: self)
                     as? NSHostingView<TimelineItemRowView>
                 {
                     recycledView.rootView = view
                     hostView = recycledView
                 } else {
                     hostView = NSHostingView<TimelineItemRowView>(rootView: view)
-                    hostView.identifier = item.reuseIdentifier
+                    hostView.identifier = .init("swiftui-view")
                     hostView.autoresizingMask = [.width, .height]
                     hostView.sizingOptions = [.preferredContentSize]
                     hostView.setContentHuggingPriority(.required, for: .vertical)
@@ -359,6 +361,8 @@ class TimelineViewController: NSViewController {
         hostView.sizingOptions = [.preferredContentSize]
         return hostView
     }()
+
+    let measurementMessageView = MessageBodyRowView()
 }
 
 extension TimelineViewController: NSTableViewDelegate {
@@ -379,6 +383,12 @@ extension TimelineViewController: NSTableViewDelegate {
 
         if case .typingIndicator = item {
             return TypingIndicatorRowView.rowHeight
+        }
+
+        if case .message(_, let event, let content) = item,
+           MessageBodyRowView.supports(event: event, content: content)
+        {
+            return measurementMessageView.height(for: content, width: tableView.tableColumns[0].width)
         }
 
         measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator))
