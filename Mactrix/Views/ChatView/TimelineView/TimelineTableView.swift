@@ -16,8 +16,10 @@ enum TimelineItemRowInfo {
         switch self {
         case .profile(profile: _):
             return NSUserInterfaceItemIdentifier("profile")
-        case .message:
-            return NSUserInterfaceItemIdentifier("message")
+        case .message(_, let event, let content):
+            return NSUserInterfaceItemIdentifier(
+                MessageRowView.supports(event: event, content: content) ? "message.text" : "swiftui-view"
+            )
         case .state:
             return NSUserInterfaceItemIdentifier("state")
         case .virtual:
@@ -94,7 +96,7 @@ class TimelineViewController: NSViewController {
     let scrollView = NSScrollView()
     let tableView = BottomStickyTableView()
     private let hoverOverlay = MessageHoverOverlayView()
-    private weak var hoveredMessageView: MessageBodyRowView?
+    private weak var hoveredMessageView: MessageRowView?
 
     let timeline: LiveTimeline
     var timelineItems: [TimelineItemRowInfo] = []
@@ -126,7 +128,7 @@ class TimelineViewController: NSViewController {
         dataSource = .init(tableView: tableView) { [weak self] tableView, _, row, _ in
             guard let self else { return NSView() }
 
-            let item = timelineItems[row]
+            let item = self.timelineItems[row]
 
             switch item {
             case .profile(item: _, event: let event):
@@ -162,9 +164,9 @@ class TimelineViewController: NSViewController {
                 view.configure(event: event)
                 view.identifier = item.reuseIdentifier
                 return view
-            case .message(_, let event, let content) where MessageBodyRowView.supports(event: event, content: content):
+            case .message(_, let event, let content) where MessageRowView.supports(event: event, content: content):
                 let view = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
-                    as? MessageBodyRowView ?? MessageBodyRowView()
+                    as? MessageRowView ?? MessageRowView()
                 view.onHoverChange = { [weak self] rowView, hovering, event in
                     self?.updateHoverOverlay(for: rowView, hovering: hovering, event: event) ?? false
                 }
@@ -231,7 +233,7 @@ class TimelineViewController: NSViewController {
     }
 
     @discardableResult
-    private func updateHoverOverlay(for rowView: MessageBodyRowView, hovering: Bool, event: NSEvent) -> Bool {
+    private func updateHoverOverlay(for rowView: MessageRowView, hovering: Bool, event: NSEvent) -> Bool {
         if !hovering {
             if hoveredMessageView === rowView {
                 let mousePoint = hoverOverlay.convert(event.locationInWindow, from: nil)
@@ -269,7 +271,7 @@ class TimelineViewController: NSViewController {
         let tablePoint = tableView.convert(event.locationInWindow, from: nil)
         let row = tableView.row(at: tablePoint)
         if row >= 0,
-           let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageBodyRowView
+           let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageRowView
         {
             if rowView !== hoveredMessageView {
                 rowView.setHoverHighlight(updateHoverOverlay(for: rowView, hovering: true, event: event))
@@ -485,7 +487,7 @@ class TimelineViewController: NSViewController {
         return hostView
     }()
 
-    let measurementMessageView = MessageBodyRowView()
+    let measurementMessageView = MessageRowView()
 }
 
 extension TimelineViewController: NSTableViewDelegate {
@@ -517,7 +519,7 @@ extension TimelineViewController: NSTableViewDelegate {
         }
 
         if case .message(_, let event, let content) = item,
-           MessageBodyRowView.supports(event: event, content: content)
+           MessageRowView.supports(event: event, content: content)
         {
             return measurementMessageView.height(for: content, width: tableView.tableColumns[0].width)
         }
