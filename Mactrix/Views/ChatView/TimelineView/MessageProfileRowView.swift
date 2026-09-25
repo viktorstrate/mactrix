@@ -13,7 +13,7 @@ class MessageProfileRowView: NSView {
     private var avatarTask: Task<Void, Never>?
     private var avatarUrl: String?
 
-    static let ROW_HEIGHT: Double = 32
+    static let rowHeight: Double = 32
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)

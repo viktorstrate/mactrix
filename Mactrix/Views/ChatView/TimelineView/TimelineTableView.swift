@@ -156,6 +156,12 @@ class TimelineViewController: NSViewController {
                 view.configure(item: virtual)
                 view.identifier = item.reuseIdentifier
                 return view
+            case .state(_, let event):
+                let view = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
+                    as? StateEventRowView ?? StateEventRowView()
+                view.configure(event: event)
+                view.identifier = item.reuseIdentifier
+                return view
             case .message(_, let event, let content) where MessageBodyRowView.supports(event: event, content: content):
                 let view = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
                     as? MessageBodyRowView ?? MessageBodyRowView()
@@ -495,7 +501,7 @@ extension TimelineViewController: NSTableViewDelegate {
         let item = timelineItems[row]
 
         if case .profile = item {
-            return MessageProfileRowView.ROW_HEIGHT
+            return MessageProfileRowView.rowHeight
         }
 
         if case .typingIndicator = item {
@@ -504,6 +510,10 @@ extension TimelineViewController: NSTableViewDelegate {
 
         if case .virtual = item {
             return VirtualItemRowView.rowHeight
+        }
+
+        if case .state(_, let event) = item {
+            return StateEventRowView.height(for: event, width: tableView.tableColumns[0].width)
         }
 
         if case .message(_, let event, let content) = item,

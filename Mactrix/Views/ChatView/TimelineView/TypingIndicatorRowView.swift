@@ -2,7 +2,7 @@ import AppKit
 import QuartzCore
 
 final class TypingIndicatorRowView: NSView {
-    static let rowHeight: CGFloat = 32
+    static let rowHeight: Double = 32
 
     private let label = NSTextField(labelWithString: "")
     private let dots = (0 ..< 3).map { _ in NSView() }

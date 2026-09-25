@@ -49,6 +49,7 @@ final class MessageBodyRowView: NSView {
             timestamp.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
             timestamp.topAnchor.constraint(equalTo: topAnchor, constant: 6),
             timestamp.widthAnchor.constraint(equalToConstant: 32 + 16),
+
             bodyText.leadingAnchor.constraint(equalTo: timestamp.trailingAnchor, constant: 16),
             bodyText.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             bodyText.topAnchor.constraint(equalTo: topAnchor, constant: 4),
