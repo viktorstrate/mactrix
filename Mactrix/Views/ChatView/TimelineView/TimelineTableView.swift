@@ -1,14 +1,15 @@
 import AppKit
 import MatrixRustSDK
+import Models
 import OSLog
 import SwiftUI
 import UI
 
 enum TimelineItemRowInfo {
-    case profile(item: TimelineItem, event: EventTimelineItem)
-    case message(item: TimelineItem, event: EventTimelineItem, content: MsgLikeContent)
-    case state(item: TimelineItem, event: EventTimelineItem)
-    case virtual(item: TimelineItem, virtual: VirtualTimelineItem)
+    case profile(item: TimelineItem, event: MatrixRustSDK.EventTimelineItem)
+    case message(item: TimelineItem, event: MatrixRustSDK.EventTimelineItem, content: MatrixRustSDK.MsgLikeContent)
+    case state(item: TimelineItem, event: MatrixRustSDK.EventTimelineItem)
+    case virtual(item: TimelineItem, virtual: MatrixRustSDK.VirtualTimelineItem)
     case typingIndicator
 
     var reuseIdentifier: NSUserInterfaceItemIdentifier {
@@ -185,6 +186,9 @@ class TimelineViewController: NSViewController {
         hoverOverlay.onMouseExited = { [weak self] event in
             self?.hoverOverlayDidExit(with: event)
         }
+        hoverOverlay.onAction = { [weak self] action in
+            self?.performHoverAction(action)
+        }
         scrollView.contentView.addSubview(hoverOverlay, positioned: .above, relativeTo: tableView)
         scrollView.hasVerticalScroller = true
 
@@ -235,6 +239,9 @@ class TimelineViewController: NSViewController {
         let row = tableView.row(at: rowPoint)
         guard row >= 0 else { return false }
 
+        if case .message(_, let event, _) = timelineItems[row] {
+            hoverOverlay.configure(canReply: event.canBeRepliedTo)
+        }
         if hoveredMessageView !== rowView {
             hoveredMessageView?.setHoverHighlight(false)
         }
@@ -266,6 +273,43 @@ class TimelineViewController: NSViewController {
         hoveredMessageView?.setHoverHighlight(false)
         hoveredMessageView = nil
         hoverOverlay.isHidden = true
+    }
+
+    private func performHoverAction(_ action: MessageHoverOverlayView.Action) {
+        guard let hoveredMessageView else { return }
+        let rowPoint = tableView.convert(
+            NSPoint(x: hoveredMessageView.bounds.midX, y: hoveredMessageView.bounds.midY),
+            from: hoveredMessageView
+        )
+        let row = tableView.row(at: rowPoint)
+        guard row >= 0, row < timelineItems.count,
+              case .message(_, let event, _) = timelineItems[row] else { return }
+
+        switch action {
+        case .reaction(let key):
+            Task {
+                do {
+                    _ = try await timeline.timeline?.toggleReaction(itemId: event.eventOrTransactionId, key: key)
+                } catch {
+                    Logger.timelineTableView.error("Failed to toggle reaction: \(error)")
+                }
+            }
+        case .reactionPicker:
+            break // The old picker button does not have an action yet.
+        case .reply:
+            timeline.sendReplyTo = event
+        case .replyInThread:
+            coordinator.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
+        case .pin:
+            guard case let .eventId(eventId: eventId) = event.eventOrTransactionId else { return }
+            Task {
+                do {
+                    _ = try await timeline.timeline?.pinEvent(eventId: eventId)
+                } catch {
+                    Logger.timelineTableView.error("Failed to pin message: \(error)")
+                }
+            }
+        }
     }
 
     private var typingNames: [String] {

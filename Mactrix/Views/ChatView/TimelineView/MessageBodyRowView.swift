@@ -7,7 +7,7 @@ final class MessageBodyRowView: NSView {
     var onHoverChange: ((MessageBodyRowView, Bool, NSEvent) -> Bool)?
 
     private let timestamp = NSTextField(labelWithString: "")
-    private let bodyText = NSTextView(frame: .zero)
+    private let bodyText = OcclusionAwareTextView(frame: .zero)
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -139,5 +139,32 @@ final class MessageBodyRowView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         fatalError("init(coder:) has not been implemented")
+    }
+}
+
+/// Lets a view drawn above the text own the cursor without knowing what that view is.
+private final class OcclusionAwareTextView: NSTextView {
+    override func cursorUpdate(with event: NSEvent) {
+        guard shouldHandlePointerEvent(event) else { return }
+        super.cursorUpdate(with: event)
+    }
+
+    override func mouseMoved(with event: NSEvent) {
+        // NSTextView also sets its cursor during mouse movement, independently
+        // of cursorUpdate. Covered text must yield to the view above it here too.
+        guard shouldHandlePointerEvent(event) else { return }
+        super.mouseMoved(with: event)
+    }
+
+    private func shouldHandlePointerEvent(_ event: NSEvent) -> Bool {
+        guard let window,
+              let contentView = window.contentView,
+              let contentSuperview = contentView.superview,
+              let hitView = contentView.hitTest(contentSuperview.convert(event.locationInWindow, from: nil))
+        else {
+            return true
+        }
+
+        return hitView === self || hitView.isDescendant(of: self)
     }
 }
