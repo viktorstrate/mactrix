@@ -5,7 +5,7 @@ import MessageFormatting
 /// The AppKit row for a text message without replies or bottom content.
 final class MessageBodyRowView: NSView {
     private let timestamp = NSTextField(labelWithString: "")
-    private let bodyText = NSTextField(wrappingLabelWithString: "")
+    private let bodyText = NSTextView(frame: .zero)
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -23,11 +23,23 @@ final class MessageBodyRowView: NSView {
 
         bodyText.isSelectable = true
         bodyText.isEditable = false
-        bodyText.allowsEditingTextAttributes = true
-        bodyText.cell?.wraps = true
-        bodyText.cell?.isScrollable = false
-        bodyText.cell?.lineBreakMode = .byWordWrapping
+        bodyText.isRichText = true
+        bodyText.drawsBackground = false
+        bodyText.textContainerInset = .zero
+        bodyText.textContainer?.lineFragmentPadding = 0
+        bodyText.textContainer?.widthTracksTextView = true
+        bodyText.isHorizontallyResizable = false
+        bodyText.isVerticallyResizable = true
         bodyText.translatesAutoresizingMaskIntoConstraints = false
+
+        wantsLayer = true
+        layer?.cornerRadius = 4
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self,
+            userInfo: nil
+        ))
 
         addSubview(timestamp)
         addSubview(bodyText)
@@ -57,17 +69,30 @@ final class MessageBodyRowView: NSView {
     func configure(event: EventTimelineItem, content: MsgLikeContent) {
         let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
         timestamp.stringValue = Self.timeFormatter.string(from: date)
-        bodyText.attributedStringValue = Self.attributedBody(for: content)
+        bodyText.textStorage?.setAttributedString(Self.attributedBody(for: content))
+        layer?.backgroundColor = nil
+    }
+
+    override func mouseEntered(with event: NSEvent) {
+        layer?.backgroundColor = .init(gray: 0.5, alpha: 0.1)
+    }
+
+    override func mouseExited(with event: NSEvent) {
+        layer?.backgroundColor = nil
     }
 
     func height(for content: MsgLikeContent, width: CGFloat) -> CGFloat {
-        bodyText.attributedStringValue = Self.attributedBody(for: content)
         let bodyWidth = max(width - 74, 1)
-        bodyText.preferredMaxLayoutWidth = bodyWidth
-        let size = bodyText.cell?.cellSize(forBounds: NSRect(
-            x: 0, y: 0, width: bodyWidth, height: CGFloat.greatestFiniteMagnitude
-        )) ?? .zero
-        return max(ceil(size.height) + 8, 28)
+        guard let textStorage = bodyText.textStorage,
+              let layoutManager = bodyText.layoutManager,
+              let textContainer = bodyText.textContainer else { return 28 }
+
+        textContainer.widthTracksTextView = false
+        textContainer.containerSize = NSSize(width: bodyWidth, height: .greatestFiniteMagnitude)
+        textStorage.setAttributedString(Self.attributedBody(for: content))
+        layoutManager.ensureLayout(for: textContainer)
+        let textHeight = layoutManager.usedRect(for: textContainer).height
+        return max(ceil(textHeight) + 8, 28)
     }
 
     private static func attributedBody(for content: MsgLikeContent) -> NSAttributedString {
@@ -97,7 +122,7 @@ final class MessageBodyRowView: NSView {
             }
             return result
         }
-        return NSAttributedString(string: message.body, attributes: [
+        return NSAttributedString(string: message.body.trimmingCharacters(in: .whitespacesAndNewlines), attributes: [
             .font: font,
             .foregroundColor: color,
         ])

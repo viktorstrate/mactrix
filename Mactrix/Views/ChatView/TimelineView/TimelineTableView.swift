@@ -112,8 +112,11 @@ class TimelineViewController: NSViewController {
         tableView.allowsColumnSelection = false
         tableView.selectionHighlightStyle = .none
 
-        tableView.rowHeight = -1
-        tableView.usesAutomaticRowHeights = true
+        // Every row is sized by tableView(_:heightOfRow:). Automatic heights can
+        // collapse NSTextView rows because the view has no intrinsic height.
+        tableView.rowSizeStyle = .custom
+        tableView.rowHeight = 28
+        tableView.usesAutomaticRowHeights = false
 
         oldWidth = tableView.frame.width
 
