@@ -4,6 +4,8 @@ import MessageFormatting
 
 /// The AppKit row for a text message without replies or bottom content.
 final class MessageBodyRowView: NSView {
+    var onHoverChange: ((MessageBodyRowView, Bool, NSEvent) -> Bool)?
+
     private let timestamp = NSTextField(labelWithString: "")
     private let bodyText = NSTextView(frame: .zero)
 
@@ -74,11 +76,17 @@ final class MessageBodyRowView: NSView {
     }
 
     override func mouseEntered(with event: NSEvent) {
-        layer?.backgroundColor = .init(gray: 0.5, alpha: 0.1)
+        if onHoverChange?(self, true, event) ?? true {
+            setHoverHighlight(true)
+        }
     }
 
     override func mouseExited(with event: NSEvent) {
-        layer?.backgroundColor = nil
+        setHoverHighlight(onHoverChange?(self, false, event) ?? false)
+    }
+
+    func setHoverHighlight(_ highlighted: Bool) {
+        layer?.backgroundColor = highlighted ? .init(gray: 0.5, alpha: 0.1) : nil
     }
 
     func height(for content: MsgLikeContent, width: CGFloat) -> CGFloat {

@@ -92,6 +92,8 @@ class TimelineViewController: NSViewController {
 
     let scrollView = NSScrollView()
     let tableView = BottomStickyTableView()
+    private let hoverOverlay = MessageHoverOverlayView()
+    private weak var hoveredMessageView: MessageBodyRowView?
 
     let timeline: LiveTimeline
     var timelineItems: [TimelineItemRowInfo] = []
@@ -150,6 +152,9 @@ class TimelineViewController: NSViewController {
             case .message(_, let event, let content) where MessageBodyRowView.supports(event: event, content: content):
                 let view = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
                     as? MessageBodyRowView ?? MessageBodyRowView()
+                view.onHoverChange = { [weak self] rowView, hovering, event in
+                    self?.updateHoverOverlay(for: rowView, hovering: hovering, event: event) ?? false
+                }
                 view.configure(event: event, content: content)
                 view.identifier = item.reuseIdentifier
                 return view
@@ -176,6 +181,11 @@ class TimelineViewController: NSViewController {
         tableView.delegate = self
 
         scrollView.documentView = tableView
+        hoverOverlay.isHidden = true
+        hoverOverlay.onMouseExited = { [weak self] event in
+            self?.hoverOverlayDidExit(with: event)
+        }
+        scrollView.contentView.addSubview(hoverOverlay, positioned: .above, relativeTo: tableView)
         scrollView.hasVerticalScroller = true
 
         scrollView.automaticallyAdjustsContentInsets = false
@@ -202,6 +212,60 @@ class TimelineViewController: NSViewController {
 
         listenForFocusTimelineItem()
         listenForTypingUsers()
+    }
+
+    @discardableResult
+    private func updateHoverOverlay(for rowView: MessageBodyRowView, hovering: Bool, event: NSEvent) -> Bool {
+        if !hovering {
+            if hoveredMessageView === rowView {
+                let mousePoint = hoverOverlay.convert(event.locationInWindow, from: nil)
+                if hoverOverlay.bounds.contains(mousePoint) { return true }
+                hideHoverOverlay()
+            }
+            return false
+        }
+
+        // Tracking areas can enter a row even while the overlay covers it.
+        let overlayPoint = hoverOverlay.convert(event.locationInWindow, from: nil)
+        if !hoverOverlay.isHidden && hoverOverlay.bounds.contains(overlayPoint) {
+            return false
+        }
+
+        let rowPoint = tableView.convert(NSPoint(x: rowView.bounds.midX, y: rowView.bounds.midY), from: rowView)
+        let row = tableView.row(at: rowPoint)
+        guard row >= 0 else { return false }
+
+        if hoveredMessageView !== rowView {
+            hoveredMessageView?.setHoverHighlight(false)
+        }
+        let rowRect = tableView.convert(tableView.rect(ofRow: row), to: scrollView.contentView)
+        hoverOverlay.setFrameOrigin(NSPoint(x: rowRect.maxX - hoverOverlay.frame.width - 20,
+                                            y: rowRect.maxY))
+        hoveredMessageView = rowView
+        hoverOverlay.isHidden = false
+        return true
+    }
+
+    private func hoverOverlayDidExit(with event: NSEvent) {
+        let tablePoint = tableView.convert(event.locationInWindow, from: nil)
+        let row = tableView.row(at: tablePoint)
+        if row >= 0,
+           let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageBodyRowView
+        {
+            if rowView !== hoveredMessageView {
+                rowView.setHoverHighlight(updateHoverOverlay(for: rowView, hovering: true, event: event))
+            } else {
+                rowView.setHoverHighlight(true)
+            }
+            return
+        }
+        hideHoverOverlay()
+    }
+
+    private func hideHoverOverlay() {
+        hoveredMessageView?.setHoverHighlight(false)
+        hoveredMessageView = nil
+        hoverOverlay.isHidden = true
     }
 
     private var typingNames: [String] {
