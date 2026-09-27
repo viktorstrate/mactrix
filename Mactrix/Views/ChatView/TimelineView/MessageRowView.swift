@@ -7,6 +7,7 @@ final class MessageRowView: NSView {
 
     private static let contentHorizontalInset: CGFloat = 74
     private static let replySpacing: CGFloat = 20
+    private static let threadSpacing: CGFloat = 10
 
     private let timestamp = NSTextField(labelWithString: "")
     private let contentView = MessageTextContentView()
@@ -15,6 +16,11 @@ final class MessageRowView: NSView {
     private var replyHeightConstraint: NSLayoutConstraint?
     private var contentTopToReply: NSLayoutConstraint?
     private lazy var contentTopToRow = contentView.topAnchor.constraint(equalTo: topAnchor, constant: 4)
+    private var threadSummaryView: MessageThreadSummaryView?
+    private var threadHeightConstraint: NSLayoutConstraint?
+    private var threadTopConstraint: NSLayoutConstraint?
+    private var threadBottomConstraint: NSLayoutConstraint?
+    private lazy var contentBottomToRow = contentView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -50,13 +56,12 @@ final class MessageRowView: NSView {
             contentView.leadingAnchor.constraint(equalTo: timestamp.trailingAnchor, constant: 16),
             contentView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
             contentTopToRow,
-            contentView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
+            contentBottomToRow,
         ])
     }
 
     static func supports(event: EventTimelineItem, content: MsgLikeContent) -> Bool {
         content.reactions.isEmpty &&
-        content.threadSummary == nil &&
         event.readReceipts.isEmpty &&
         MessageTextContentView.supports(content: content)
     }
@@ -65,13 +70,49 @@ final class MessageRowView: NSView {
         event: EventTimelineItem,
         content: MsgLikeContent,
         replyDetails: EmbeddedEventDetails?,
-        onReplyClick: (() -> Void)?
+        onReplyClick: (() -> Void)?,
+        onThreadClick: (() -> Void)?
     ) {
         let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
         timestamp.stringValue = Self.timeFormatter.string(from: date)
         contentView.configure(content: content)
         configureReply(details: replyDetails, onClick: onReplyClick)
+        configureThread(summary: content.threadSummary, onClick: onThreadClick)
         layer?.backgroundColor = nil
+    }
+
+    private func configureThread(summary: ThreadSummary?, onClick: (() -> Void)?) {
+        guard let summary else {
+            threadSummaryView?.isHidden = true
+            threadSummaryView?.onClick = nil
+            threadTopConstraint?.isActive = false
+            threadBottomConstraint?.isActive = false
+            contentBottomToRow.isActive = true
+            return
+        }
+
+        if threadSummaryView == nil {
+            let view = MessageThreadSummaryView()
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+            NSLayoutConstraint.activate([
+                view.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+                view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+            ])
+            threadSummaryView = view
+            threadHeightConstraint = view.heightAnchor.constraint(equalToConstant: 0)
+            threadHeightConstraint?.isActive = true
+            threadTopConstraint = view.topAnchor.constraint(equalTo: contentView.bottomAnchor, constant: Self.threadSpacing)
+            threadBottomConstraint = view.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
+        }
+
+        threadSummaryView?.configure(summary: summary)
+        threadSummaryView?.onClick = onClick
+        threadSummaryView?.isHidden = false
+        threadHeightConstraint?.constant = MessageThreadSummaryView.height(for: summary)
+        contentBottomToRow.isActive = false
+        threadTopConstraint?.isActive = true
+        threadBottomConstraint?.isActive = true
     }
 
     func configureReply(details: EmbeddedEventDetails?, onClick: (() -> Void)?) {
@@ -139,7 +180,10 @@ final class MessageRowView: NSView {
         let replyHeight = replyDetails.map {
             MessageReplyPreviewView.height(for: $0, width: contentWidth) + Self.replySpacing
         } ?? 0
-        return max(ceil(contentView.height(for: content, width: contentWidth)) + replyHeight + 8, 28)
+        let threadHeight = content.threadSummary.map {
+            MessageThreadSummaryView.height(for: $0) + Self.threadSpacing
+        } ?? 0
+        return max(ceil(contentView.height(for: content, width: contentWidth)) + replyHeight + threadHeight + 8, 28)
     }
 
     @available(*, unavailable)

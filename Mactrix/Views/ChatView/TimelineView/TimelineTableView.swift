@@ -174,7 +174,10 @@ class TimelineViewController: NSViewController {
                     event: event,
                     content: content,
                     replyDetails: self.replyDetails(for: content),
-                    onReplyClick: self.replyClick(for: content)
+                    onReplyClick: self.replyClick(for: content),
+                    onThreadClick: { [weak self] in
+                        self?.coordinator.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
+                    }
                 )
                 view.identifier = item.reuseIdentifier
                 return view
