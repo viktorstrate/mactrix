@@ -5,8 +5,16 @@ import MatrixRustSDK
 final class MessageRowView: NSView {
     var onHoverChange: ((MessageRowView, Bool, NSEvent) -> Bool)?
 
+    private static let contentHorizontalInset: CGFloat = 74
+    private static let replySpacing: CGFloat = 20
+
     private let timestamp = NSTextField(labelWithString: "")
     private let contentView = MessageTextContentView()
+    private var replyPreview: MessageReplyPreviewView?
+    private var replyDetails: EmbeddedEventDetails?
+    private var replyHeightConstraint: NSLayoutConstraint?
+    private var contentTopToReply: NSLayoutConstraint?
+    private lazy var contentTopToRow = contentView.topAnchor.constraint(equalTo: topAnchor, constant: 4)
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -41,24 +49,75 @@ final class MessageRowView: NSView {
 
             contentView.leadingAnchor.constraint(equalTo: timestamp.trailingAnchor, constant: 16),
             contentView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
-            contentView.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            contentTopToRow,
             contentView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4),
         ])
     }
 
     static func supports(event: EventTimelineItem, content: MsgLikeContent) -> Bool {
         content.reactions.isEmpty &&
-        content.inReplyTo == nil &&
         content.threadSummary == nil &&
         event.readReceipts.isEmpty &&
         MessageTextContentView.supports(content: content)
     }
 
-    func configure(event: EventTimelineItem, content: MsgLikeContent) {
+    func configure(
+        event: EventTimelineItem,
+        content: MsgLikeContent,
+        replyDetails: EmbeddedEventDetails?,
+        onReplyClick: (() -> Void)?
+    ) {
         let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
         timestamp.stringValue = Self.timeFormatter.string(from: date)
         contentView.configure(content: content)
+        configureReply(details: replyDetails, onClick: onReplyClick)
         layer?.backgroundColor = nil
+    }
+
+    func configureReply(details: EmbeddedEventDetails?, onClick: (() -> Void)?) {
+        replyDetails = details
+        guard let details else {
+            replyPreview?.isHidden = true
+            replyPreview?.onClick = nil
+            contentTopToReply?.isActive = false
+            contentTopToRow.isActive = true
+            return
+        }
+
+        if replyPreview == nil {
+            let preview = MessageReplyPreviewView()
+            preview.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(preview)
+            NSLayoutConstraint.activate([
+                preview.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
+                preview.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+                preview.topAnchor.constraint(equalTo: topAnchor, constant: 4),
+            ])
+            replyPreview = preview
+            replyHeightConstraint = preview.heightAnchor.constraint(equalToConstant: 28)
+            replyHeightConstraint?.isActive = true
+            contentTopToReply = contentView.topAnchor.constraint(equalTo: preview.bottomAnchor, constant: Self.replySpacing)
+        }
+
+        replyPreview?.configure(details: details)
+        replyPreview?.onClick = onClick
+        replyPreview?.isHidden = false
+        contentTopToRow.isActive = false
+        contentTopToReply?.isActive = true
+        updateReplyHeight()
+    }
+
+    override func layout() {
+        super.layout()
+        updateReplyHeight()
+    }
+
+    private func updateReplyHeight() {
+        guard let replyDetails, bounds.width > 0 else { return }
+        let height = MessageReplyPreviewView.height(for: replyDetails, width: max(bounds.width - Self.contentHorizontalInset, 1))
+        if replyHeightConstraint?.constant != height {
+            replyHeightConstraint?.constant = height
+        }
     }
 
     override func mouseEntered(with event: NSEvent) {
@@ -75,9 +134,12 @@ final class MessageRowView: NSView {
         layer?.backgroundColor = highlighted ? .init(gray: 0.5, alpha: 0.1) : nil
     }
 
-    func height(for content: MsgLikeContent, width: CGFloat) -> CGFloat {
-        let contentWidth = max(width - 74, 1)
-        return max(ceil(contentView.height(for: content, width: contentWidth)) + 8, 28)
+    func height(for content: MsgLikeContent, width: CGFloat, replyDetails: EmbeddedEventDetails?) -> CGFloat {
+        let contentWidth = max(width - Self.contentHorizontalInset, 1)
+        let replyHeight = replyDetails.map {
+            MessageReplyPreviewView.height(for: $0, width: contentWidth) + Self.replySpacing
+        } ?? 0
+        return max(ceil(contentView.height(for: content, width: contentWidth)) + replyHeight + 8, 28)
     }
 
     @available(*, unavailable)

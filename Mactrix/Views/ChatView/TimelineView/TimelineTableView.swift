@@ -170,7 +170,12 @@ class TimelineViewController: NSViewController {
                 view.onHoverChange = { [weak self] rowView, hovering, event in
                     self?.updateHoverOverlay(for: rowView, hovering: hovering, event: event) ?? false
                 }
-                view.configure(event: event, content: content)
+                view.configure(
+                    event: event,
+                    content: content,
+                    replyDetails: self.replyDetails(for: content),
+                    onReplyClick: self.replyClick(for: content)
+                )
                 view.identifier = item.reuseIdentifier
                 return view
             default:
@@ -230,6 +235,49 @@ class TimelineViewController: NSViewController {
 
         listenForFocusTimelineItem()
         listenForTypingUsers()
+        listenForReplyDetails()
+    }
+
+    private func replyDetails(for content: MatrixRustSDK.MsgLikeContent) -> MatrixRustSDK.EmbeddedEventDetails? {
+        guard let reply = content.inReplyTo else { return nil }
+        return timeline.loadedReplyDetails[reply.eventId()]?.event() ?? reply.event()
+    }
+
+    private func replyClick(for content: MatrixRustSDK.MsgLikeContent) -> (() -> Void)? {
+        guard let replyId = content.inReplyTo?.eventId() else { return nil }
+        return { [weak self] in
+            self?.timeline.focusEvent(id: .eventId(eventId: replyId))
+        }
+    }
+
+    private func listenForReplyDetails() {
+        withObservationTracking {
+            _ = timeline.loadedReplyDetails
+        } onChange: { [weak self] in
+            Task { @MainActor [weak self] in
+                guard let self else { return }
+                self.listenForReplyDetails()
+                self.refreshVisibleReplyRows()
+            }
+        }
+    }
+
+    private func refreshVisibleReplyRows() {
+        let visibleRows = tableView.rows(in: tableView.visibleRect)
+        var changedRows = IndexSet()
+        for row in visibleRows.lowerBound ..< visibleRows.upperBound {
+            guard row < timelineItems.count,
+                  case .message(_, _, let content) = timelineItems[row],
+                  content.inReplyTo != nil,
+                  let view = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageRowView
+            else { continue }
+
+            view.configureReply(details: replyDetails(for: content), onClick: replyClick(for: content))
+            changedRows.insert(row)
+        }
+        if !changedRows.isEmpty {
+            tableView.noteHeightOfRows(withIndexesChanged: changedRows)
+        }
     }
 
     @discardableResult
@@ -521,7 +569,11 @@ extension TimelineViewController: NSTableViewDelegate {
         if case .message(_, let event, let content) = item,
            MessageRowView.supports(event: event, content: content)
         {
-            return measurementMessageView.height(for: content, width: tableView.tableColumns[0].width)
+            return measurementMessageView.height(
+                for: content,
+                width: tableView.tableColumns[0].width,
+                replyDetails: replyDetails(for: content)
+            )
         }
 
         measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator))
