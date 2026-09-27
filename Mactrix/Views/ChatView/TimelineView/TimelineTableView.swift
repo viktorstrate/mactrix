@@ -97,6 +97,8 @@ class TimelineViewController: NSViewController {
     let tableView = BottomStickyTableView()
     private let hoverOverlay = MessageHoverOverlayView()
     private weak var hoveredMessageView: MessageRowView?
+    private var hoveredMessageId: String?
+    private var hoveredRowIndex: Int?
 
     let timeline: LiveTimeline
     var timelineItems: [TimelineItemRowInfo] = []
@@ -122,6 +124,9 @@ class TimelineViewController: NSViewController {
         tableView.rowSizeStyle = .custom
         tableView.rowHeight = 28
         tableView.usesAutomaticRowHeights = false
+        tableView.onLayout = { [weak self] in
+            self?.positionHoverOverlay()
+        }
 
         oldWidth = tableView.frame.width
 
@@ -177,6 +182,10 @@ class TimelineViewController: NSViewController {
                     onReplyClick: self.replyClick(for: content),
                     onThreadClick: { [weak self] in
                         self?.coordinator.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
+                    },
+                    ownUserId: try? self.coordinator.appState.matrixClient?.client.userId(),
+                    onReactionClick: { [weak self] key in
+                        self?.toggleReaction(key, for: event)
                     }
                 )
                 view.identifier = item.reuseIdentifier
@@ -288,7 +297,9 @@ class TimelineViewController: NSViewController {
         if !hovering {
             if hoveredMessageView === rowView {
                 let mousePoint = hoverOverlay.convert(event.locationInWindow, from: nil)
-                if hoverOverlay.bounds.contains(mousePoint) { return true }
+                if hoverOverlay.bounds.contains(mousePoint) {
+                    return true
+                }
                 hideHoverOverlay()
             }
             return false
@@ -302,20 +313,42 @@ class TimelineViewController: NSViewController {
 
         let rowPoint = tableView.convert(NSPoint(x: rowView.bounds.midX, y: rowView.bounds.midY), from: rowView)
         let row = tableView.row(at: rowPoint)
-        guard row >= 0 else { return false }
-
-        if case .message(_, let event, _) = timelineItems[row] {
-            hoverOverlay.configure(canReply: event.canBeRepliedTo)
-        }
+        guard row >= 0, row < timelineItems.count,
+              case .message(_, let event, _) = timelineItems[row] else { return false }
+        hoverOverlay.configure(canReply: event.canBeRepliedTo)
         if hoveredMessageView !== rowView {
             hoveredMessageView?.setHoverHighlight(false)
         }
-        let rowRect = tableView.convert(tableView.rect(ofRow: row), to: scrollView.contentView)
-        hoverOverlay.setFrameOrigin(NSPoint(x: rowRect.maxX - hoverOverlay.frame.width - 20,
-                                            y: rowRect.maxY))
         hoveredMessageView = rowView
+        hoveredMessageId = timelineItems[row].id
+        hoveredRowIndex = row
         hoverOverlay.isHidden = false
+        positionHoverOverlay()
         return true
+    }
+
+    private func positionHoverOverlay() {
+        guard !hoverOverlay.isHidden else { return }
+        guard let row = hoveredRowIndex,
+              let hoveredMessageId,
+              row < timelineItems.count,
+              timelineItems[row].id == hoveredMessageId,
+              let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageRowView else {
+            hideHoverOverlay()
+            return
+        }
+
+        if hoveredMessageView !== rowView {
+            hoveredMessageView?.setHoverHighlight(false)
+            hoveredMessageView = rowView
+        }
+        rowView.setHoverHighlight(true)
+
+        let rowRect = tableView.convert(tableView.rect(ofRow: row), to: scrollView.contentView)
+        let origin = NSPoint(x: rowRect.maxX - hoverOverlay.frame.width - 20, y: rowRect.maxY)
+        if hoverOverlay.frame.origin != origin {
+            hoverOverlay.setFrameOrigin(origin)
+        }
     }
 
     private func hoverOverlayDidExit(with event: NSEvent) {
@@ -337,7 +370,19 @@ class TimelineViewController: NSViewController {
     private func hideHoverOverlay() {
         hoveredMessageView?.setHoverHighlight(false)
         hoveredMessageView = nil
+        hoveredMessageId = nil
+        hoveredRowIndex = nil
         hoverOverlay.isHidden = true
+    }
+
+    private func toggleReaction(_ key: String, for event: MatrixRustSDK.EventTimelineItem) {
+        Task {
+            do {
+                _ = try await timeline.timeline?.toggleReaction(itemId: event.eventOrTransactionId, key: key)
+            } catch {
+                Logger.timelineTableView.error("Failed to toggle reaction: \(error)")
+            }
+        }
     }
 
     private func performHoverAction(_ action: MessageHoverOverlayView.Action) {
@@ -352,13 +397,7 @@ class TimelineViewController: NSViewController {
 
         switch action {
         case .reaction(let key):
-            Task {
-                do {
-                    _ = try await timeline.timeline?.toggleReaction(itemId: event.eventOrTransactionId, key: key)
-                } catch {
-                    Logger.timelineTableView.error("Failed to toggle reaction: \(error)")
-                }
-            }
+            toggleReaction(key, for: event)
         case .reactionPicker:
             break // The old picker button does not have an action yet.
         case .reply:
@@ -366,7 +405,7 @@ class TimelineViewController: NSViewController {
         case .replyInThread:
             coordinator.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
         case .pin:
-            guard case let .eventId(eventId: eventId) = event.eventOrTransactionId else { return }
+            guard case .eventId(eventId: let eventId) = event.eventOrTransactionId else { return }
             Task {
                 do {
                     _ = try await timeline.timeline?.pinEvent(eventId: eventId)
@@ -469,13 +508,24 @@ class TimelineViewController: NSViewController {
     func updateTimelineItems(_ timelineItems: [TimelineItem]) {
         Logger.timelineTableView.info("update timeline items")
 
-        let oldIds = self.timelineItems.map { $0.id }
+        let oldItems = self.timelineItems
+        let oldIds = oldItems.map { $0.id }
         self.timelineItems = mapTimelineItems(items: timelineItems)
         let newIds = self.timelineItems.map { $0.id }
 
         // If the IDs haven't changed, reload all rows in place (content-only update: reactions, read receipts, etc.)
         // Reloads all rows rather than just visible ones to avoid stale content in NSTableView's prepared/cached views.
         if oldIds == newIds {
+            var reactionRows = IndexSet()
+            for row in self.timelineItems.indices {
+                guard case .message(_, _, let oldContent) = oldItems[row],
+                      case .message(_, _, let newContent) = self.timelineItems[row],
+                      oldContent.reactions != newContent.reactions else { continue }
+                reactionRows.insert(row)
+            }
+            if !reactionRows.isEmpty {
+                tableView.noteHeightOfRows(withIndexesChanged: reactionRows)
+            }
             tableView.reloadData(forRowIndexes: IndexSet(integersIn: 0 ..< self.timelineItems.count),
                                  columnIndexes: IndexSet(integer: 0))
             return
@@ -591,6 +641,13 @@ extension TimelineViewController: NSTableViewDelegate {
 }
 
 class BottomStickyTableView: NSTableView {
+    var onLayout: (() -> Void)?
+
+    override func layout() {
+        super.layout()
+        onLayout?()
+    }
+
     // By returning false, the table starts drawing from the bottom up
     override var isFlipped: Bool {
         return false
