@@ -2,8 +2,6 @@ import AppKit
 import MatrixRustSDK
 import Models
 import OSLog
-import SwiftUI
-import UI
 
 enum TimelineSelectionDirection {
     case up
@@ -34,7 +32,7 @@ enum TimelineItemRowInfo {
         case .profile(profile: _):
             return NSUserInterfaceItemIdentifier("profile")
         case .message(_, _, let content):
-            return MessageContentKind(content: content)?.reuseIdentifier ?? .init("swiftui-view")
+            return MessageContentKind(content: content).reuseIdentifier
         case .state:
             return NSUserInterfaceItemIdentifier("state")
         case .virtual:
@@ -58,47 +56,6 @@ extension TimelineItemRowInfo: Identifiable {
             "virtual:\(item.uniqueId().id)"
         case .typingIndicator:
             "typing-indicator"
-        }
-    }
-}
-
-struct TimelineItemRowView: View {
-    let rowInfo: TimelineItemRowInfo
-    let timeline: LiveTimeline?
-
-    let appState: AppState
-    let windowState: WindowState
-
-    init(rowInfo: TimelineItemRowInfo, timeline: LiveTimeline?, coordinator: TimelineViewRepresentable.Coordinator) {
-        self.rowInfo = rowInfo
-        self.timeline = timeline
-        self.appState = coordinator.appState
-        self.windowState = coordinator.windowState
-    }
-
-    @ViewBuilder
-    var contentView: some View {
-        switch rowInfo {
-        case .profile:
-            Text("Profile rows implemented in AppKit now")
-        case .message(_, let event, let content):
-            ChatMessageView(timeline: timeline, event: event, msg: content, includeProfileHeader: false)
-        case .state(_, let event):
-            UI.GenericEventView(event: event, name: event.content.description)
-        case .virtual(_, let virtual):
-            UI.VirtualItemView(item: virtual.asModel)
-        case .typingIndicator:
-            Text("Typing indicator implemented in AppKit now")
-        }
-    }
-
-    var body: some View {
-        HStack(alignment: .bottom, spacing: 0) {
-            VStack(spacing: 0) {
-                contentView
-                    .environment(appState)
-                    .environment(windowState)
-            }
         }
     }
 }
@@ -190,10 +147,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
                 view.configure(event: event)
                 view.identifier = item.reuseIdentifier
                 return view
-            case .message(_, let event, let content) where MessageContentKind(content: content) != nil:
-                guard let kind = MessageContentKind(content: content) else {
-                    preconditionFailure("Message content kind changed while creating its row")
-                }
+            case .message(_, let event, let content):
+                let kind = MessageContentKind(content: content)
                 let recycled = tableView.makeView(withIdentifier: kind.reuseIdentifier, owner: self) as? MessageRowView
                 let view: MessageRowView
                 if let recycled, recycled.contentKind == kind {
@@ -231,23 +186,6 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
                 view.setSelected(tableView.selectedRow == row)
                 view.identifier = kind.reuseIdentifier
                 return view
-            default:
-                let view = TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator)
-                let hostView: NSHostingView<TimelineItemRowView>
-                if let recycledView = tableView.makeView(withIdentifier: .init("swiftui-view"), owner: self)
-                    as? NSHostingView<TimelineItemRowView>
-                {
-                    recycledView.rootView = view
-                    hostView = recycledView
-                } else {
-                    hostView = NSHostingView<TimelineItemRowView>(rootView: view)
-                    hostView.identifier = .init("swiftui-view")
-                    hostView.autoresizingMask = [.width, .height]
-                    hostView.sizingOptions = [.preferredContentSize]
-                    hostView.setContentHuggingPriority(.required, for: .vertical)
-                }
-
-                return hostView
             }
         }
 
@@ -626,7 +564,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
         updatingTimelineItems = false
         updateSelectedMessage()
 
-        // Re-measure visible rows after hosting views settle
+        // Re-measure visible rows after the table applies the new snapshot.
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             let visibleRows = tableView.rows(in: tableView.visibleRect)
@@ -668,12 +606,6 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
 
     // values used to track width changes
     var oldWidth: CGFloat?
-    let measurementHostingView = {
-        let hostView = NSHostingController(rootView: AnyView(EmptyView()))
-        hostView.sizingOptions = [.preferredContentSize]
-        return hostView
-    }()
-
     private var measurementMessageViews: [MessageContentKind: MessageRowView] = [:]
 
     private func measurementView(for kind: MessageContentKind) -> MessageRowView {
@@ -719,9 +651,8 @@ extension TimelineViewController: NSTableViewDelegate {
             return StateEventRowView.height(for: event, width: tableView.tableColumns[0].width)
         }
 
-        if case .message(_, let event, let content) = item,
-           let kind = MessageContentKind(content: content)
-        {
+        if case .message(_, let event, let content) = item {
+            let kind = MessageContentKind(content: content)
             return measurementView(for: kind).height(
                 for: content,
                 width: tableView.tableColumns[0].width,
@@ -730,14 +661,7 @@ extension TimelineViewController: NSTableViewDelegate {
             )
         }
 
-        measurementHostingView.rootView = AnyView(TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator))
-
-        let targetWidth = tableView.tableColumns[0].width
-        let proposedSize = CGSize(width: targetWidth, height: CGFloat.greatestFiniteMagnitude)
-
-        let size = measurementHostingView.sizeThatFits(in: proposedSize)
-        // Avoid undefined-height rows which can cause NSTableView layout issues
-        return max(size.height, 1)
+        preconditionFailure("Unsupported timeline row")
     }
 }
 

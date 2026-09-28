@@ -33,18 +33,6 @@ final class MessageTextContentView: NSView, MessageContentRowView {
         ])
     }
 
-    static func supports(content: MsgLikeContent) -> Bool {
-        switch content.kind {
-        case let .message(message):
-            switch message.msgType {
-            case .image, .video, .file: return false
-            default: return true
-            }
-        default:
-            return true
-        }
-    }
-
     func configure(content: MsgLikeContent, matrixClient: MatrixClient?) {
         bodyText.textStorage?.setAttributedString(Self.attributedBody(for: content))
     }

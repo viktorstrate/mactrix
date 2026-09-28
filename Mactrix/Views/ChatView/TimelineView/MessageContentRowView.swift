@@ -16,17 +16,15 @@ protocol MessageContentRowView: NSView {
     case video
     case file
 
-    init?(content: MatrixRustSDK.MsgLikeContent) {
+    init(content: MatrixRustSDK.MsgLikeContent) {
         if MessageImageContentView.supports(content: content) {
             self = .image
         } else if MessageVideoContentView.supports(content: content) {
             self = .video
         } else if MessageFileContentView.supports(content: content) {
             self = .file
-        } else if MessageTextContentView.supports(content: content) {
-            self = .text
         } else {
-            return nil
+            self = .text
         }
     }
 
