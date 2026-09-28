@@ -10,16 +10,19 @@ protocol MessageContentRowView: NSView {
 }
 
 /// Determines the reusable row and its retained content view for a message.
-enum MessageContentKind: Hashable {
+@MainActor enum MessageContentKind: Hashable {
     case text
     case image
     case video
+    case file
 
     init?(content: MatrixRustSDK.MsgLikeContent) {
         if MessageImageContentView.supports(content: content) {
             self = .image
         } else if MessageVideoContentView.supports(content: content) {
             self = .video
+        } else if MessageFileContentView.supports(content: content) {
+            self = .file
         } else if MessageTextContentView.supports(content: content) {
             self = .text
         } else {
@@ -32,6 +35,7 @@ enum MessageContentKind: Hashable {
         case .text: .init("message.text")
         case .image: .init("message.image")
         case .video: .init("message.video")
+        case .file: .init("message.file")
         }
     }
 
@@ -41,6 +45,7 @@ enum MessageContentKind: Hashable {
         case .text: contentView = MessageTextContentView()
         case .image: contentView = MessageImageContentView()
         case .video: contentView = MessageVideoContentView()
+        case .file: contentView = MessageFileContentView()
         }
         return MessageRowView(contentKind: self, contentView: contentView)
     }

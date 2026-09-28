@@ -197,7 +197,7 @@ final class MessageImageContentView: NSView, MessageContentRowView {
                 try Task.checkCancellation()
                 let path = try handle.path()
                 guard let self, self.sourceURL == url else { return }
-                ImageQuickLookPreview.shared.show(handle: handle, url: URL(filePath: path, directoryHint: .notDirectory))
+                MediaQuickLookPreview.shared.show(handle: handle, url: URL(filePath: path, directoryHint: .notDirectory))
             } catch is CancellationError {
                 return
             } catch {
@@ -218,8 +218,8 @@ final class MessageImageContentView: NSView, MessageContentRowView {
 }
 
 /// Keeps the temporary media file alive while Quick Look is displaying it.
-@MainActor private final class ImageQuickLookPreview: NSObject, @preconcurrency QLPreviewPanelDataSource {
-    static let shared = ImageQuickLookPreview()
+@MainActor final class MediaQuickLookPreview: NSObject, @preconcurrency QLPreviewPanelDataSource {
+    static let shared = MediaQuickLookPreview()
     private var handle: MediaFileHandle?
     private var url: URL?
 
