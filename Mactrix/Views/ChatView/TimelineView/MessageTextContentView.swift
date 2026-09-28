@@ -4,6 +4,8 @@ import MessageFormatting
 
 /// Retains the NSTextView and its layout machinery when its table row is reused.
 final class MessageTextContentView: NSView {
+    var onTextMouseDown: (() -> Void)?
+    var onArrowKey: ((TimelineSelectionDirection) -> Void)?
     private let bodyText = OcclusionAwareTextView(frame: .zero)
 
     override init(frame frameRect: NSRect) {
@@ -19,6 +21,8 @@ final class MessageTextContentView: NSView {
         bodyText.isHorizontallyResizable = false
         bodyText.isVerticallyResizable = true
         bodyText.translatesAutoresizingMaskIntoConstraints = false
+        bodyText.onMouseDown = { [weak self] in self?.onTextMouseDown?() }
+        bodyText.onArrowKey = { [weak self] direction in self?.onArrowKey?(direction) }
 
         addSubview(bodyText)
         NSLayoutConstraint.activate([
@@ -94,6 +98,22 @@ final class MessageTextContentView: NSView {
 
 /// Lets a view drawn above the text own the cursor without knowing what that view is.
 private final class OcclusionAwareTextView: NSTextView {
+    var onMouseDown: (() -> Void)?
+    var onArrowKey: ((TimelineSelectionDirection) -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        if let direction = TimelineSelectionDirection(event: event), let onArrowKey {
+            onArrowKey(direction)
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        onMouseDown?()
+        super.mouseDown(with: event)
+    }
+
     override func cursorUpdate(with event: NSEvent) {
         guard shouldHandlePointerEvent(event) else { return }
         super.cursorUpdate(with: event)

@@ -6,6 +6,10 @@ import UI
 /// Shared row chrome. The content view is created once and retained across table reuse.
 final class MessageRowView: NSView {
     var onHoverChange: ((MessageRowView, Bool, NSEvent) -> Bool)?
+    var onSelectRequest: ((MessageRowView) -> Void)?
+    var onArrowKey: ((TimelineSelectionDirection) -> Void)?
+    private var isHovered = false
+    private var isMessageSelected = false
 
     private static let contentHorizontalInset: CGFloat = 74
     private static let replySpacing: CGFloat = 20
@@ -54,6 +58,13 @@ final class MessageRowView: NSView {
         timestamp.alignment = .right
         timestamp.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false
+        contentView.onTextMouseDown = { [weak self] in
+            guard let self else { return }
+            self.onSelectRequest?(self)
+        }
+        contentView.onArrowKey = { [weak self] direction in
+            self?.onArrowKey?(direction)
+        }
 
         wantsLayer = true
         layer?.cornerRadius = 4
@@ -109,7 +120,8 @@ final class MessageRowView: NSView {
         configureThread(summary: content.threadSummary, onClick: onThreadClick)
         configureReactions(content.reactions, ownUserId: ownUserId, onClick: onReactionClick)
         configureReceipts(event.userReadReceipts, roomMembers: roomMembers, imageLoader: imageLoader, onFocusUser: onFocusUser)
-        layer?.backgroundColor = nil
+        isHovered = false
+        updateBackground()
     }
 
     private func configureThread(summary: MatrixRustSDK.ThreadSummary?, onClick: (() -> Void)?) {
@@ -314,12 +326,31 @@ final class MessageRowView: NSView {
         }
     }
 
+    override func mouseDown(with event: NSEvent) {
+        onSelectRequest?(self)
+        super.mouseDown(with: event)
+    }
+
     override func mouseExited(with event: NSEvent) {
         setHoverHighlight(onHoverChange?(self, false, event) ?? false)
     }
 
     func setHoverHighlight(_ highlighted: Bool) {
-        layer?.backgroundColor = highlighted ? .init(gray: 0.5, alpha: 0.1) : nil
+        isHovered = highlighted
+        updateBackground()
+    }
+
+    func setSelected(_ selected: Bool) {
+        isMessageSelected = selected
+        updateBackground()
+    }
+
+    private func updateBackground() {
+        if isMessageSelected {
+            layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.1).cgColor
+        } else {
+            layer?.backgroundColor = isHovered ? .init(gray: 0.5, alpha: 0.1) : nil
+        }
     }
 
     func height(for content: MatrixRustSDK.MsgLikeContent, width: CGFloat, replyDetails: MatrixRustSDK.EmbeddedEventDetails?, receiptCount: Int) -> CGFloat {

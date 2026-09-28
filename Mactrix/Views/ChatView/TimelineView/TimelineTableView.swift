@@ -5,6 +5,22 @@ import OSLog
 import SwiftUI
 import UI
 
+enum TimelineSelectionDirection {
+    case up
+    case down
+
+    init?(event: NSEvent) {
+        guard event.modifierFlags.intersection([.command, .option, .control, .shift]).isEmpty else { return nil }
+        switch event.keyCode {
+        case 126: self = .up
+        case 125: self = .down
+        default: return nil
+        }
+    }
+
+    var rowStep: Int { self == .up ? 1 : -1 }
+}
+
 enum TimelineItemRowInfo {
     case profile(item: TimelineItem, event: MatrixRustSDK.EventTimelineItem)
     case message(item: TimelineItem, event: MatrixRustSDK.EventTimelineItem, content: MatrixRustSDK.MsgLikeContent)
@@ -12,6 +28,7 @@ enum TimelineItemRowInfo {
     case virtual(item: TimelineItem, virtual: MatrixRustSDK.VirtualTimelineItem)
     case typingIndicator
 
+    @MainActor
     var reuseIdentifier: NSUserInterfaceItemIdentifier {
         switch self {
         case .profile(profile: _):
@@ -88,7 +105,7 @@ struct TimelineItemRowView: View {
     }
 }
 
-class TimelineViewController: NSViewController {
+class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
     let coordinator: TimelineViewRepresentable.Coordinator
 
     private var dataSource: NSTableViewDiffableDataSource<TimelineSection, TimelineUniqueId>?
@@ -99,6 +116,7 @@ class TimelineViewController: NSViewController {
     private weak var hoveredMessageView: MessageRowView?
     private var hoveredMessageId: String?
     private var hoveredRowIndex: Int?
+    private var updatingTimelineItems = false
 
     let timeline: LiveTimeline
     var timelineItems: [TimelineItemRowInfo] = []
@@ -117,6 +135,8 @@ class TimelineViewController: NSViewController {
         tableView.headerView = nil
         tableView.style = .plain
         tableView.allowsColumnSelection = false
+        tableView.allowsMultipleSelection = false
+        tableView.allowsEmptySelection = true
         tableView.selectionHighlightStyle = .none
 
         // Every row is sized by tableView(_:heightOfRow:). Automatic heights can
@@ -126,6 +146,9 @@ class TimelineViewController: NSViewController {
         tableView.usesAutomaticRowHeights = false
         tableView.onLayout = { [weak self] in
             self?.positionHoverOverlay()
+        }
+        tableView.onArrowKey = { [weak self] direction in
+            self?.moveSelection(direction)
         }
 
         oldWidth = tableView.frame.width
@@ -175,6 +198,12 @@ class TimelineViewController: NSViewController {
                 view.onHoverChange = { [weak self] rowView, hovering, event in
                     self?.updateHoverOverlay(for: rowView, hovering: hovering, event: event) ?? false
                 }
+                view.onSelectRequest = { [weak self] rowView in
+                    self?.selectMessageRow(for: rowView)
+                }
+                view.onArrowKey = { [weak self] direction in
+                    self?.moveSelection(direction)
+                }
                 view.configure(
                     event: event,
                     content: content,
@@ -193,6 +222,7 @@ class TimelineViewController: NSViewController {
                         self?.coordinator.windowState.focusUser(userId: userId)
                     }
                 )
+                view.setSelected(tableView.selectedRow == row)
                 view.identifier = item.reuseIdentifier
                 return view
             default:
@@ -250,7 +280,7 @@ class TimelineViewController: NSViewController {
             object: scrollView.contentView
         )
 
-        listenForFocusTimelineItem()
+        timeline.focusDelegate = self
         listenForTypingUsers()
         listenForReplyDetails()
     }
@@ -338,7 +368,8 @@ class TimelineViewController: NSViewController {
               let hoveredMessageId,
               row < timelineItems.count,
               timelineItems[row].id == hoveredMessageId,
-              let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageRowView else {
+              let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageRowView
+        else {
             hideHoverOverlay()
             return
         }
@@ -478,26 +509,58 @@ class TimelineViewController: NSViewController {
         }
     }
 
-    func listenForFocusTimelineItem() {
-        Logger.timelineTableView.debug("Listen for focus timeline item")
-
-        let focusedTimelineEventId = withObservationTracking {
-            timeline.focusedTimelineEventId
-        } onChange: { [weak self] in
-            Task { @MainActor in self?.listenForFocusTimelineItem() }
-        }
-
-        guard let focusedTimelineEventId,
-              let rowIndex = timelineItems.firstIndex(where: { item in
+    func focusTimelineEvent(id eventId: MatrixRustSDK.EventOrTransactionId) {
+        guard let rowIndex = timelineItems.firstIndex(where: { item in
                   switch item {
                   case .message(item: _, event: let event, content: _):
-                      return event.eventOrTransactionId == focusedTimelineEventId
+                      return event.eventOrTransactionId == eventId
                   default:
                       return false
                   }
               }) else { return }
 
+        tableView.selectRowIndexes(IndexSet(integer: rowIndex), byExtendingSelection: false)
+        updateSelectedMessage()
         tableView.animateRowToVisible(rowIndex)
+    }
+
+    private func updateSelectedMessage() {
+        let selectedRow = tableView.selectedRow
+
+        let visibleRows = tableView.rows(in: tableView.visibleRect)
+        for row in visibleRows.lowerBound ..< visibleRows.upperBound {
+            (tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageRowView)?
+                .setSelected(row == selectedRow)
+        }
+    }
+
+    private func selectMessageRow(for rowView: MessageRowView) {
+        let point = tableView.convert(NSPoint(x: rowView.bounds.midX, y: rowView.bounds.midY), from: rowView)
+        let row = tableView.row(at: point)
+        guard timelineItems.indices.contains(row), case .message = timelineItems[row] else { return }
+        tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        updateSelectedMessage()
+    }
+
+    private func moveSelection(_ direction: TimelineSelectionDirection) {
+        let step = direction.rowStep
+        let visibleRows = tableView.rows(in: tableView.visibleRect)
+        var row = tableView.selectedRow
+        if row < 0 {
+            row = direction == .up ? visibleRows.lowerBound - 1 : visibleRows.upperBound
+        }
+
+        row += step
+        while timelineItems.indices.contains(row) {
+            if case .message = timelineItems[row] {
+                tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+                updateSelectedMessage()
+                tableView.animateRowToVisible(row)
+                tableView.window?.makeFirstResponder(tableView)
+                return
+            }
+            row += step
+        }
     }
 
     @available(*, unavailable)
@@ -514,6 +577,8 @@ class TimelineViewController: NSViewController {
         Logger.timelineTableView.info("update timeline items")
 
         let oldItems = self.timelineItems
+        let selectedId = oldItems.indices.contains(tableView.selectedRow)
+            ? oldItems[tableView.selectedRow].id : nil
         let oldIds = oldItems.map { $0.id }
         self.timelineItems = mapTimelineItems(items: timelineItems)
         let newIds = self.timelineItems.map { $0.id }
@@ -544,7 +609,16 @@ class TimelineViewController: NSViewController {
             snapshot.appendItems([.init(id: item.id)], toSection: .main)
         }
 
+        updatingTimelineItems = true
         dataSource?.apply(snapshot, animatingDifferences: false)
+        if let selectedId,
+           let row = self.timelineItems.firstIndex(where: { $0.id == selectedId }) {
+            tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+        } else {
+            tableView.deselectAll(nil)
+        }
+        updatingTimelineItems = false
+        updateSelectedMessage()
 
         // Re-measure visible rows after hosting views settle
         DispatchQueue.main.async { [weak self] in
@@ -599,11 +673,18 @@ class TimelineViewController: NSViewController {
 
 extension TimelineViewController: NSTableViewDelegate {
     func selectionShouldChange(in tableView: NSTableView) -> Bool {
-        return false
+        return true
     }
 
     func tableView(_ tableView: NSTableView, shouldSelectRow row: Int) -> Bool {
+        guard timelineItems.indices.contains(row) else { return false }
+        if case .message = timelineItems[row] { return true }
         return false
+    }
+
+    func tableViewSelectionDidChange(_ notification: Notification) {
+        guard !updatingTimelineItems else { return }
+        updateSelectedMessage()
     }
 
     func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
@@ -649,6 +730,20 @@ extension TimelineViewController: NSTableViewDelegate {
 
 class BottomStickyTableView: NSTableView {
     var onLayout: (() -> Void)?
+    var onArrowKey: ((TimelineSelectionDirection) -> Void)?
+
+    override func keyDown(with event: NSEvent) {
+        if let direction = TimelineSelectionDirection(event: event) {
+            onArrowKey?(direction)
+        } else {
+            super.keyDown(with: event)
+        }
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        guard row(at: convert(event.locationInWindow, from: nil)) >= 0 else { return }
+        super.mouseDown(with: event)
+    }
 
     override func layout() {
         super.layout()

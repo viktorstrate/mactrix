@@ -108,10 +108,6 @@ struct ChatMessageView: View, UI.MessageEventActions {
         }
     }
 
-    var isEventFocused: Bool {
-        return timeline?.focusedTimelineEventId == event.eventOrTransactionId
-    }
-
     var ownUserId: String {
         do {
             return try appState.matrixClient?.client.userId() ?? ""
@@ -126,7 +122,7 @@ struct ChatMessageView: View, UI.MessageEventActions {
             UI.MessageEventProfileView(event: event, focusUserAction: self.focusUser, imageLoader: appState.matrixClient)
                 .font(.system(size: .init(fontSize)))
         }
-        UI.MessageEventBodyView(event: event, focused: isEventFocused, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient, roomMembers: timeline?.room.members ?? []) {
+        UI.MessageEventBodyView(event: event, focused: false, reactions: msg.reactions, actions: self, ownUserID: ownUserId, imageLoader: appState.matrixClient, roomMembers: timeline?.room.members ?? []) {
             VStack(alignment: .leading, spacing: 10) {
                 if let replyTo = msg.inReplyTo {
                     let eventId = replyTo.eventId()
