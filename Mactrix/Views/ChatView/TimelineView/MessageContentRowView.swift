@@ -13,10 +13,13 @@ protocol MessageContentRowView: NSView {
 enum MessageContentKind: Hashable {
     case text
     case image
+    case video
 
     init?(content: MatrixRustSDK.MsgLikeContent) {
         if MessageImageContentView.supports(content: content) {
             self = .image
+        } else if MessageVideoContentView.supports(content: content) {
+            self = .video
         } else if MessageTextContentView.supports(content: content) {
             self = .text
         } else {
@@ -28,6 +31,7 @@ enum MessageContentKind: Hashable {
         switch self {
         case .text: .init("message.text")
         case .image: .init("message.image")
+        case .video: .init("message.video")
         }
     }
 
@@ -36,6 +40,7 @@ enum MessageContentKind: Hashable {
         switch self {
         case .text: contentView = MessageTextContentView()
         case .image: contentView = MessageImageContentView()
+        case .video: contentView = MessageVideoContentView()
         }
         return MessageRowView(contentKind: self, contentView: contentView)
     }
