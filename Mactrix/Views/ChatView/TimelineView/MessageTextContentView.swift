@@ -4,7 +4,7 @@ import MessageFormatting
 
 /// Retains the NSTextView and its layout machinery when its table row is reused.
 final class MessageTextContentView: NSView, MessageContentRowView {
-    var onTextMouseDown: (() -> Void)?
+    var onSelectRequest: (() -> Void)?
     var onArrowKey: ((TimelineSelectionDirection) -> Void)?
     private let bodyText = OcclusionAwareTextView(frame: .zero)
 
@@ -21,7 +21,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
         bodyText.isHorizontallyResizable = false
         bodyText.isVerticallyResizable = true
         bodyText.translatesAutoresizingMaskIntoConstraints = false
-        bodyText.onMouseDown = { [weak self] in self?.onTextMouseDown?() }
+        bodyText.onMouseDown = { [weak self] in self?.onSelectRequest?() }
         bodyText.onArrowKey = { [weak self] direction in self?.onArrowKey?(direction) }
 
         addSubview(bodyText)
@@ -45,20 +45,49 @@ final class MessageTextContentView: NSView, MessageContentRowView {
         }
     }
 
-    func configure(content: MsgLikeContent) {
+    func configure(content: MsgLikeContent, matrixClient: MatrixClient?) {
         bodyText.textStorage?.setAttributedString(Self.attributedBody(for: content))
     }
 
+    func configureCaption(_ caption: String?, formatted: FormattedBody?) {
+        bodyText.textStorage?.setAttributedString(Self.attributedCaption(caption, formatted: formatted))
+    }
+
+    func height(forCaption caption: String?, formatted: FormattedBody?, width: CGFloat) -> CGFloat {
+        measure(Self.attributedCaption(caption, formatted: formatted), width: width)
+    }
+
     func height(for content: MsgLikeContent, width: CGFloat) -> CGFloat {
+        measure(Self.attributedBody(for: content), width: width)
+    }
+
+    private func measure(_ text: NSAttributedString, width: CGFloat) -> CGFloat {
         guard let textStorage = bodyText.textStorage,
               let layoutManager = bodyText.layoutManager,
               let textContainer = bodyText.textContainer else { return 20 }
 
         textContainer.widthTracksTextView = false
         textContainer.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
-        textStorage.setAttributedString(Self.attributedBody(for: content))
+        textStorage.setAttributedString(text)
         layoutManager.ensureLayout(for: textContainer)
         return layoutManager.usedRect(for: textContainer).height
+    }
+
+    private static func attributedCaption(_ caption: String?, formatted: FormattedBody?) -> NSAttributedString {
+        let fontSize = UserDefaults.standard.object(forKey: "fontSize") as? Int ?? 13
+        if let formatted, formatted.format == .html {
+            return parseFormattedBody(formatted.body, baseFontSize: CGFloat(fontSize))
+        }
+        let options = AttributedString.MarkdownParsingOptions(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        let attributed = (try? AttributedString(markdown: caption ?? "", options: options)) ?? AttributedString(caption ?? "")
+        let result = NSMutableAttributedString(attributedString: NSAttributedString(attributed))
+        let fullRange = NSRange(location: 0, length: result.length)
+        result.enumerateAttribute(.font, in: fullRange) { font, range, _ in
+            if font == nil {
+                result.addAttribute(.font, value: NSFont.systemFont(ofSize: CGFloat(fontSize)), range: range)
+            }
+        }
+        return result
     }
 
     private static func attributedBody(for content: MsgLikeContent) -> NSAttributedString {

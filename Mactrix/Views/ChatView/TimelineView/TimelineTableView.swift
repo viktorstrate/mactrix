@@ -33,10 +33,8 @@ enum TimelineItemRowInfo {
         switch self {
         case .profile(profile: _):
             return NSUserInterfaceItemIdentifier("profile")
-        case .message(_, let event, let content):
-            return NSUserInterfaceItemIdentifier(
-                MessageRowView.supports(event: event, content: content) ? "message.text" : "swiftui-view"
-            )
+        case .message(_, _, let content):
+            return MessageContentKind(content: content)?.reuseIdentifier ?? .init("swiftui-view")
         case .state:
             return NSUserInterfaceItemIdentifier("state")
         case .virtual:
@@ -192,9 +190,17 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
                 view.configure(event: event)
                 view.identifier = item.reuseIdentifier
                 return view
-            case .message(_, let event, let content) where MessageRowView.supports(event: event, content: content):
-                let view = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
-                    as? MessageRowView ?? MessageRowView(frame: .zero)
+            case .message(_, let event, let content) where MessageContentKind(content: content) != nil:
+                guard let kind = MessageContentKind(content: content) else {
+                    preconditionFailure("Message content kind changed while creating its row")
+                }
+                let recycled = tableView.makeView(withIdentifier: kind.reuseIdentifier, owner: self) as? MessageRowView
+                let view: MessageRowView
+                if let recycled, recycled.contentKind == kind {
+                    view = recycled
+                } else {
+                    view = kind.makeRowView()
+                }
                 view.onHoverChange = { [weak self] rowView, hovering, event in
                     self?.updateHoverOverlay(for: rowView, hovering: hovering, event: event) ?? false
                 }
@@ -217,13 +223,13 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
                         self?.toggleReaction(key, for: event)
                     },
                     roomMembers: self.timeline.room.members,
-                    imageLoader: self.coordinator.appState.matrixClient,
+                    matrixClient: self.coordinator.appState.matrixClient,
                     onFocusUser: { [weak self] userId in
                         self?.coordinator.windowState.focusUser(userId: userId)
                     }
                 )
                 view.setSelected(tableView.selectedRow == row)
-                view.identifier = item.reuseIdentifier
+                view.identifier = kind.reuseIdentifier
                 return view
             default:
                 let view = TimelineItemRowView(rowInfo: item, timeline: timeline, coordinator: coordinator)
@@ -668,7 +674,14 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
         return hostView
     }()
 
-    let measurementMessageView = MessageRowView(frame: .zero)
+    private var measurementMessageViews: [MessageContentKind: MessageRowView] = [:]
+
+    private func measurementView(for kind: MessageContentKind) -> MessageRowView {
+        if let view = measurementMessageViews[kind] { return view }
+        let view = kind.makeRowView()
+        measurementMessageViews[kind] = view
+        return view
+    }
 }
 
 extension TimelineViewController: NSTableViewDelegate {
@@ -707,9 +720,9 @@ extension TimelineViewController: NSTableViewDelegate {
         }
 
         if case .message(_, let event, let content) = item,
-           MessageRowView.supports(event: event, content: content)
+           let kind = MessageContentKind(content: content)
         {
-            return measurementMessageView.height(
+            return measurementView(for: kind).height(
                 for: content,
                 width: tableView.tableColumns[0].width,
                 replyDetails: replyDetails(for: content),

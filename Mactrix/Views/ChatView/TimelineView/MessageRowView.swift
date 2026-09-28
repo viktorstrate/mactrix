@@ -5,6 +5,7 @@ import UI
 
 /// Shared row chrome. The content view is created once and retained across table reuse.
 final class MessageRowView: NSView {
+    let contentKind: MessageContentKind
     var onHoverChange: ((MessageRowView, Bool, NSEvent) -> Bool)?
     var onSelectRequest: ((MessageRowView) -> Void)?
     var onArrowKey: ((TimelineSelectionDirection) -> Void)?
@@ -22,13 +23,16 @@ final class MessageRowView: NSView {
     private var replyPreview: MessageReplyPreviewView?
     private var replyDetails: MatrixRustSDK.EmbeddedEventDetails?
     private var replyHeightConstraint: NSLayoutConstraint?
+
     private var contentTopToReply: NSLayoutConstraint?
     private lazy var contentTopToRow = contentView.topAnchor.constraint(equalTo: topAnchor, constant: 4)
+    private lazy var contentBottomToRow = contentView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
+
     private var threadSummaryView: MessageThreadSummaryView?
     private var threadHeightConstraint: NSLayoutConstraint?
     private var threadTopConstraint: NSLayoutConstraint?
     private var threadBottomConstraint: NSLayoutConstraint?
-    private lazy var contentBottomToRow = contentView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
+
     private var reactionsView: MessageReactionsView?
     private var reactionsHeightConstraint: NSLayoutConstraint?
     private var reactionsTopToContent: NSLayoutConstraint?
@@ -37,6 +41,7 @@ final class MessageRowView: NSView {
     private var reactionsTrailingToContent: NSLayoutConstraint?
     private var reactionsTrailingToReceipts: NSLayoutConstraint?
     private var reactions: [MatrixRustSDK.Reaction] = []
+
     private var receiptsView: MessageReadReceiptsView?
     private var receiptsWidthConstraint: NSLayoutConstraint?
     private var receiptsTopToContent: NSLayoutConstraint?
@@ -50,11 +55,8 @@ final class MessageRowView: NSView {
         return formatter
     }()
 
-    override convenience init(frame frameRect: NSRect) {
-        self.init(contentView: MessageTextContentView(), frame: frameRect)
-    }
-
-    init(contentView: any MessageContentRowView, frame frameRect: NSRect = .zero) {
+    init(contentKind: MessageContentKind, contentView: any MessageContentRowView, frame frameRect: NSRect = .zero) {
+        self.contentKind = contentKind
         self.contentView = contentView
         super.init(frame: frameRect)
 
@@ -63,14 +65,12 @@ final class MessageRowView: NSView {
         timestamp.alignment = .right
         timestamp.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false
-        if let textContent = contentView as? MessageTextContentView {
-            textContent.onTextMouseDown = { [weak self] in
-                guard let self else { return }
-                self.onSelectRequest?(self)
-            }
-            textContent.onArrowKey = { [weak self] direction in
-                self?.onArrowKey?(direction)
-            }
+        contentView.onSelectRequest = { [weak self] in
+            guard let self else { return }
+            self.onSelectRequest?(self)
+        }
+        contentView.onArrowKey = { [weak self] direction in
+            self?.onArrowKey?(direction)
         }
 
         wantsLayer = true
@@ -98,10 +98,6 @@ final class MessageRowView: NSView {
         ])
     }
 
-    static func supports(event: MatrixRustSDK.EventTimelineItem, content: MatrixRustSDK.MsgLikeContent) -> Bool {
-        MessageTextContentView.supports(content: content)
-    }
-
     func configure(
         event: MatrixRustSDK.EventTimelineItem,
         content: MatrixRustSDK.MsgLikeContent,
@@ -111,7 +107,7 @@ final class MessageRowView: NSView {
         ownUserId: String?,
         onReactionClick: ((String) -> Void)?,
         roomMembers: [MatrixRustSDK.RoomMember],
-        imageLoader: UI.ImageLoader?,
+        matrixClient: MatrixClient?,
         onFocusUser: ((String) -> Void)?
     ) {
         // A reused row may still have its previous table height while its content changes.
@@ -122,11 +118,11 @@ final class MessageRowView: NSView {
 
         let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
         timestamp.stringValue = Self.timeFormatter.string(from: date)
-        contentView.configure(content: content)
+        contentView.configure(content: content, matrixClient: matrixClient)
         configureReply(details: replyDetails, onClick: onReplyClick)
         configureThread(summary: content.threadSummary, onClick: onThreadClick)
         configureReactions(content.reactions, ownUserId: ownUserId, onClick: onReactionClick)
-        configureReceipts(event.userReadReceipts, roomMembers: roomMembers, imageLoader: imageLoader, onFocusUser: onFocusUser)
+        configureReceipts(event.userReadReceipts, roomMembers: roomMembers, imageLoader: matrixClient, onFocusUser: onFocusUser)
         isHovered = false
         updateBackground()
     }
