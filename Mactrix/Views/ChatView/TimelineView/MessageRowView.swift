@@ -18,7 +18,7 @@ final class MessageRowView: NSView {
     private static let receiptSpacing: CGFloat = 10
 
     private let timestamp = NSTextField(labelWithString: "")
-    private let contentView = MessageTextContentView()
+    private let contentView: any MessageContentRowView
     private var replyPreview: MessageReplyPreviewView?
     private var replyDetails: MatrixRustSDK.EmbeddedEventDetails?
     private var replyHeightConstraint: NSLayoutConstraint?
@@ -50,7 +50,12 @@ final class MessageRowView: NSView {
         return formatter
     }()
 
-    override init(frame frameRect: NSRect) {
+    override convenience init(frame frameRect: NSRect) {
+        self.init(contentView: MessageTextContentView(), frame: frameRect)
+    }
+
+    init(contentView: any MessageContentRowView, frame frameRect: NSRect = .zero) {
+        self.contentView = contentView
         super.init(frame: frameRect)
 
         timestamp.font = .systemFont(ofSize: NSFont.labelFontSize)
@@ -58,12 +63,14 @@ final class MessageRowView: NSView {
         timestamp.alignment = .right
         timestamp.translatesAutoresizingMaskIntoConstraints = false
         contentView.translatesAutoresizingMaskIntoConstraints = false
-        contentView.onTextMouseDown = { [weak self] in
-            guard let self else { return }
-            self.onSelectRequest?(self)
-        }
-        contentView.onArrowKey = { [weak self] direction in
-            self?.onArrowKey?(direction)
+        if let textContent = contentView as? MessageTextContentView {
+            textContent.onTextMouseDown = { [weak self] in
+                guard let self else { return }
+                self.onSelectRequest?(self)
+            }
+            textContent.onArrowKey = { [weak self] direction in
+                self?.onArrowKey?(direction)
+            }
         }
 
         wantsLayer = true

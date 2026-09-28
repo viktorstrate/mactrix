@@ -194,7 +194,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
                 return view
             case .message(_, let event, let content) where MessageRowView.supports(event: event, content: content):
                 let view = tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
-                    as? MessageRowView ?? MessageRowView()
+                    as? MessageRowView ?? MessageRowView(frame: .zero)
                 view.onHoverChange = { [weak self] rowView, hovering, event in
                     self?.updateHoverOverlay(for: rowView, hovering: hovering, event: event) ?? false
                 }
@@ -668,7 +668,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
         return hostView
     }()
 
-    let measurementMessageView = MessageRowView()
+    let measurementMessageView = MessageRowView(frame: .zero)
 }
 
 extension TimelineViewController: NSTableViewDelegate {

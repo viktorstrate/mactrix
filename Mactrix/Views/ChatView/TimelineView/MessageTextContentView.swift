@@ -3,7 +3,7 @@ import MatrixRustSDK
 import MessageFormatting
 
 /// Retains the NSTextView and its layout machinery when its table row is reused.
-final class MessageTextContentView: NSView {
+final class MessageTextContentView: NSView, MessageContentRowView {
     var onTextMouseDown: (() -> Void)?
     var onArrowKey: ((TimelineSelectionDirection) -> Void)?
     private let bodyText = OcclusionAwareTextView(frame: .zero)
