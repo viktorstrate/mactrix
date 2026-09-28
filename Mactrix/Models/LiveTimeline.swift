@@ -2,7 +2,17 @@ import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
-import SwiftUI
+
+/// Delegate subscribed to by the `NSTimelineView` to update the focused timeline row.
+@MainActor
+public protocol LiveTimelineFocusDelegate: AnyObject {
+    func focusTimelineEvent(id: EventOrTransactionId)
+}
+
+@MainActor
+protocol LiveTimelineDiffDelegate: AnyObject {
+    func timelineDidApply(diffs: [TimelineDiff])
+}
 
 @MainActor @Observable
 public final class LiveTimeline {
@@ -14,17 +24,15 @@ public final class LiveTimeline {
     @ObservationIgnored private var timelineHandle: TaskHandle?
     @ObservationIgnored private var paginateHandle: TaskHandle?
 
-    public var scrollPosition = ScrollPosition(idType: TimelineGroup.ID.self, edge: .bottom)
     public var errorMessage: String?
 
-    public private(set) var focusedTimelineEventId: EventOrTransactionId?
-    // public private(set) var focusedTimelineGroupId: String?
+    @ObservationIgnored public weak var focusDelegate: (any LiveTimelineFocusDelegate)?
+    @ObservationIgnored weak var diffDelegate: (any LiveTimelineDiffDelegate)?
 
     public var sendReplyTo: MatrixRustSDK.EventTimelineItem?
 
     public private(set) var timelineItems: [TimelineItem] = []
     public private(set) var loadedReplyDetails: [String: InReplyToDetails] = [:]
-    // public private(set) var timelineGroups: TimelineGroups = .init()
 
     public private(set) var paginating: PaginationStatus = .idle(hitTimelineStart: false)
     public private(set) var hitTimelineStart: Bool = false
@@ -157,7 +165,7 @@ public final class LiveTimeline {
 
     public func focusEvent(id eventId: EventOrTransactionId) {
         Logger.liveTimeline.info("focus event: \(eventId.id)")
-        focusedTimelineEventId = eventId
+        focusDelegate?.focusTimelineEvent(id: eventId)
     }
 }
 
@@ -194,6 +202,7 @@ extension LiveTimeline {
             hitTimelineStart = true
         }
 
+        diffDelegate?.timelineDidApply(diffs: diff)
         loadPendingReplyDetails()
     }
 

@@ -31,7 +31,6 @@ struct ChatInputView: View {
 
         chatInput = ""
         replyTo = nil
-        timeline.scrollPosition.scrollTo(edge: .bottom)
     }
 
     private func saveDraft() async {

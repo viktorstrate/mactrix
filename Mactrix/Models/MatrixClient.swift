@@ -255,19 +255,18 @@ extension MatrixClient: UI.ImageLoader {
         imageCache.setObject(image, forKey: key, cost: cost)
     }
 
-    func cachedImage(matrixUrl: String) -> Image? {
-        guard let nsImage = Self.imageCache.object(forKey: NSString(string: matrixUrl)) else { return nil }
-        return Image(nsImage: nsImage)
+    func cachedImage(matrixUrl: String) -> NSImage? {
+        return Self.imageCache.object(forKey: NSString(string: matrixUrl))
     }
 
-    func loadImage(matrixUrl: String, size: CGSize?) async throws -> Image? {
+    func loadImage(matrixUrl: String, size: CGSize?) async throws -> NSImage? {
         let cacheKey = if let size {
             NSString(string: "\(matrixUrl)_\(Int(size.width))x\(Int(size.height))")
         } else {
             NSString(string: matrixUrl)
         }
         if let cached = Self.imageCache.object(forKey: cacheKey) {
-            return Image(nsImage: cached)
+            return cached
         }
 
         let mediaSource = try MediaSource.fromUrl(url: matrixUrl)
@@ -284,7 +283,7 @@ extension MatrixClient: UI.ImageLoader {
         do {
             let nsImage = try imageData.toOrientedImage(contentType: imageData.computeMimeType())
             Self.setCachedImage(nsImage, forKey: cacheKey)
-            return Image(nsImage: nsImage)
+            return nsImage
         } catch {
             Logger.matrixClient.error("failed convert matrix media data to Image: \(error) \(imageData)")
             throw error

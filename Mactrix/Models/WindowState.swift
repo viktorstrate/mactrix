@@ -83,15 +83,8 @@ final class WindowState {
             return
         }
 
-        /* guard let focusItem = roomTimeline.timelineItems?.first(where: { $0.asEvent()?.eventOrTransactionId.id == eventId }) else {
-             Logger.windowState.warning("focus message failed, message not found")
-             return
-         } */
-
         Logger.windowState.warning("scrolling to message \(eventId)")
-        withAnimation {
-            roomTimeline.scrollPosition.scrollTo(id: eventId)
-        }
+        roomTimeline.focusEvent(id: .eventId(eventId: eventId))
     }
 
     func focusThread(rootEventId: String) {

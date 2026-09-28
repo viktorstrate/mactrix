@@ -4,8 +4,8 @@ import SwiftUI
 
 @MainActor
 public protocol ImageLoader {
-    func loadImage(matrixUrl: String, size: CGSize?) async throws -> Image?
-    func cachedImage(matrixUrl: String) -> Image?
+    func loadImage(matrixUrl: String, size: CGSize?) async throws -> NSImage?
+    func cachedImage(matrixUrl: String) -> NSImage?
 }
 
 public struct AvatarImage<Preview: View>: View {
@@ -24,7 +24,7 @@ public struct AvatarImage<Preview: View>: View {
         self.imageLoader = imageLoader
         self.placeholder = placeholder
         if let avatarUrl, let cached = imageLoader?.cachedImage(matrixUrl: avatarUrl) {
-            self._avatar = State(initialValue: cached)
+            self._avatar = State(initialValue: Image(nsImage: cached))
         }
     }
 
@@ -60,14 +60,18 @@ public struct AvatarImage<Preview: View>: View {
 
                 // Check cache first (handles cell reuse with stale @State)
                 if let cached = imageLoader?.cachedImage(matrixUrl: avatarUrl) {
-                    avatar = cached
+                    avatar = Image(nsImage: cached)
                     return
                 }
 
                 avatar = nil
 
                 do {
-                    avatar = try await imageLoader?.loadImage(matrixUrl: avatarUrl, size: nil)
+                    if let image = try await imageLoader?.loadImage(matrixUrl: avatarUrl, size: nil) {
+                        avatar = Image(nsImage: image)
+                    } else {
+                        avatar = nil
+                    }
                 } catch {
                     Logger.viewCycle.error("failed to load avatar (\(avatarUrl): \(error)")
                 }
