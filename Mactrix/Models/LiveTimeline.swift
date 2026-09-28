@@ -2,7 +2,6 @@ import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
-import SwiftUI
 
 /// Delegate subscribed to by the `NSTimelineView` to update the focused timeline row.
 @MainActor
@@ -25,7 +24,6 @@ public final class LiveTimeline {
     @ObservationIgnored private var timelineHandle: TaskHandle?
     @ObservationIgnored private var paginateHandle: TaskHandle?
 
-    public var scrollPosition = ScrollPosition(idType: TimelineGroup.ID.self, edge: .bottom)
     public var errorMessage: String?
 
     @ObservationIgnored public weak var focusDelegate: (any LiveTimelineFocusDelegate)?
@@ -35,7 +33,6 @@ public final class LiveTimeline {
 
     public private(set) var timelineItems: [TimelineItem] = []
     public private(set) var loadedReplyDetails: [String: InReplyToDetails] = [:]
-    // public private(set) var timelineGroups: TimelineGroups = .init()
 
     public private(set) var paginating: PaginationStatus = .idle(hitTimelineStart: false)
     public private(set) var hitTimelineStart: Bool = false

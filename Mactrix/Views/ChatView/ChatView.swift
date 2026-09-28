@@ -2,25 +2,6 @@ import MatrixRustSDK
 import Models
 import OSLog
 import SwiftUI
-import UI
-
-struct TimelineGroupView: View {
-    let timeline: LiveTimeline
-    let timelineGroup: TimelineGroup
-
-    var body: some View {
-        switch timelineGroup {
-        case .messages(let messages, _, _):
-            ForEach(messages) { message in
-                ChatMessageView(timeline: timeline, event: message.event, msg: message.content, includeProfileHeader: message.id == messages.first?.id)
-            }
-        case .stateChanges(let events, _, _):
-            TimelineStateEventsView(timeline: timeline, events: events)
-        case .virtual(let item, _, _):
-            UI.VirtualItemView(item: item.asModel)
-        }
-    }
-}
 
 private struct TimelineReadKey: Equatable {
     let count: Int
