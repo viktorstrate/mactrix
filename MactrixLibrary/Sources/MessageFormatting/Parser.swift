@@ -72,5 +72,16 @@ public func parseFormattedBody(_ body: String, baseFontSize: CGFloat = 13) -> NS
         )
         .build()
 
-    return parser.render(body)
+    let rendered = parser.render(body)
+    let characters = rendered.string as NSString
+    var length = characters.length
+
+    while length > 0,
+          let character = Unicode.Scalar(characters.character(at: length - 1)),
+          CharacterSet.whitespacesAndNewlines.contains(character)
+    {
+        length -= 1
+    }
+
+    return rendered.attributedSubstring(from: NSRange(location: 0, length: length))
 }
