@@ -34,10 +34,14 @@ final class MessageTextContentView: NSView {
     }
 
     static func supports(content: MsgLikeContent) -> Bool {
-        guard case let .message(message) = content.kind else { return false }
-        switch message.msgType {
-        case .text, .notice: return true
-        default: return false
+        switch content.kind {
+        case let .message(message):
+            switch message.msgType {
+            case .image, .video, .file: return false
+            default: return true
+            }
+        default:
+            return true
         }
     }
 
@@ -60,15 +64,45 @@ final class MessageTextContentView: NSView {
     private static func attributedBody(for content: MsgLikeContent) -> NSAttributedString {
         let fontSize = UserDefaults.standard.object(forKey: "fontSize") as? Int ?? 13
         let font = NSFont.systemFont(ofSize: CGFloat(fontSize))
-        guard case let .message(message) = content.kind else { return NSAttributedString() }
+        func plain(_ text: String, color: NSColor = .labelColor, italic: Bool = false) -> NSAttributedString {
+            NSAttributedString(string: text, attributes: [
+                .font: italic ? NSFontManager.shared.convert(font, toHaveTrait: .italicFontMask) : font,
+                .foregroundColor: color,
+            ])
+        }
 
-        switch message.msgType {
-        case let .text(text):
-            return attributedText(for: text, font: font, color: .labelColor)
-        case let .notice(notice):
-            return attributedText(for: notice, font: font, color: .secondaryLabelColor)
-        default:
-            return NSAttributedString()
+        switch content.kind {
+        case let .message(message):
+            switch message.msgType {
+            case let .text(text):
+                return attributedText(for: text, font: font, color: .labelColor)
+            case let .notice(notice):
+                return attributedText(for: notice, font: font, color: .secondaryLabelColor)
+            case let .emote(emote):
+                return plain("Emote: \(emote.body)")
+            case let .audio(audio):
+                return plain("Audio: \(audio.caption ?? "no caption") \(audio.filename)")
+            case let .gallery(gallery):
+                return plain("Gallery: \(gallery.body)")
+            case let .location(location):
+                return plain("Location: \(location.body) \(location.geoUri)")
+            case let .other(msgtype: msgtype, body: body):
+                return plain("Other: \(msgtype) \(body)")
+            case .image, .video, .file:
+                return NSAttributedString()
+            }
+        case let .sticker(body: body, info: _, source: _):
+            return plain("Sticker: \(body)")
+        case let .poll(question: question, kind: _, maxSelections: _, answers: _, votes: _, endTime: _, hasBeenEdited: _):
+            return plain("Poll: \(question)")
+        case .redacted:
+            return plain("Message redacted", color: .secondaryLabelColor, italic: true)
+        case .unableToDecrypt:
+            return plain("Unable to decrypt", color: .secondaryLabelColor, italic: true)
+        case let .other(eventType: eventType):
+            return plain("Custom event: \(eventType.description)")
+        case let .liveLocation(content: location):
+            return plain("Live location: \(location.description ?? "no description")")
         }
     }
 
