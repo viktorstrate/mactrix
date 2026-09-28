@@ -1,5 +1,7 @@
 import AppKit
 import MatrixRustSDK
+import Models
+import UI
 
 /// Shared row chrome. The content view is created once and retained across table reuse.
 final class MessageRowView: NSView {
@@ -9,11 +11,12 @@ final class MessageRowView: NSView {
     private static let replySpacing: CGFloat = 20
     private static let threadSpacing: CGFloat = 10
     private static let reactionSpacing: CGFloat = 10
+    private static let receiptSpacing: CGFloat = 10
 
     private let timestamp = NSTextField(labelWithString: "")
     private let contentView = MessageTextContentView()
     private var replyPreview: MessageReplyPreviewView?
-    private var replyDetails: EmbeddedEventDetails?
+    private var replyDetails: MatrixRustSDK.EmbeddedEventDetails?
     private var replyHeightConstraint: NSLayoutConstraint?
     private var contentTopToReply: NSLayoutConstraint?
     private lazy var contentTopToRow = contentView.topAnchor.constraint(equalTo: topAnchor, constant: 4)
@@ -27,7 +30,15 @@ final class MessageRowView: NSView {
     private var reactionsTopToContent: NSLayoutConstraint?
     private var reactionsTopToThread: NSLayoutConstraint?
     private var reactionsBottomToRow: NSLayoutConstraint?
-    private var reactions: [Reaction] = []
+    private var reactionsTrailingToContent: NSLayoutConstraint?
+    private var reactionsTrailingToReceipts: NSLayoutConstraint?
+    private var reactions: [MatrixRustSDK.Reaction] = []
+    private var receiptsView: MessageReadReceiptsView?
+    private var receiptsWidthConstraint: NSLayoutConstraint?
+    private var receiptsTopToContent: NSLayoutConstraint?
+    private var receiptsTopToThread: NSLayoutConstraint?
+    private var receiptsTopToReactions: NSLayoutConstraint?
+    private var receiptsBottomToRow: NSLayoutConstraint?
 
     private static let timeFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -55,6 +66,8 @@ final class MessageRowView: NSView {
 
         addSubview(timestamp)
         addSubview(contentView)
+        // NSTableView may retain an old encapsulated height while a reused row is reconfigured.
+        contentBottomToRow.priority = .init(999)
         NSLayoutConstraint.activate([
             timestamp.leadingAnchor.constraint(equalTo: leadingAnchor),
             timestamp.topAnchor.constraint(equalTo: topAnchor, constant: 6),
@@ -67,30 +80,39 @@ final class MessageRowView: NSView {
         ])
     }
 
-    static func supports(event: EventTimelineItem, content: MsgLikeContent) -> Bool {
-        event.readReceipts.isEmpty &&
-            MessageTextContentView.supports(content: content)
+    static func supports(event: MatrixRustSDK.EventTimelineItem, content: MatrixRustSDK.MsgLikeContent) -> Bool {
+        MessageTextContentView.supports(content: content)
     }
 
     func configure(
-        event: EventTimelineItem,
-        content: MsgLikeContent,
-        replyDetails: EmbeddedEventDetails?,
+        event: MatrixRustSDK.EventTimelineItem,
+        content: MatrixRustSDK.MsgLikeContent,
+        replyDetails: MatrixRustSDK.EmbeddedEventDetails?,
         onReplyClick: (() -> Void)?,
         onThreadClick: (() -> Void)?,
         ownUserId: String?,
-        onReactionClick: ((String) -> Void)?
+        onReactionClick: ((String) -> Void)?,
+        roomMembers: [MatrixRustSDK.RoomMember],
+        imageLoader: UI.ImageLoader?,
+        onFocusUser: ((String) -> Void)?
     ) {
+        // A reused row may still have its previous table height while its content changes.
+        contentBottomToRow.isActive = false
+        threadBottomConstraint?.isActive = false
+        reactionsBottomToRow?.isActive = false
+        receiptsBottomToRow?.isActive = false
+
         let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
         timestamp.stringValue = Self.timeFormatter.string(from: date)
         contentView.configure(content: content)
         configureReply(details: replyDetails, onClick: onReplyClick)
         configureThread(summary: content.threadSummary, onClick: onThreadClick)
         configureReactions(content.reactions, ownUserId: ownUserId, onClick: onReactionClick)
+        configureReceipts(event.userReadReceipts, roomMembers: roomMembers, imageLoader: imageLoader, onFocusUser: onFocusUser)
         layer?.backgroundColor = nil
     }
 
-    private func configureThread(summary: ThreadSummary?, onClick: (() -> Void)?) {
+    private func configureThread(summary: MatrixRustSDK.ThreadSummary?, onClick: (() -> Void)?) {
         guard let summary else {
             threadSummaryView?.isHidden = true
             threadSummaryView?.onClick = nil
@@ -111,8 +133,12 @@ final class MessageRowView: NSView {
             threadHeightConstraint?.isActive = true
             threadTopConstraint = view.topAnchor.constraint(equalTo: contentView.bottomAnchor, constant: Self.threadSpacing)
             threadBottomConstraint = view.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
+            threadBottomConstraint?.priority = .init(999)
             if let reactionsView {
                 reactionsTopToThread = reactionsView.topAnchor.constraint(equalTo: view.bottomAnchor, constant: Self.reactionSpacing)
+            }
+            if let receiptsView {
+                receiptsTopToThread = receiptsView.topAnchor.constraint(equalTo: view.bottomAnchor, constant: Self.receiptSpacing)
             }
         }
 
@@ -120,20 +146,17 @@ final class MessageRowView: NSView {
         threadSummaryView?.onClick = onClick
         threadSummaryView?.isHidden = false
         threadHeightConstraint?.constant = MessageThreadSummaryView.height(for: summary)
-        contentBottomToRow.isActive = false
         threadTopConstraint?.isActive = true
     }
 
-    private func configureReactions(_ reactions: [Reaction], ownUserId: String?, onClick: ((String) -> Void)?) {
+    private func configureReactions(_ reactions: [MatrixRustSDK.Reaction], ownUserId: String?, onClick: ((String) -> Void)?) {
         self.reactions = reactions
         if !reactions.isEmpty, reactionsView == nil {
             let view = MessageReactionsView(frame: .zero)
             view.translatesAutoresizingMaskIntoConstraints = false
             addSubview(view)
-            NSLayoutConstraint.activate([
-                view.leadingAnchor.constraint(equalTo: contentView.leadingAnchor),
-                view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-            ])
+            view.leadingAnchor.constraint(equalTo: contentView.leadingAnchor).isActive = true
+            reactionsTrailingToContent = view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor)
             reactionsView = view
             reactionsHeightConstraint = view.heightAnchor.constraint(equalToConstant: 0)
             reactionsHeightConstraint?.isActive = true
@@ -142,32 +165,93 @@ final class MessageRowView: NSView {
                 reactionsTopToThread = view.topAnchor.constraint(equalTo: threadSummaryView.bottomAnchor, constant: Self.reactionSpacing)
             }
             reactionsBottomToRow = view.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
+            reactionsBottomToRow?.priority = .init(999)
+            if let receiptsView {
+                receiptsTopToReactions = receiptsView.topAnchor.constraint(equalTo: view.topAnchor, constant: 5)
+                reactionsTrailingToReceipts = view.trailingAnchor.constraint(equalTo: receiptsView.leadingAnchor, constant: -Self.receiptSpacing)
+            }
         }
 
         reactionsView?.configure(reactions: reactions, ownUserId: ownUserId)
         reactionsView?.onReactionClick = onClick
         reactionsView?.isHidden = reactions.isEmpty
 
-        contentBottomToRow.isActive = false
-        threadBottomConstraint?.isActive = false
         reactionsTopToContent?.isActive = false
         reactionsTopToThread?.isActive = false
-        reactionsBottomToRow?.isActive = false
 
-        if reactions.isEmpty {
-            if threadSummaryView?.isHidden == false {
+        if !reactions.isEmpty {
+            (threadSummaryView?.isHidden == false ? reactionsTopToThread : reactionsTopToContent)?.isActive = true
+            updateReactionsHeight()
+        }
+    }
+
+    private func configureReceipts(_ receipts: [String: Models.Receipt], roomMembers: [MatrixRustSDK.RoomMember], imageLoader: UI.ImageLoader?, onFocusUser: ((String) -> Void)?) {
+        if !receipts.isEmpty, receiptsView == nil {
+            let view = MessageReadReceiptsView()
+            view.translatesAutoresizingMaskIntoConstraints = false
+            addSubview(view)
+            receiptsView = view
+            NSLayoutConstraint.activate([
+                view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
+                view.heightAnchor.constraint(equalToConstant: MessageReadReceiptsView.rowHeight),
+            ])
+            receiptsWidthConstraint = view.widthAnchor.constraint(equalToConstant: 0)
+            receiptsWidthConstraint?.isActive = true
+            receiptsTopToContent = view.topAnchor.constraint(equalTo: contentView.bottomAnchor, constant: Self.receiptSpacing)
+            if let threadSummaryView {
+                receiptsTopToThread = view.topAnchor.constraint(equalTo: threadSummaryView.bottomAnchor, constant: Self.receiptSpacing)
+            }
+            if let reactionsView {
+                receiptsTopToReactions = view.topAnchor.constraint(equalTo: reactionsView.topAnchor, constant: 5)
+                reactionsTrailingToReceipts = reactionsView.trailingAnchor.constraint(equalTo: view.leadingAnchor, constant: -Self.receiptSpacing)
+            }
+            receiptsBottomToRow = view.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -4)
+            // NSTableView can briefly keep the old row height while configuring a reused view.
+            receiptsBottomToRow?.priority = .init(999)
+        }
+
+        receiptsView?.isHidden = receipts.isEmpty
+        receiptsView?.onFocusUser = onFocusUser
+        if !receipts.isEmpty {
+            receiptsView?.configure(receipts: receipts, members: roomMembers, imageLoader: imageLoader)
+            receiptsWidthConstraint?.constant = MessageReadReceiptsView.width(for: receipts.count)
+        }
+
+        contentBottomToRow.isActive = false
+        threadBottomConstraint?.isActive = false
+        reactionsBottomToRow?.isActive = false
+        receiptsTopToContent?.isActive = false
+        receiptsTopToThread?.isActive = false
+        receiptsTopToReactions?.isActive = false
+        receiptsBottomToRow?.isActive = false
+        let trailingConstraints = [reactionsTrailingToContent, reactionsTrailingToReceipts].compactMap { $0 }
+        NSLayoutConstraint.deactivate(trailingConstraints)
+        (receipts.isEmpty || reactions.isEmpty ? reactionsTrailingToContent : reactionsTrailingToReceipts)?.isActive = true
+
+        if receipts.isEmpty {
+            if !reactions.isEmpty {
+                reactionsBottomToRow?.isActive = true
+            } else if threadSummaryView?.isHidden == false {
                 threadBottomConstraint?.isActive = true
             } else {
                 contentBottomToRow.isActive = true
             }
         } else {
-            (threadSummaryView?.isHidden == false ? reactionsTopToThread : reactionsTopToContent)?.isActive = true
-            reactionsBottomToRow?.isActive = true
-            updateReactionsHeight()
+            if !reactions.isEmpty {
+                receiptsTopToReactions?.isActive = true
+                reactionsBottomToRow?.isActive = true
+            } else if threadSummaryView?.isHidden == false {
+                receiptsTopToThread?.isActive = true
+                receiptsBottomToRow?.isActive = true
+            } else {
+                receiptsTopToContent?.isActive = true
+                receiptsBottomToRow?.isActive = true
+            }
         }
+        updateReactionsHeight()
     }
 
-    func configureReply(details: EmbeddedEventDetails?, onClick: (() -> Void)?) {
+    func configureReply(details: MatrixRustSDK.EmbeddedEventDetails?, onClick: (() -> Void)?) {
         replyDetails = details
         guard let details else {
             replyPreview?.isHidden = true
@@ -216,7 +300,9 @@ final class MessageRowView: NSView {
 
     private func updateReactionsHeight() {
         guard !reactions.isEmpty, bounds.width > 0 else { return }
-        let height = MessageReactionsView.height(for: reactions, width: max(bounds.width - Self.contentHorizontalInset, 1))
+        let receiptWidth = receiptsView?.isHidden == false
+            ? MessageReadReceiptsView.width(for: receiptsView?.receiptCount ?? 0) + Self.receiptSpacing : 0
+        let height = MessageReactionsView.height(for: reactions, width: max(bounds.width - Self.contentHorizontalInset - receiptWidth, 1))
         if reactionsHeightConstraint?.constant != height {
             reactionsHeightConstraint?.constant = height
         }
@@ -236,7 +322,7 @@ final class MessageRowView: NSView {
         layer?.backgroundColor = highlighted ? .init(gray: 0.5, alpha: 0.1) : nil
     }
 
-    func height(for content: MsgLikeContent, width: CGFloat, replyDetails: EmbeddedEventDetails?) -> CGFloat {
+    func height(for content: MatrixRustSDK.MsgLikeContent, width: CGFloat, replyDetails: MatrixRustSDK.EmbeddedEventDetails?, receiptCount: Int) -> CGFloat {
         let contentWidth = max(width - Self.contentHorizontalInset, 1)
         let replyHeight = replyDetails.map {
             MessageReplyPreviewView.height(for: $0, width: contentWidth) + Self.replySpacing
@@ -244,9 +330,11 @@ final class MessageRowView: NSView {
         let threadHeight = content.threadSummary.map {
             MessageThreadSummaryView.height(for: $0) + Self.threadSpacing
         } ?? 0
+        let availableReactionWidth = contentWidth - (receiptCount > 0 ? MessageReadReceiptsView.width(for: receiptCount) + Self.receiptSpacing : 0)
         let reactionsHeight = content.reactions.isEmpty ? 0 :
-            MessageReactionsView.height(for: content.reactions, width: contentWidth) + Self.reactionSpacing
-        return max(ceil(contentView.height(for: content, width: contentWidth)) + replyHeight + threadHeight + reactionsHeight + 8, 28)
+            MessageReactionsView.height(for: content.reactions, width: max(availableReactionWidth, 1)) + Self.reactionSpacing
+        let receiptsHeight = receiptCount == 0 || !content.reactions.isEmpty ? 0 : MessageReadReceiptsView.rowHeight + Self.receiptSpacing
+        return max(ceil(contentView.height(for: content, width: contentWidth)) + replyHeight + threadHeight + reactionsHeight + receiptsHeight + 8, 28)
     }
 
     @available(*, unavailable)

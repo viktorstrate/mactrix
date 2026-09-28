@@ -186,6 +186,11 @@ class TimelineViewController: NSViewController {
                     ownUserId: try? self.coordinator.appState.matrixClient?.client.userId(),
                     onReactionClick: { [weak self] key in
                         self?.toggleReaction(key, for: event)
+                    },
+                    roomMembers: self.timeline.room.members,
+                    imageLoader: self.coordinator.appState.matrixClient,
+                    onFocusUser: { [weak self] userId in
+                        self?.coordinator.windowState.focusUser(userId: userId)
                     }
                 )
                 view.identifier = item.reuseIdentifier
@@ -516,15 +521,16 @@ class TimelineViewController: NSViewController {
         // If the IDs haven't changed, reload all rows in place (content-only update: reactions, read receipts, etc.)
         // Reloads all rows rather than just visible ones to avoid stale content in NSTableView's prepared/cached views.
         if oldIds == newIds {
-            var reactionRows = IndexSet()
+            var changedHeightRows = IndexSet()
             for row in self.timelineItems.indices {
-                guard case .message(_, _, let oldContent) = oldItems[row],
-                      case .message(_, _, let newContent) = self.timelineItems[row],
-                      oldContent.reactions != newContent.reactions else { continue }
-                reactionRows.insert(row)
+                guard case .message(_, let oldEvent, let oldContent) = oldItems[row],
+                      case .message(_, let newEvent, let newContent) = self.timelineItems[row],
+                      oldContent.reactions != newContent.reactions ||
+                      oldEvent.readReceipts.count != newEvent.readReceipts.count else { continue }
+                changedHeightRows.insert(row)
             }
-            if !reactionRows.isEmpty {
-                tableView.noteHeightOfRows(withIndexesChanged: reactionRows)
+            if !changedHeightRows.isEmpty {
+                tableView.noteHeightOfRows(withIndexesChanged: changedHeightRows)
             }
             tableView.reloadData(forRowIndexes: IndexSet(integersIn: 0 ..< self.timelineItems.count),
                                  columnIndexes: IndexSet(integer: 0))
@@ -625,7 +631,8 @@ extension TimelineViewController: NSTableViewDelegate {
             return measurementMessageView.height(
                 for: content,
                 width: tableView.tableColumns[0].width,
-                replyDetails: replyDetails(for: content)
+                replyDetails: replyDetails(for: content),
+                receiptCount: event.readReceipts.count
             )
         }
 
