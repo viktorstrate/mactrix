@@ -6,11 +6,8 @@ struct TimelineViewRepresentable: NSViewControllerRepresentable {
     @Environment(WindowState.self) private var windowState
 
     let timeline: LiveTimeline
-    let items: [TimelineItem]
-
-    init(timeline: LiveTimeline, items: [TimelineItem]) {
+    init(timeline: LiveTimeline) {
         self.timeline = timeline
-        self.items = items
     }
 
     func makeCoordinator() -> Coordinator {
@@ -28,10 +25,10 @@ struct TimelineViewRepresentable: NSViewControllerRepresentable {
     }
 
     func makeNSViewController(context: Context) -> TimelineViewController {
-        return TimelineViewController(coordinator: context.coordinator, timeline: timeline, timelineItems: items)
+        return TimelineViewController(coordinator: context.coordinator, timeline: timeline)
     }
 
     func updateNSViewController(_ timelineViewController: TimelineViewController, context: Context) {
-        timelineViewController.updateTimelineItems(items)
+        // SDK diff batches update the controller directly through LiveTimeline.
     }
 }

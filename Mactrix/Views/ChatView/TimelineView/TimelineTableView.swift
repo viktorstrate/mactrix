@@ -60,7 +60,7 @@ extension TimelineItemRowInfo: Identifiable {
     }
 }
 
-class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
+class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveTimelineDiffDelegate {
     let coordinator: TimelineViewRepresentable.Coordinator
 
     private var dataSource: NSTableViewDiffableDataSource<TimelineSection, TimelineUniqueId>?
@@ -74,13 +74,14 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
     private var updatingTimelineItems = false
 
     let timeline: LiveTimeline
-    var timelineItems: [TimelineItemRowInfo] = []
+    private var projection: TimelineRowProjection
+    var timelineItems: [TimelineItemRowInfo] { projection.rows }
 
-    init(coordinator: TimelineViewRepresentable.Coordinator, timeline: LiveTimeline, timelineItems: [TimelineItem]) {
+    init(coordinator: TimelineViewRepresentable.Coordinator, timeline: LiveTimeline) {
         self.coordinator = coordinator
         self.timeline = timeline
+        self.projection = TimelineRowProjection(items: timeline.timelineItems)
         super.init(nibName: nil, bundle: nil)
-        self.timelineItems = mapTimelineItems(items: timelineItems)
     }
 
     override func viewDidLoad() {
@@ -225,6 +226,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
         )
 
         timeline.focusDelegate = self
+        timeline.diffDelegate = self
+        applyProjectedRows(oldIDs: [], changedIDs: [])
         listenForTypingUsers()
         listenForReplyDetails()
     }
@@ -517,91 +520,47 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate {
         // case typingIndicator
     }
 
-    func updateTimelineItems(_ timelineItems: [TimelineItem]) {
-        Logger.timelineTableView.info("update timeline items")
-
-        let oldItems = self.timelineItems
-        let selectedId = oldItems.indices.contains(tableView.selectedRow)
-            ? oldItems[tableView.selectedRow].id : nil
-        let oldIds = oldItems.map { $0.id }
-        self.timelineItems = mapTimelineItems(items: timelineItems)
-        let newIds = self.timelineItems.map { $0.id }
-
-        // If the IDs haven't changed, reload all rows in place (content-only update: reactions, read receipts, etc.)
-        // Reloads all rows rather than just visible ones to avoid stale content in NSTableView's prepared/cached views.
-        if oldIds == newIds {
-            var changedHeightRows = IndexSet()
-            for row in self.timelineItems.indices {
-                guard case .message(_, let oldEvent, let oldContent) = oldItems[row],
-                      case .message(_, let newEvent, let newContent) = self.timelineItems[row],
-                      oldContent.reactions != newContent.reactions ||
-                      oldEvent.readReceipts.count != newEvent.readReceipts.count else { continue }
-                changedHeightRows.insert(row)
-            }
-            if !changedHeightRows.isEmpty {
-                tableView.noteHeightOfRows(withIndexesChanged: changedHeightRows)
-            }
-            tableView.reloadData(forRowIndexes: IndexSet(integersIn: 0 ..< self.timelineItems.count),
-                                 columnIndexes: IndexSet(integer: 0))
-            return
-        }
-
-        var snapshot = NSDiffableDataSourceSnapshot<TimelineSection, TimelineUniqueId>()
-        snapshot.appendSections([.main])
-
-        for item in self.timelineItems {
-            snapshot.appendItems([.init(id: item.id)], toSection: .main)
-        }
-
-        updatingTimelineItems = true
-        dataSource?.apply(snapshot, animatingDifferences: false)
-        if let selectedId,
-           let row = self.timelineItems.firstIndex(where: { $0.id == selectedId }) {
-            tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-        } else {
-            tableView.deselectAll(nil)
-        }
-        updatingTimelineItems = false
-        updateSelectedMessage()
-
-        // Re-measure visible rows after the table applies the new snapshot.
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            let visibleRows = tableView.rows(in: tableView.visibleRect)
-            tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound ..< visibleRows.upperBound))
-        }
+    func timelineDidApply(diffs: [TimelineDiff]) {
+        let change = projection.apply(diffs)
+        assert(projection.sourceItems.map { $0.uniqueId().id } == timeline.timelineItems.map { $0.uniqueId().id })
+        applyProjectedRows(oldIDs: change.oldIDs, changedIDs: change.changedIDs)
     }
 
-    private func mapTimelineItems(items: [TimelineItem]) -> [TimelineItemRowInfo] {
-        var result = [TimelineItemRowInfo]()
+    private func applyProjectedRows(oldIDs: [String], changedIDs: Set<String>) {
+        let selectedId = oldIDs.indices.contains(tableView.selectedRow) ? oldIDs[tableView.selectedRow] : nil
+        let newIDs = timelineItems.map(\.id)
+        let structureChanged = oldIDs != newIDs
 
-        var currentSender: String? = nil
-        for item in items {
-            if let event = item.asEvent() {
-                switch event.content {
-                case .msgLike(content: let content):
-                    if event.sender != currentSender {
-                        currentSender = event.sender
-                        result.append(.profile(item: item, event: event))
-                    }
-                    result.append(.message(item: item, event: event, content: content))
-                default:
-                    currentSender = nil
-                    result.append(.state(item: item, event: event))
-                }
+        if structureChanged {
+            var snapshot = NSDiffableDataSourceSnapshot<TimelineSection, TimelineUniqueId>()
+            snapshot.appendSections([.main])
+            snapshot.appendItems(newIDs.map { TimelineUniqueId(id: $0) }, toSection: .main)
+            updatingTimelineItems = true
+            dataSource?.apply(snapshot, animatingDifferences: false)
+            if let selectedId, let row = newIDs.firstIndex(of: selectedId) {
+                tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+            } else {
+                tableView.deselectAll(nil)
             }
-
-            if let virtual = item.asVirtual() {
-                currentSender = nil
-                result.append(.virtual(item: item, virtual: virtual))
-            }
+            updatingTimelineItems = false
         }
 
-        result.append(.typingIndicator)
+        let oldIDSet = Set(oldIDs)
+        var changedRows = IndexSet()
+        for (row, id) in newIDs.enumerated() where changedIDs.contains(id) && oldIDSet.contains(id) {
+            changedRows.insert(row)
+        }
+        if !changedRows.isEmpty {
+            tableView.noteHeightOfRows(withIndexesChanged: changedRows)
+            tableView.reloadData(forRowIndexes: changedRows, columnIndexes: IndexSet(integer: 0))
+        }
 
-        result.reverse()
-
-        return result
+        if let hoveredMessageId {
+            hoveredRowIndex = newIDs.firstIndex(of: hoveredMessageId)
+            if hoveredRowIndex == nil { hideHoverOverlay() }
+            else { positionHoverOverlay() }
+        }
+        updateSelectedMessage()
     }
 
     // values used to track width changes

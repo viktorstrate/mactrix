@@ -10,6 +10,11 @@ public protocol LiveTimelineFocusDelegate: AnyObject {
     func focusTimelineEvent(id: EventOrTransactionId)
 }
 
+@MainActor
+protocol LiveTimelineDiffDelegate: AnyObject {
+    func timelineDidApply(diffs: [TimelineDiff])
+}
+
 @MainActor @Observable
 public final class LiveTimeline {
     public let room: LiveRoom
@@ -24,6 +29,7 @@ public final class LiveTimeline {
     public var errorMessage: String?
 
     @ObservationIgnored public weak var focusDelegate: (any LiveTimelineFocusDelegate)?
+    @ObservationIgnored weak var diffDelegate: (any LiveTimelineDiffDelegate)?
 
     public var sendReplyTo: MatrixRustSDK.EventTimelineItem?
 
@@ -199,6 +205,7 @@ extension LiveTimeline {
             hitTimelineStart = true
         }
 
+        diffDelegate?.timelineDidApply(diffs: diff)
         loadPendingReplyDetails()
     }
 
