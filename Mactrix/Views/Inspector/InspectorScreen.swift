@@ -17,7 +17,7 @@ struct InspectorScreen: View {
             SearchInspectorView()
         case let .focusThread(threadTimeline: thread):
             VStack(spacing: 0) {
-                UI.ThreadTimelineHeader {
+                MactrixUI.ThreadTimelineHeader {
                     windowState.inspectorVisible = false
                     Task {
                         // Insert sleep to delay UI update until close animation finishes
@@ -31,7 +31,7 @@ struct InspectorScreen: View {
         case .roomInfo:
             switch windowState.selectedScreen {
             case let .joinedRoom(timeline: timeline):
-                UI.RoomInspectorView(room: timeline.room, members: timeline.room.members, roomInfo: timeline.room.roomInfo, imageLoader: appState.matrixClient, inspectorVisible: $windowState.inspectorVisible)
+                MactrixUI.RoomInspectorView(room: timeline.room, members: timeline.room.members, roomInfo: timeline.room.roomInfo, imageLoader: appState.matrixClient, inspectorVisible: $windowState.inspectorVisible)
             case .none, .newRoom, .previewRoom, .loadMatrixUrl(_), .user(profile: _):
                 Text("No room selected")
                     .inspectorColumnWidth(min: 200, ideal: 250, max: nil)

@@ -47,7 +47,7 @@ struct SidebarView: View {
             if !favorites.isEmpty {
                 Section("Favorites", isExpanded: $windowState.sidebarSections.favorites) {
                     ForEach(favorites) { room in
-                        UI.RoomRow(
+                        MactrixUI.RoomRow(
                             title: room.room.displayName() ?? "Unknown room",
                             avatarUrl: room.room.avatarUrl(),
                             roomInfo: room.roomInfo,
@@ -63,7 +63,7 @@ struct SidebarView: View {
 
             Section("Directs", isExpanded: $windowState.sidebarSections.directs) {
                 ForEach(directs) { room in
-                    UI.RoomRow(
+                    MactrixUI.RoomRow(
                         title: room.room.displayName() ?? "Unknown user",
                         avatarUrl: room.room.avatarUrl(),
                         roomInfo: room.roomInfo,
@@ -78,7 +78,7 @@ struct SidebarView: View {
 
             Section("Rooms", isExpanded: $windowState.sidebarSections.rooms) {
                 ForEach(rooms) { room in
-                    UI.RoomRow(
+                    MactrixUI.RoomRow(
                         title: room.room.displayName() ?? "Unknown Room",
                         avatarUrl: room.room.avatarUrl(),
                         roomInfo: room.roomInfo,

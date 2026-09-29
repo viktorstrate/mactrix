@@ -19,7 +19,7 @@ struct InspectorUserInfo: View {
     @ViewBuilder
     var content: some View {
         if let profile {
-            UI.UserProfileView(
+            MactrixUI.UserProfileView(
                 profile: profile,
                 isUserIgnored: isUserIgnored,
                 actions: appState.matrixClient?.userProfileActions(forUserId: userId, windowState: windowState),
@@ -27,7 +27,7 @@ struct InspectorUserInfo: View {
                 imageLoader: appState.matrixClient
             )
         } else {
-            UI.UserProfileView(
+            MactrixUI.UserProfileView(
                 profile: MockUserProfile(),
                 isUserIgnored: isUserIgnored,
                 actions: nil,

@@ -8,7 +8,7 @@ class MessageProfileRowView: NSView {
 
     private var sender: String?
     private var focusUserAction: (_ sender: String) -> Void = { _ in }
-    private var imageLoader: UI.ImageLoader?
+    private var imageLoader: MactrixUI.ImageLoader?
 
     private var avatarTask: Task<Void, Never>?
     private var avatarUrl: String?
@@ -56,7 +56,7 @@ class MessageProfileRowView: NSView {
         fatalError("init(coder:) has not been implemented")
     }
 
-    func initialize(imageLoader: UI.ImageLoader?, focusUser: @escaping (_ sender: String) -> Void) {
+    func initialize(imageLoader: MactrixUI.ImageLoader?, focusUser: @escaping (_ sender: String) -> Void) {
         self.imageLoader = imageLoader
         focusUserAction = focusUser
     }

@@ -9,14 +9,14 @@ struct EmbeddedMessageView: View {
     var body: some View {
         switch embeddedEvent {
         case .unavailable, .pending:
-            UI.MessageReplyView(
+            MactrixUI.MessageReplyView(
                 username: "loading@username.org",
                 message: "Phasellus sit amet purus ac enim semper convallis. Nullam a gravida libero.",
                 action: action
             )
             .redacted(reason: .placeholder)
         case let .ready(content, sender, senderProfile, _, _):
-            UI.MessageReplyView(
+            MactrixUI.MessageReplyView(
                 username: {
                     if case let .ready(name, _, _, _, _) = senderProfile, let name { return name }
                     return sender

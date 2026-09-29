@@ -16,7 +16,7 @@ final class MessageReadReceiptsView: NSButton {
     private var avatars: [ReceiptAvatarView] = []
     private var receipts: [(userId: String, date: Date?)] = []
     private var members: [String: MatrixRustSDK.RoomMember] = [:]
-    private var imageLoader: UI.ImageLoader?
+    private var imageLoader: MactrixUI.ImageLoader?
     private let receiptPopover = NSPopover()
 
     override init(frame frameRect: NSRect) {
@@ -31,7 +31,7 @@ final class MessageReadReceiptsView: NSButton {
         addSubview(countLabel)
     }
 
-    func configure(receipts: [String: MatrixProtocols.Receipt], members: [MatrixRustSDK.RoomMember], imageLoader: UI.ImageLoader?) {
+    func configure(receipts: [String: MatrixProtocols.Receipt], members: [MatrixRustSDK.RoomMember], imageLoader: MactrixUI.ImageLoader?) {
         self.receipts = receipts.map { ($0.key, $0.value.timestamp) }
             .sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
         self.members = Dictionary(members.map { ($0.userId, $0) }, uniquingKeysWith: { first, _ in first })
@@ -238,7 +238,7 @@ private final class ReceiptAvatarView: NSImageView {
         layer?.cornerRadius = bounds.width / 2
     }
 
-    func configure(userId: String, avatarUrl: String?, imageLoader: UI.ImageLoader?) {
+    func configure(userId: String, avatarUrl: String?, imageLoader: MactrixUI.ImageLoader?) {
         cancelLoad()
         self.avatarUrl = avatarUrl
         image = nil

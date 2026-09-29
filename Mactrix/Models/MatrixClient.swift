@@ -234,7 +234,7 @@ extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
     }
 }
 
-extension MatrixClient: UI.ImageLoader {
+extension MatrixClient: MactrixUI.ImageLoader {
     // In-memory cache of decoded NSImage objects. Purpose is rendering performance —
     // keeping decoded bitmaps ready to display prevents flicker when scrolling back to
     // previously viewed images. This is distinct from the SDK-level media download cache

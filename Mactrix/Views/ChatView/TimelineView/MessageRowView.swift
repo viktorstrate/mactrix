@@ -200,7 +200,7 @@ final class MessageRowView: NSView {
         }
     }
 
-    private func configureReceipts(_ receipts: [String: MatrixProtocols.Receipt], roomMembers: [MatrixRustSDK.RoomMember], imageLoader: UI.ImageLoader?, onFocusUser: ((String) -> Void)?) {
+    private func configureReceipts(_ receipts: [String: MatrixProtocols.Receipt], roomMembers: [MatrixRustSDK.RoomMember], imageLoader: MactrixUI.ImageLoader?, onFocusUser: ((String) -> Void)?) {
         if !receipts.isEmpty, receiptsView == nil {
             let view = MessageReadReceiptsView()
             view.translatesAutoresizingMaskIntoConstraints = false

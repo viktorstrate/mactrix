@@ -67,7 +67,7 @@ struct SpaceDisclosureGroup: View {
     @ViewBuilder
     var roomRow: some View {
         if let joinedRoom {
-            UI.RoomRow(
+            MactrixUI.RoomRow(
                 title: space.spaceRoom.displayName,
                 avatarUrl: space.spaceRoom.avatarUrl,
                 roomInfo: joinedRoom.roomInfo,
@@ -78,7 +78,7 @@ struct SpaceDisclosureGroup: View {
                 RoomContextMenu(room: joinedRoom)
             }
         } else {
-            UI.RoomRow(
+            MactrixUI.RoomRow(
                 title: space.spaceRoom.displayName,
                 avatarUrl: space.spaceRoom.avatarUrl,
                 roomInfo: nil,

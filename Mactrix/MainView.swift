@@ -17,13 +17,13 @@ struct MainView: View {
         case .joinedRoom(timeline: let timeline):
             ChatView(timeline: timeline).id(timeline.room.id)
         case .previewRoom(let room):
-            UI.RoomPreviewView(
+            MactrixUI.RoomPreviewView(
                 preview: room.info(),
                 imageLoader: appState.matrixClient,
                 actions: appState.matrixClient?.roomPreviewActions(forRoomWithId: room.info().roomId, windowState: windowState)
             )
         case .newRoom:
-            UI.CreateRoomScreen(onSubmit: { params in
+            MactrixUI.CreateRoomScreen(onSubmit: { params in
                 guard let matrixClient = appState.matrixClient else { return }
                 let newRoom = try await matrixClient.client.createRoom(request: params.asMatrixRequest)
                 windowState.selectedRoomId = newRoom
@@ -78,7 +78,7 @@ struct MainView: View {
         }
         .sheet(isPresented: verificationSheetPresented, content: {
             if let verificationData = appState.matrixClient?.sessionVerificationData {
-                UI.SessionVerificationModal(verificationData: verificationData.asModel, onComplete: { response in
+                MactrixUI.SessionVerificationModal(verificationData: verificationData.asModel, onComplete: { response in
                     Task {
                         switch response {
                         case .accept:

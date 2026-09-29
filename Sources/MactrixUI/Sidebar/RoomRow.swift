@@ -71,7 +71,7 @@ public struct RoomRow: View {
                     .truncationMode(.tail)
             },
             icon: {
-                UI.AvatarImage(avatarUrl: avatarUrl, imageLoader: imageLoader) {
+                MactrixUI.AvatarImage(avatarUrl: avatarUrl, imageLoader: imageLoader) {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(.clear)
                         .overlay {

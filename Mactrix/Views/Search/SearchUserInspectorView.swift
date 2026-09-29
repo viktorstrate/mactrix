@@ -22,7 +22,7 @@ struct SearchUserInspectorView: View {
                     }.redacted(reason: .placeholder)
                 } else {
                     ForEach(searchedUsers) { user in
-                        UI.UserProfileRow(profile: user, imageLoader: appState.matrixClient)
+                        MactrixUI.UserProfileRow(profile: user, imageLoader: appState.matrixClient)
                     }
                 }
             }

@@ -21,13 +21,13 @@ struct SearchResolvedRoomInspectorView: View {
     var body: some View {
         Group {
             if let roomPreview {
-                UI.RoomPreviewView(
+                MactrixUI.RoomPreviewView(
                     preview: roomPreview.info(),
                     imageLoader: appState.matrixClient,
                     actions: roomActions
                 )
             } else {
-                UI.RoomPreviewView(
+                MactrixUI.RoomPreviewView(
                     preview: MockRoomPreviewInfo(),
                     imageLoader: appState.matrixClient,
                     actions: roomActions
@@ -64,13 +64,13 @@ struct SearchInspectorView: View {
         case let .resolvedRoomAlias(alias: alias, resolvedRoom: resolvedRoom):
             SearchResolvedRoomInspectorView(alias: alias, resolvedRoom: resolvedRoom)
         case let .resolvedRoomId(roomPreview: roomPreview):
-            UI.RoomPreviewView(
+            MactrixUI.RoomPreviewView(
                 preview: roomPreview.info(),
                 imageLoader: appState.matrixClient,
                 actions: appState.matrixClient?.roomPreviewActions(forRoomWithId: roomPreview.info().roomId, windowState: windowState)
             )
         case let .resolvedUser(profile: userProfile):
-            UI.UserProfileView(
+            MactrixUI.UserProfileView(
                 profile: userProfile,
                 isUserIgnored: appState.matrixClient?.isUserIgnored(userProfile.userId) == true,
                 actions: appState.matrixClient?.userProfileActions(forUserId: userProfile.userId, windowState: windowState),
