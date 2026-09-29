@@ -34,7 +34,7 @@ public struct AttributedTextView: NSViewRepresentable {
         guard let size = textField.cell?.cellSize(forBounds: NSRect(x: 0, y: 0, width: width, height: CGFloat.greatestFiniteMagnitude)) else {
             return nil
         }
-        
+
         return CGSize(width: ceil(size.width), height: ceil(size.height))
     }
 }

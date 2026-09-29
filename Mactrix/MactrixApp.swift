@@ -1,7 +1,7 @@
 import OSLog
 import SwiftUI
-
-let applicationID = "dk.qpqp.mactrix"
+import MactrixApp
+import MatrixIntegration
 
 @main
 struct MactrixApp: App {

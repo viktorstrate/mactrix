@@ -8,20 +8,14 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
-        .library(
-            name: "MactrixUI",
-            targets: ["MactrixUI"]
-        ),
-        .library(
-            name: "MatrixProtocols",
-            targets: ["MatrixProtocols"]
-        ),
-        .library(name: "Utils", targets: ["Utils"]),
-        .library(name: "MessageFormatting", targets: ["MessageFormatting"]),
+        .library(name: "MactrixApp", targets: ["MactrixApp"]),
     ],
     dependencies: [
         .package(url: "https://github.com/ZhgChgLi/ZMarkupParser.git", from: "1.12.0"),
-        // .package(url: "https://github.com/matrix-org/matrix-rust-components-swift", from: "25.10.27"),
+        .package(
+            url: "https://github.com/matrix-org/matrix-rust-components-swift", from: "26.09.07"
+        ),
+        .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "1.1.2"),
     ],
     targets: [
         // Targets are the basic building blocks of a package, defining a module or a test suite.
@@ -32,17 +26,29 @@ let package = Package(
         ),
         .target(name: "Utils"),
         .testTarget(name: "UtilsTests", dependencies: ["Utils"]),
-        /* .target(
-                name: "TimelineUI",
-                dependencies: ["MatrixProtocols", .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift")]
-            ), */
+        .target(name: "MatrixProtocols"),
         .target(
-            name: "MatrixProtocols"
+            name: "MatrixIntegration",
+            dependencies: [
+                "Utils",
+                "MatrixProtocols",
+                .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
+                .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift"),
+            ]
+        ),
+        .target(
+            name: "MactrixApp",
+            dependencies: [
+                "MatrixIntegration",
+                "MactrixUI",
+                "MessageFormatting",
+                .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift"),
+            ]
         ),
         .target(
             name: "MessageFormatting",
             dependencies: [
-                "ZMarkupParser",
+                .product(name: "ZMarkupParser", package: "zmarkupparser"),
             ]
         ),
     ]

@@ -1,0 +1,238 @@
+import AsyncAlgorithms
+import Foundation
+import MatrixRustSDK
+import OSLog
+
+/// Delegate subscribed to by the `NSTimelineView` to update the focused timeline row.
+@MainActor
+public protocol LiveTimelineFocusDelegate: AnyObject {
+    func focusTimelineEvent(id: EventOrTransactionId)
+}
+
+@MainActor
+public protocol LiveTimelineDiffDelegate: AnyObject {
+    func timelineDidApply(diffs: [TimelineDiff])
+}
+
+@MainActor @Observable
+public final class LiveTimeline {
+    public let room: LiveRoom
+    public let focusedThreadId: String?
+
+    public var timeline: Timeline?
+
+    @ObservationIgnored private var timelineHandle: TaskHandle?
+    @ObservationIgnored private var paginateHandle: TaskHandle?
+
+    public var errorMessage: String?
+
+    @ObservationIgnored public weak var focusDelegate: (any LiveTimelineFocusDelegate)?
+    @ObservationIgnored public weak var diffDelegate: (any LiveTimelineDiffDelegate)?
+
+    public var sendReplyTo: MatrixRustSDK.EventTimelineItem?
+
+    public private(set) var timelineItems: [TimelineItem] = []
+    public private(set) var loadedReplyDetails: [String: InReplyToDetails] = [:]
+
+    public private(set) var paginating: PaginationStatus = .idle(hitTimelineStart: false)
+    public private(set) var hitTimelineStart: Bool = false
+    private var fetchMessagesAgain: Bool = false
+    private var fetchingOlderMessages: Bool = false
+
+    public init(room: LiveRoom) {
+        self.focusedThreadId = nil
+        self.room = room
+        Task {
+            do {
+                try await configureTimeline()
+            } catch {
+                Logger.liveTimeline.error("failed to configure timeline: \(error)")
+                self.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    public init(room: LiveRoom, focusThread threadId: String) {
+        self.focusedThreadId = threadId
+        self.room = room
+        Task {
+            do {
+                try await configureTimeline(threadId: threadId)
+            } catch {
+                Logger.liveTimeline.error("failed to configure timeline: \(error)")
+                self.errorMessage = error.localizedDescription
+            }
+        }
+    }
+
+    deinit {
+        Logger.liveTimeline.debug("Timeline deinit")
+    }
+
+    private func configureTimeline(threadId: String? = nil) async throws {
+        Logger.liveTimeline.debug("configure timeline")
+
+        let focus = if let threadId {
+            TimelineFocus.thread(rootEventId: threadId)
+        } else {
+            TimelineFocus.live(hideThreadedEvents: true)
+        }
+
+        let config = TimelineConfiguration(
+            focus: focus,
+            filter: .all,
+            internalIdPrefix: nil,
+            dateDividerMode: .daily,
+            trackReadReceipts: .allEvents,
+            reportUtds: false
+        )
+        timeline = try await room.room.timelineWithConfiguration(configuration: config)
+
+        await listenToTimelineChanges()
+
+        do {
+            try await listenToPaginationStatus(threadId: threadId)
+        } catch {
+            Logger.liveTimeline.error("Failed to listen to pagination status: \(error)")
+        }
+    }
+
+    private func listenToTimelineChanges() async {
+        guard let timeline else { return }
+
+        let listener = AsyncSDKListener<[TimelineDiff]>()
+        timelineHandle = await timeline.addListener(listener: listener)
+
+        Task { [weak self] in
+            for await diff in listener {
+                guard let self else { break }
+                updateTimeline(diff: diff)
+            }
+        }
+    }
+
+    private func listenToPaginationStatus(threadId: String?) async throws {
+        guard let timeline else { return }
+
+        let listener = AsyncSDKListener<PaginationStatus>()
+        // Only main timelines can subscibe to back pagination status
+        if threadId == nil {
+            paginateHandle = try await timeline.subscribeToBackPaginationStatus(listener: listener)
+        } else {
+            // if in a thread, instead push one initial status manually to kick off message fetching
+            listener.publishValue(.idle(hitTimelineStart: false))
+        }
+
+        Task { [weak self] in
+            for await status in listener {
+                guard let self else { break }
+
+                Logger.liveTimeline.debug("updating timeline paginating: \(status.debugDescription)")
+                paginating = status
+
+                if paginating == .idle(hitTimelineStart: false) && timelineItems.count < 100 {
+                    await fetchOlderMessages()
+                }
+            }
+        }
+    }
+
+    public func fetchOlderMessages() async {
+        guard !fetchingOlderMessages else {
+            Logger.liveTimeline.debug("fetchOlderMessages deferred, already fetching messages")
+            fetchMessagesAgain = true
+            return
+        }
+        guard !hitTimelineStart else {
+            Logger.liveTimeline.debug("fetchOlderMessages cancelled, timeline start already reached")
+            return
+        }
+
+        Logger.liveTimeline.info("fetch more messages")
+
+        do {
+            _ = try await timeline?.paginateBackwards(numEvents: 100)
+            fetchingOlderMessages = false
+
+            if fetchMessagesAgain {
+                fetchMessagesAgain = false
+                await fetchOlderMessages()
+            }
+        } catch {
+            Logger.liveTimeline.error("Failed to paginate backwards: \(error)")
+        }
+    }
+
+    public func focusEvent(id eventId: EventOrTransactionId) {
+        Logger.liveTimeline.info("focus event: \(eventId.id)")
+        focusDelegate?.focusTimelineEvent(id: eventId)
+    }
+}
+
+extension LiveTimeline {
+    private func updateTimeline(diff: [TimelineDiff]) {
+        for update in diff {
+            switch update {
+            case let .append(values):
+                timelineItems.append(contentsOf: values)
+            case .clear:
+                timelineItems.removeAll()
+            case let .pushFront(room):
+                timelineItems.insert(room, at: 0)
+            case let .pushBack(room):
+                timelineItems.append(room)
+            case .popFront:
+                timelineItems.removeFirst()
+            case .popBack:
+                timelineItems.removeLast()
+            case let .insert(index, room):
+                timelineItems.insert(room, at: Int(index))
+            case let .set(index, room):
+                timelineItems[Int(index)] = room
+            case let .remove(index):
+                timelineItems.remove(at: Int(index))
+            case let .truncate(length):
+                timelineItems.removeSubrange(Int(length) ..< timelineItems.count)
+            case let .reset(values: values):
+                timelineItems = values
+            }
+        }
+
+        if timelineItems.first?.asVirtual() == .timelineStart {
+            hitTimelineStart = true
+        }
+
+        diffDelegate?.timelineDidApply(diffs: diff)
+        loadPendingReplyDetails()
+    }
+
+    private func loadPendingReplyDetails() {
+        guard let sdkTimeline = timeline else { return }
+        for item in timelineItems {
+            guard let event = item.asEvent() else { continue }
+            guard case let .msgLike(content: msgLike) = event.content else { continue }
+            guard let inReplyTo = msgLike.inReplyTo else { continue }
+            let eventId = inReplyTo.eventId()
+            switch inReplyTo.event() {
+            case .ready, .error: continue
+            case .pending, .unavailable: break
+            }
+            guard loadedReplyDetails[eventId] == nil else { continue }
+            Task { [weak self] in
+                guard let self else { return }
+                do {
+                    let details = try await sdkTimeline.loadReplyDetails(eventIdStr: eventId)
+                    self.loadedReplyDetails[eventId] = details
+                } catch {
+                    Logger.liveTimeline.error("loadPendingReplyDetails: failed \(eventId): \(error)")
+                }
+            }
+        }
+    }
+}
+
+extension LiveTimeline: Equatable {
+    public nonisolated static func == (lhs: LiveTimeline, rhs: LiveTimeline) -> Bool {
+        lhs.room.id == rhs.room.id && lhs.focusedThreadId == rhs.focusedThreadId
+    }
+}

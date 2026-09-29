@@ -7,15 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		3409F4EC2EBFD8D4009537B4 /* UI in Frameworks */ = {isa = PBXBuildFile; productRef = 3409F4EB2EBFD8D4009537B4 /* UI */; };
-		3442F379306BD9E90030346A /* MatrixProtocols in Frameworks */ = {isa = PBXBuildFile; productRef = 3442F378306BD9E90030346A /* MatrixProtocols */; };
-		3442F37B306BD9E90030346A /* MessageFormatting in Frameworks */ = {isa = PBXBuildFile; productRef = 3442F37A306BD9E90030346A /* MessageFormatting */; };
-		3442F37D306BD9E90030346A /* UI in Frameworks */ = {isa = PBXBuildFile; productRef = 3442F37C306BD9E90030346A /* UI */; };
-		3442F37F306BD9E90030346A /* Utils in Frameworks */ = {isa = PBXBuildFile; productRef = 3442F37E306BD9E90030346A /* Utils */; };
-		345E77E82ED9F309002E5B9A /* Utils in Frameworks */ = {isa = PBXBuildFile; productRef = 345E77E72ED9F309002E5B9A /* Utils */; };
-		348E99882F40ABC3009F57A9 /* AsyncAlgorithms in Frameworks */ = {isa = PBXBuildFile; productRef = 348E99872F40ABC3009F57A9 /* AsyncAlgorithms */; };
-		34913F6E2EC0F532003034CB /* MatrixRustSDK in Frameworks */ = {isa = PBXBuildFile; productRef = 34913F6D2EC0F532003034CB /* MatrixRustSDK */; };
-		349B041C2F5D77E80023FBF4 /* MessageFormatting in Frameworks */ = {isa = PBXBuildFile; productRef = 349B041B2F5D77E80023FBF4 /* MessageFormatting */; };
+		34A3DEF5306BF85D00866303 /* MactrixApp in Frameworks */ = {isa = PBXBuildFile; productRef = 34A3DEF4306BF85D00866303 /* MactrixApp */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -48,15 +40,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				349B041C2F5D77E80023FBF4 /* MessageFormatting in Frameworks */,
-				3442F37B306BD9E90030346A /* MessageFormatting in Frameworks */,
-				3442F37F306BD9E90030346A /* Utils in Frameworks */,
-				3409F4EC2EBFD8D4009537B4 /* UI in Frameworks */,
-				34913F6E2EC0F532003034CB /* MatrixRustSDK in Frameworks */,
-				3442F37D306BD9E90030346A /* UI in Frameworks */,
-				345E77E82ED9F309002E5B9A /* Utils in Frameworks */,
-				3442F379306BD9E90030346A /* MatrixProtocols in Frameworks */,
-				348E99882F40ABC3009F57A9 /* AsyncAlgorithms in Frameworks */,
+				34A3DEF5306BF85D00866303 /* MactrixApp in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -107,15 +91,7 @@
 			);
 			name = Mactrix;
 			packageProductDependencies = (
-				3409F4EB2EBFD8D4009537B4 /* UI */,
-				34913F6D2EC0F532003034CB /* MatrixRustSDK */,
-				345E77E72ED9F309002E5B9A /* Utils */,
-				348E99872F40ABC3009F57A9 /* AsyncAlgorithms */,
-				349B041B2F5D77E80023FBF4 /* MessageFormatting */,
-				3442F378306BD9E90030346A /* MatrixProtocols */,
-				3442F37A306BD9E90030346A /* MessageFormatting */,
-				3442F37C306BD9E90030346A /* UI */,
-				3442F37E306BD9E90030346A /* Utils */,
+				34A3DEF4306BF85D00866303 /* MactrixApp */,
 			);
 			productName = Mactrix;
 			productReference = 343858422EB394590010922A /* Mactrix.app */;
@@ -146,9 +122,7 @@
 			mainGroup = 343858392EB394590010922A;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				342C624C2EB4DDE600E2426A /* XCRemoteSwiftPackageReference "matrix-rust-components-swift" */,
-				348E99862F40ABC3009F57A9 /* XCRemoteSwiftPackageReference "swift-async-algorithms" */,
-				3442F377306BD9E90030346A /* XCLocalSwiftPackageReference "." */,
+				34A3DEF3306BF85D00866303 /* XCLocalSwiftPackageReference "../Mactrix" */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 343858432EB394590010922A /* Products */;
@@ -431,69 +405,16 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		3442F377306BD9E90030346A /* XCLocalSwiftPackageReference "." */ = {
+		34A3DEF3306BF85D00866303 /* XCLocalSwiftPackageReference "../Mactrix" */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = .;
+			relativePath = ../Mactrix;
 		};
 /* End XCLocalSwiftPackageReference section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		342C624C2EB4DDE600E2426A /* XCRemoteSwiftPackageReference "matrix-rust-components-swift" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/matrix-org/matrix-rust-components-swift";
-			requirement = {
-				branch = main;
-				kind = branch;
-			};
-		};
-		348E99862F40ABC3009F57A9 /* XCRemoteSwiftPackageReference "swift-async-algorithms" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/apple/swift-async-algorithms.git";
-			requirement = {
-				kind = upToNextMajorVersion;
-				minimumVersion = 1.1.2;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
-
 /* Begin XCSwiftPackageProductDependency section */
-		3409F4EB2EBFD8D4009537B4 /* UI */ = {
+		34A3DEF4306BF85D00866303 /* MactrixApp */ = {
 			isa = XCSwiftPackageProductDependency;
-			productName = UI;
-		};
-		3442F378306BD9E90030346A /* MatrixProtocols */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MatrixProtocols;
-		};
-		3442F37A306BD9E90030346A /* MessageFormatting */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MessageFormatting;
-		};
-		3442F37C306BD9E90030346A /* UI */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = UI;
-		};
-		3442F37E306BD9E90030346A /* Utils */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Utils;
-		};
-		345E77E72ED9F309002E5B9A /* Utils */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = Utils;
-		};
-		348E99872F40ABC3009F57A9 /* AsyncAlgorithms */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 348E99862F40ABC3009F57A9 /* XCRemoteSwiftPackageReference "swift-async-algorithms" */;
-			productName = AsyncAlgorithms;
-		};
-		34913F6D2EC0F532003034CB /* MatrixRustSDK */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = 342C624C2EB4DDE600E2426A /* XCRemoteSwiftPackageReference "matrix-rust-components-swift" */;
-			productName = MatrixRustSDK;
-		};
-		349B041B2F5D77E80023FBF4 /* MessageFormatting */ = {
-			isa = XCSwiftPackageProductDependency;
-			productName = MessageFormatting;
+			productName = MactrixApp;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};
