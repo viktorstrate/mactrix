@@ -1,4 +1,4 @@
-import Models
+import MatrixProtocols
 import SwiftUI
 
 public struct CreateRoomScreen: View {

@@ -1,6 +1,6 @@
 import AppKit
 import MatrixRustSDK
-import Models
+import MatrixProtocols
 import UI
 
 /// Reuses the visible receipt avatars as the table row is recycled.
@@ -31,7 +31,7 @@ final class MessageReadReceiptsView: NSButton {
         addSubview(countLabel)
     }
 
-    func configure(receipts: [String: Models.Receipt], members: [MatrixRustSDK.RoomMember], imageLoader: UI.ImageLoader?) {
+    func configure(receipts: [String: MatrixProtocols.Receipt], members: [MatrixRustSDK.RoomMember], imageLoader: UI.ImageLoader?) {
         self.receipts = receipts.map { ($0.key, $0.value.timestamp) }
             .sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
         self.members = Dictionary(members.map { ($0.userId, $0) }, uniquingKeysWith: { first, _ in first })

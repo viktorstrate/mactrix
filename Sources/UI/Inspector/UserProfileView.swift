@@ -1,4 +1,4 @@
-import Models
+import MatrixProtocols
 import SwiftUI
 
 @MainActor

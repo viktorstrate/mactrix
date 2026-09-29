@@ -1,5 +1,5 @@
 {
-  "originHash" : "2a437ca29320ff65154ec5a0ec9d5acc42dc07fb02366dcc6b167b1cddc56c19",
+  "originHash" : "50f217c91f7703749daea6fb0f9b8846da95b7ff8a20f4d16b17f38fcd3f93ba",
   "pins" : [
     {
       "identity" : "matrix-rust-components-swift",

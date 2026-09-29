@@ -1,8 +1,8 @@
-import Models
+import MatrixProtocols
 import OSLog
 import SwiftUI
 
-struct RoomInspectorMemberRow<RoomMember: Models.RoomMember>: View {
+struct RoomInspectorMemberRow<RoomMember: MatrixProtocols.RoomMember>: View {
     let member: RoomMember
     let imageLoader: ImageLoader?
 
@@ -11,7 +11,7 @@ struct RoomInspectorMemberRow<RoomMember: Models.RoomMember>: View {
     }
 }
 
-public struct RoomInspectorView<Room: Models.Room, RoomMember: Models.RoomMember>: View {
+public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixProtocols.RoomMember>: View {
     let room: Room
     let members: [RoomMember]
 

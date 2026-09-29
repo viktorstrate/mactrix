@@ -1,21 +1,21 @@
 import Foundation
 import MatrixRustSDK
-import Models
+import MatrixProtocols
 
-extension MatrixRustSDK.RoomMember: Models.UserProfile {}
+extension MatrixRustSDK.RoomMember: MatrixProtocols.UserProfile {}
 
-extension MatrixRustSDK.RoomMember: @retroactive Identifiable, Models.RoomMember {
+extension MatrixRustSDK.RoomMember: @retroactive Identifiable, MatrixProtocols.RoomMember {
     public var id: String {
         userId
     }
 
-    public var roleForPowerLevel: Models.RoomMemberRole {
+    public var roleForPowerLevel: MatrixProtocols.RoomMemberRole {
         suggestedRoleForPowerLevel.asModel
     }
 }
 
 extension MatrixRustSDK.RoomMemberRole {
-    var asModel: Models.RoomMemberRole {
+    var asModel: MatrixProtocols.RoomMemberRole {
         switch self {
         case .creator:
             return .creator
@@ -30,7 +30,7 @@ extension MatrixRustSDK.RoomMemberRole {
 }
 
 extension MatrixRustSDK.EncryptionState {
-    var asModel: Models.EncryptionState {
+    var asModel: MatrixProtocols.EncryptionState {
         switch self {
         case .notEncrypted:
             return .notEncrypted
@@ -58,7 +58,7 @@ extension MatrixRustSDK.Room: @retroactive Identifiable {
     }
 }
 
-extension MatrixRustSDK.RoomInfo: Models.RoomInfo {}
+extension MatrixRustSDK.RoomInfo: MatrixProtocols.RoomInfo {}
 
 /* extension MatrixRustSDK.TimelineItem: @retroactive Hashable, @retroactive Identifiable {
      public var id: String {
@@ -127,11 +127,11 @@ extension MatrixRustSDK.Reaction: @retroactive Identifiable {
     }
 }
 
-extension MatrixRustSDK.Reaction: Models.Reaction {
+extension MatrixRustSDK.Reaction: MatrixProtocols.Reaction {
     public typealias SenderData = MatrixRustSDK.ReactionSenderData
 }
 
-extension MatrixRustSDK.ReactionSenderData: Models.ReactionSenderData {
+extension MatrixRustSDK.ReactionSenderData: MatrixProtocols.ReactionSenderData {
     public var date: Date {
         timestamp.date
     }
@@ -144,7 +144,7 @@ public extension MatrixRustSDK.Timestamp {
 }
 
 extension MatrixRustSDK.VirtualTimelineItem {
-    var asModel: Models.VirtualTimelineItem {
+    var asModel: MatrixProtocols.VirtualTimelineItem {
         switch self {
         case let .dateDivider(ts: ts):
             return .dateDivider(date: ts.date)
@@ -157,7 +157,7 @@ extension MatrixRustSDK.VirtualTimelineItem {
 }
 
 extension MatrixRustSDK.ProfileDetails {
-    var asModel: Models.ProfileDetails {
+    var asModel: MatrixProtocols.ProfileDetails {
         switch self {
         case .unavailable:
             return .unavailable
@@ -171,12 +171,12 @@ extension MatrixRustSDK.ProfileDetails {
     }
 }
 
-extension MatrixRustSDK.EventTimelineItem: Models.EventTimelineItem {
-    public var userReadReceipts: [String: Models.Receipt] {
-        readReceipts.mapValues { Models.Receipt(timestamp: $0.timestamp?.date) }
+extension MatrixRustSDK.EventTimelineItem: MatrixProtocols.EventTimelineItem {
+    public var userReadReceipts: [String: MatrixProtocols.Receipt] {
+        readReceipts.mapValues { MatrixProtocols.Receipt(timestamp: $0.timestamp?.date) }
     }
 
-    public var senderProfileDetails: Models.ProfileDetails {
+    public var senderProfileDetails: MatrixProtocols.ProfileDetails {
         senderProfile.asModel
     }
 
@@ -462,7 +462,7 @@ extension MatrixRustSDK.EmbeddedEventDetails {
     }
 }
 
-extension MatrixRustSDK.ThreadSummary: Models.ThreadSummary {
+extension MatrixRustSDK.ThreadSummary: MatrixProtocols.ThreadSummary {
     public var description: String? {
         latestEvent().message
     }
@@ -485,7 +485,7 @@ extension MatrixRustSDK.EventOrTransactionId: @retroactive Identifiable {
     }
 }
 
-extension MatrixRustSDK.UserProfile: @retroactive Identifiable, Models.UserProfile {
+extension MatrixRustSDK.UserProfile: @retroactive Identifiable, MatrixProtocols.UserProfile {
     public var id: String { userId }
 }
 
@@ -493,7 +493,7 @@ extension MatrixRustSDK.SessionVerificationEmoji: @retroactive Identifiable {
     public var id: String { description() }
 }
 
-extension MatrixRustSDK.SessionVerificationEmoji: Models.SessionVerificationEmoji {
+extension MatrixRustSDK.SessionVerificationEmoji: MatrixProtocols.SessionVerificationEmoji {
     public var description: String {
         self.description()
     }
@@ -504,7 +504,7 @@ extension MatrixRustSDK.SessionVerificationEmoji: Models.SessionVerificationEmoj
 }
 
 extension MatrixRustSDK.SessionVerificationData {
-    var asModel: Models.SessionVerificationData<MatrixRustSDK.SessionVerificationEmoji> {
+    var asModel: MatrixProtocols.SessionVerificationData<MatrixRustSDK.SessionVerificationEmoji> {
         switch self {
         case let .emojis(emojis, indices):
             return .emojis(emojis: emojis, indices: indices)
@@ -537,8 +537,8 @@ extension MatrixRustSDK.RoomPreviewInfo: @retroactive CustomDebugStringConvertib
     }
 }
 
-extension MatrixRustSDK.RoomPreviewInfo: Models.RoomPreviewInfo {
-    public var userMembership: Models.Membership? {
+extension MatrixRustSDK.RoomPreviewInfo: MatrixProtocols.RoomPreviewInfo {
+    public var userMembership: MatrixProtocols.Membership? {
         switch membership {
         case .joined:
             return .joined
@@ -555,7 +555,7 @@ extension MatrixRustSDK.RoomPreviewInfo: Models.RoomPreviewInfo {
         }
     }
 
-    public var joinRuleInfo: Models.JoinRule? {
+    public var joinRuleInfo: MatrixProtocols.JoinRule? {
         switch joinRule {
         case .invite:
             return .invite
@@ -570,7 +570,7 @@ extension MatrixRustSDK.RoomPreviewInfo: Models.RoomPreviewInfo {
         }
     }
 
-    public var roomKind: Models.RoomKind {
+    public var roomKind: MatrixProtocols.RoomKind {
         switch roomType {
         case .room:
             return .room

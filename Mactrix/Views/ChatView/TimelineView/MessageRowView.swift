@@ -1,6 +1,6 @@
 import AppKit
 import MatrixRustSDK
-import Models
+import MatrixProtocols
 import UI
 
 /// Shared row chrome. The content view is created once and retained across table reuse.
@@ -200,7 +200,7 @@ final class MessageRowView: NSView {
         }
     }
 
-    private func configureReceipts(_ receipts: [String: Models.Receipt], roomMembers: [MatrixRustSDK.RoomMember], imageLoader: UI.ImageLoader?, onFocusUser: ((String) -> Void)?) {
+    private func configureReceipts(_ receipts: [String: MatrixProtocols.Receipt], roomMembers: [MatrixRustSDK.RoomMember], imageLoader: UI.ImageLoader?, onFocusUser: ((String) -> Void)?) {
         if !receipts.isEmpty, receiptsView == nil {
             let view = MessageReadReceiptsView()
             view.translatesAutoresizingMaskIntoConstraints = false

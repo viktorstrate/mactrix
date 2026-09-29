@@ -1,6 +1,6 @@
 import Foundation
 import MatrixRustSDK
-import Models
+import MatrixProtocols
 import OSLog
 
 @MainActor @Observable
@@ -91,7 +91,7 @@ extension LiveRoom: Hashable {
     }
 }
 
-extension LiveRoom: @MainActor Models.Room {
+extension LiveRoom: @MainActor MatrixProtocols.Room {
     public var displayName: String? {
         room.displayName()
     }
@@ -100,7 +100,7 @@ extension LiveRoom: @MainActor Models.Room {
         room.topic()
     }
 
-    public var encryptionState: Models.EncryptionState {
+    public var encryptionState: MatrixProtocols.EncryptionState {
         room.encryptionState().asModel
     }
 }

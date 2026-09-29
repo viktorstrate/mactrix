@@ -1,9 +1,9 @@
 import SwiftUI
-import Models
+import MatrixProtocols
 
 struct Username<Profile: UserProfile>: View {
     var userProfile: Profile
-    
+
     var body: some View {
         Text(userProfile.displayName ?? userProfile.userId).foregroundStyle(Color(userID: userProfile.userId))
             .lineLimit(1)

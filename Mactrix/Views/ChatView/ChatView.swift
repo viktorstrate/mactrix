@@ -1,5 +1,5 @@
 import MatrixRustSDK
-import Models
+import MatrixProtocols
 import OSLog
 import SwiftUI
 

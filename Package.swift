@@ -4,7 +4,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "MactrixLibrary",
+    name: "Mactrix",
     platforms: [.macOS(.v15)],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
@@ -13,8 +13,8 @@ let package = Package(
             targets: ["UI"]
         ),
         .library(
-            name: "Models",
-            targets: ["Models"]
+            name: "MatrixProtocols",
+            targets: ["MatrixProtocols"]
         ),
         .library(name: "Utils", targets: ["Utils"]),
         .library(name: "MessageFormatting", targets: ["MessageFormatting"]),
@@ -28,16 +28,16 @@ let package = Package(
         // Targets can depend on other targets in this package and products from dependencies.
         .target(
             name: "UI",
-            dependencies: ["Models"]
+            dependencies: ["MatrixProtocols"]
         ),
         .target(name: "Utils"),
         .testTarget(name: "UtilsTests", dependencies: ["Utils"]),
         /* .target(
                 name: "TimelineUI",
-                dependencies: ["Models", .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift")]
+                dependencies: ["MatrixProtocols", .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift")]
             ), */
         .target(
-            name: "Models"
+            name: "MatrixProtocols"
         ),
         .target(
             name: "MessageFormatting",

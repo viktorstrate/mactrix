@@ -1,4 +1,4 @@
-import Models
+import MatrixProtocols
 import SwiftUI
 
 public struct UserProfileRow<Profile: UserProfile>: View {
@@ -53,7 +53,7 @@ public struct UserProfileRowLarge<Profile: UserProfile>: View {
         UserProfileRow(profile: MockUserProfile(), imageLoader: nil)
         UserProfileRow(profile: MockUserProfile(), imageLoader: nil)
         UserProfileRow(profile: MockUserProfile(), imageLoader: nil)
-        
+
         UserProfileRowLarge(profile: MockUserProfile(), imageLoader: nil)
         UserProfileRowLarge(profile: MockUserProfile(), imageLoader: nil)
         UserProfileRowLarge(profile: MockUserProfile(), imageLoader: nil)

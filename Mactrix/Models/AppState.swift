@@ -1,6 +1,6 @@
 import Foundation
 import MatrixRustSDK
-import Models
+import MatrixProtocols
 import OSLog
 
 @MainActor @Observable

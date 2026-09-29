@@ -1,6 +1,6 @@
 import AppKit
 import MatrixRustSDK
-import Models
+import MatrixProtocols
 import OSLog
 
 enum TimelineSelectionDirection {
