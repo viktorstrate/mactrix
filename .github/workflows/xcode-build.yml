@@ -37,7 +37,7 @@ jobs:
             -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Build release artifact
         if: |
-          matrix.macos-version == 'macos-27' &&
+          matrix.macos-version == 'macos-26' &&
           github.event_name == 'push' &&
           github.ref == 'refs/heads/main'
         run: |
