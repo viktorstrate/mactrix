@@ -27,11 +27,14 @@ jobs:
         run: |
           xcodebuild clean build analyze \
             -scheme "$scheme" \
-            -project Mactrix.xcodeproj \
+            -workspace Mactrix.xcworkspace \
             -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Test
         run: |
-          swift test
+          xcodebuild test \
+            -workspace Mactrix.xcworkspace \
+            -scheme "$scheme" \
+            -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Build release artifact
         if: |
           matrix.macos-version == 'macos-27' &&
@@ -39,7 +42,7 @@ jobs:
           github.ref == 'refs/heads/main'
         run: |
           xcodebuild archive \
-            -project Mactrix.xcodeproj \
+            -workspace Mactrix.xcworkspace \
             -scheme "$scheme" \
             -configuration Release \
             -destination 'platform=macOS' \
