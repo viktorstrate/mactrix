@@ -2,18 +2,18 @@ name: Xcode - Build and Test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
-jobs:   
+jobs:
   build:
     name: Build and Test
     strategy:
       max-parallel: 2
       fail-fast: false
       matrix:
-        macos-version: [macos-15, macos-26]
+        macos-version: [macos-15, macos-26, xcode-27]
     runs-on: ${{ matrix.macos-version }}
     env:
       scheme: ${{ 'Mactrix' }}
@@ -27,34 +27,32 @@ jobs:
         run: |
           xcodebuild clean build analyze \
             -scheme "$scheme" \
-            -project Mactrix.xcodeproj \
+            -workspace Mactrix.xcworkspace \
             -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Test
         run: |
           xcodebuild test \
+            -workspace Mactrix.xcworkspace \
             -scheme "$scheme" \
-            -project Mactrix.xcodeproj \
             -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Build release artifact
         if: |
-          matrix.macos-version == 'macos-26' && 
-          github.event_name == 'push' && 
+          matrix.macos-version == 'macos-26' &&
+          github.event_name == 'push' &&
           github.ref == 'refs/heads/main'
         run: |
           xcodebuild archive \
-            -project Mactrix.xcodeproj \
+            -workspace Mactrix.xcworkspace \
             -scheme "$scheme" \
             -configuration Release \
             -destination 'platform=macOS' \
             -archivePath ./Mactrix.xcarchive | xcpretty && exit ${PIPESTATUS[0]}
       - name: Upload Artifact
         if: |
-          matrix.macos-version == 'macos-26' && 
-          github.event_name == 'push' && 
+          matrix.macos-version == 'macos-26' &&
+          github.event_name == 'push' &&
           github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: Mactrix.app
           path: ./Mactrix.xcarchive/Products/Applications/
-        
-        

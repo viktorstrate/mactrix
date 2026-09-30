@@ -1,0 +1,171 @@
+import MatrixRustSDK
+import OSLog
+import UserNotifications
+
+// This class is Sendable because MatrixRustSDK.SyncNotificationListener requires it to be so
+@MainActor @Observable public final class MatrixNotifications: NSObject, Sendable {
+  public var selectedRoomId: String?
+
+  typealias NotificationEvent = (item: MatrixRustSDK.NotificationItem, roomId: String)
+
+  @ObservationIgnored private let notificationContinuation:
+    AsyncStream<NotificationEvent>.Continuation
+  @ObservationIgnored private var streamTask: Task<Void, Never>?
+
+  public override init() {
+    let (stream, continuation) = AsyncStream<NotificationEvent>.makeStream()
+    notificationContinuation = continuation
+
+    super.init()
+    UNUserNotificationCenter.current().delegate = self
+
+    streamTask = Task { [weak self] in
+      for await (notification, roomId) in stream {
+        guard let self else { break }
+        await self.sendNotification(notification: notification, roomId: roomId)
+      }
+    }
+  }
+}
+
+extension MatrixNotifications: @MainActor UNUserNotificationCenterDelegate {
+  public func userNotificationCenter(
+    _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
+  ) async {
+    let roomId = response.notification.request.content.userInfo["roomId"] as? String
+    Logger.notification.info("Notification delegate didReceive: \(roomId ?? "<no room id>")")
+    selectedRoomId = roomId
+  }
+}
+
+extension MatrixNotifications: MatrixRustSDK.SyncNotificationListener {
+  public nonisolated func onNotification(
+    notification: MatrixRustSDK.NotificationItem, roomId: String
+  ) {
+    notificationContinuation.yield((notification, roomId))
+  }
+}
+
+extension MatrixNotifications {
+  func sendNotification(notification: MatrixRustSDK.NotificationItem, roomId: String) async {
+    do {
+      let success = try await UNUserNotificationCenter.current()
+        .requestAuthorization(options: [.alert, .badge, .sound])
+      guard success else {
+        Logger.notification.warning("user rejected notification request")
+        return
+      }
+    } catch {
+      Logger.notification.error("failed to request notification permissions: \(error)")
+      return
+    }
+
+    Logger.notification.debug("sending notification from room \(roomId)")
+
+    let content = UNMutableNotificationContent()
+    content.title = notificationTitle(for: notification)
+    content.subtitle = notificationBody(for: notification)
+    content.sound = UNNotificationSound.default
+    content.interruptionLevel = .timeSensitive
+    content.userInfo = ["roomId": roomId]
+
+    let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.01, repeats: false)
+    let request = UNNotificationRequest(
+      identifier: UUID().uuidString, content: content, trigger: trigger)
+
+    do {
+      try await UNUserNotificationCenter.current().add(request)
+    } catch {
+      Logger.notification.error("failed to schedule notification: \(error)")
+    }
+  }
+
+  func notificationTitle(for notification: NotificationItem) -> String {
+    switch notification.event {
+    case .invite(let sender):
+      return "\(sender) invited you to a room"
+    case .timeline(let event):
+      let sender = notification.senderInfo.displayName ?? event.senderId()
+      let roomName = notification.roomInfo.displayName
+      return "\(sender) (\(roomName))"
+    }
+  }
+
+  func notificationBody(for notification: NotificationItem) -> String {
+    switch notification.event {
+    case .invite(sender: _):
+      return "Room \(notification.roomInfo.displayName)"
+    case .timeline(let event):
+      do {
+        switch try event.content() {
+        case .messageLike(content: let msgLike):
+          switch msgLike {
+          case .callAnswer:
+            return "Call answered"
+          case .callInvite:
+            return "Call invitation"
+          case .rtcNotification:
+            return "RTC Notification"
+          case .callHangup:
+            return "Call hang up"
+          case .callCandidates:
+            return "Call candidates"
+          case .keyVerificationReady:
+            return "Key verification ready"
+          case .keyVerificationStart:
+            return "Key verification start"
+          case .keyVerificationCancel:
+            return "Key verification cancel"
+          case .keyVerificationAccept:
+            return "Key verification accept"
+          case .keyVerificationKey:
+            return "Key verification key"
+          case .keyVerificationMac:
+            return "Key verification mac"
+          case .keyVerificationDone:
+            return "Key verification done"
+          case .poll(let question):
+            return "Asked \(question)"
+          case .reactionContent:
+            return "Reaction content"
+          case .roomEncrypted:
+            return "Room encrypted"
+          case .roomMessage(let messageType, _):
+            switch messageType {
+            case .emote:
+              return "Emote"
+            case .image:
+              return "Image"
+            case .audio:
+              return "Audio"
+            case .video:
+              return "Video"
+            case .file:
+              return "File"
+            case .gallery:
+              return "Gallery"
+            case .notice:
+              return "Notice"
+            case .text(let content):
+              return content.body
+            case .location:
+              return "Location"
+            case .other(let msgtype, let body):
+              return "\(msgtype): \(body)"
+            }
+          case .roomRedaction:
+            return "Message redacted"
+          case .sticker:
+            return "Sent a sticker"
+          case .beacon:
+            return "Beacon"
+          }
+        case .state(content:):
+          return "State change"
+        }
+      } catch {
+        return error.localizedDescription
+      }
+    }
+  }
+}

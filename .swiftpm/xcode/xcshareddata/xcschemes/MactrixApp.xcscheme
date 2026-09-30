@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "2610"
+   LastUpgradeVersion = "2700"
    version = "1.7">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -15,10 +15,9 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "343858412EB394590010922A"
-               BuildableName = "Mactrix.app"
-               BlueprintName = "Mactrix"
-               ReferencedContainer = "container:Mactrix.xcodeproj">
+               BlueprintIdentifier = "MactrixApp"
+               BuildableName = "MactrixApp"
+               ReferencedContainer = "container:">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -34,30 +33,6 @@
             default = "YES">
          </TestPlanReference>
       </TestPlans>
-      <Testables>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "345E77EE2ED9F42E002E5B9A"
-               BuildableName = "MactrixTests.xctest"
-               BlueprintName = "MactrixTests"
-               ReferencedContainer = "container:Mactrix.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-         <TestableReference
-            skipped = "NO"
-            parallelizable = "YES">
-            <BuildableReference
-               BuildableIdentifier = "primary"
-               BlueprintIdentifier = "343858582EB3945B0010922A"
-               BuildableName = "MactrixUITests.xctest"
-               BlueprintName = "MactrixUITests"
-               ReferencedContainer = "container:Mactrix.xcodeproj">
-            </BuildableReference>
-         </TestableReference>
-      </Testables>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"
@@ -68,17 +43,8 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      allowLocationSimulation = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
-         <BuildableReference
-            BuildableIdentifier = "primary"
-            BlueprintIdentifier = "343858412EB394590010922A"
-            BuildableName = "Mactrix.app"
-            BlueprintName = "Mactrix"
-            ReferencedContainer = "container:Mactrix.xcodeproj">
-         </BuildableReference>
-      </BuildableProductRunnable>
+      allowLocationSimulation = "YES"
+      queueDebuggingEnabled = "No">
    </LaunchAction>
    <ProfileAction
       buildConfiguration = "Release"
@@ -86,16 +52,14 @@
       savedToolIdentifier = ""
       useCustomWorkingDirectory = "NO"
       debugDocumentVersioning = "YES">
-      <BuildableProductRunnable
-         runnableDebuggingMode = "0">
+      <MacroExpansion>
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "343858412EB394590010922A"
-            BuildableName = "Mactrix.app"
-            BlueprintName = "Mactrix"
-            ReferencedContainer = "container:Mactrix.xcodeproj">
+            BlueprintIdentifier = "MactrixApp"
+            BuildableName = "MactrixApp"
+            ReferencedContainer = "container:">
          </BuildableReference>
-      </BuildableProductRunnable>
+      </MacroExpansion>
    </ProfileAction>
    <AnalyzeAction
       buildConfiguration = "Debug">
