@@ -1,8 +1,8 @@
-import MatrixIntegration
+import AppKit
 import MactrixUI
+import MatrixIntegration
 import MatrixRustSDK
 import OSLog
-import AppKit
 
 extension MatrixClient {
     @MainActor
@@ -18,7 +18,8 @@ extension MatrixClient {
         }
 
         func knockRoom() async throws {
-            let room = try await matrixClient.client.knock(roomIdOrAlias: roomId, reason: nil, serverNames: ["matrix.org"])
+            let room = try await matrixClient.client.knock(
+                roomIdOrAlias: roomId, reason: nil, serverNames: ["matrix.org"])
             let timeline = LiveTimeline(room: LiveRoom(matrixRoom: room))
             windowState.selectedScreen = .joinedRoom(timeline: timeline)
         }
@@ -28,8 +29,11 @@ extension MatrixClient {
         }
     }
 
-    func roomPreviewActions(forRoomWithId roomId: String, windowState: WindowState) -> RoomPreviewActions {
-        return MatrixClientRoomPreviewActions(roomId: roomId, matrixClient: self, windowState: windowState)
+    func roomPreviewActions(forRoomWithId roomId: String, windowState: WindowState)
+        -> RoomPreviewActions
+    {
+        return MatrixClientRoomPreviewActions(
+            roomId: roomId, matrixClient: self, windowState: windowState)
     }
 }
 
@@ -42,14 +46,14 @@ extension MatrixClient: MactrixUI.ImageLoader {
     // since a typical JPEG can be 20-50× larger once decoded.
     static let imageCache: NSCache<NSString, NSImage> = {
         let cache = NSCache<NSString, NSImage>()
-        cache.totalCostLimit = 256 * 1024 * 1024 // 256MB decoded pixels
+        cache.totalCostLimit = 256 * 1024 * 1024  // 256MB decoded pixels
         return cache
     }()
 
-    private static let imageCacheMaxObjectCost = 64 * 1024 * 1024 // 64MB per object (~8000x2000px RGBA)
+    private static let imageCacheMaxObjectCost = 64 * 1024 * 1024  // 64MB per object (~8000x2000px RGBA)
 
     static func setCachedImage(_ image: NSImage, forKey key: NSString) {
-        let cost = Int(image.size.width * image.size.height) * 4 // decoded RGBA bytes
+        let cost = Int(image.size.width * image.size.height) * 4  // decoded RGBA bytes
         guard cost <= imageCacheMaxObjectCost else { return }
         imageCache.setObject(image, forKey: key, cost: cost)
     }
@@ -59,11 +63,12 @@ extension MatrixClient: MactrixUI.ImageLoader {
     }
 
     public func loadImage(matrixUrl: String, size: CGSize?) async throws -> NSImage? {
-        let cacheKey = if let size {
-            NSString(string: "\(matrixUrl)_\(Int(size.width))x\(Int(size.height))")
-        } else {
-            NSString(string: matrixUrl)
-        }
+        let cacheKey =
+            if let size {
+                NSString(string: "\(matrixUrl)_\(Int(size.width))x\(Int(size.height))")
+            } else {
+                NSString(string: matrixUrl)
+            }
         if let cached = Self.imageCache.object(forKey: cacheKey) {
             return cached
         }
@@ -74,7 +79,8 @@ extension MatrixClient: MactrixUI.ImageLoader {
         if let size {
             let width = UInt64(size.width)
             let height = UInt64(size.height)
-            imageData = try await client.getMediaThumbnail(mediaSource: mediaSource, width: width, height: height)
+            imageData = try await client.getMediaThumbnail(
+                mediaSource: mediaSource, width: width, height: height)
         } else {
             imageData = try await client.getMediaContent(mediaSource: mediaSource)
         }
@@ -84,7 +90,8 @@ extension MatrixClient: MactrixUI.ImageLoader {
             Self.setCachedImage(nsImage, forKey: cacheKey)
             return nsImage
         } catch {
-            Logger.matrixClient.error("failed convert matrix media data to Image: \(error) \(imageData)")
+            Logger.matrixClient.error(
+                "failed convert matrix media data to Image: \(error) \(imageData)")
             throw error
         }
     }
@@ -136,7 +143,10 @@ extension MatrixClient {
         }
     }
 
-    func userProfileActions(forUserId userId: String, windowState: WindowState) -> some MactrixUI.UserProfileActions {
-        return MatrixClientUserProfileActions(userId: userId, matrixClient: self, windowState: windowState)
+    func userProfileActions(forUserId userId: String, windowState: WindowState) -> some MactrixUI
+        .UserProfileActions
+    {
+        return MatrixClientUserProfileActions(
+            userId: userId, matrixClient: self, windowState: windowState)
     }
 }

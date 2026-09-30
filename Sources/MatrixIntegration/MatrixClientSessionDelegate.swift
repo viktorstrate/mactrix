@@ -2,7 +2,6 @@ import Foundation
 import MatrixRustSDK
 import OSLog
 import Observation
-import MactrixUI
 import UniformTypeIdentifiers
 import Utils
 
@@ -16,7 +15,9 @@ final class MatrixClientSessionDelegate: MatrixRustSDK.ClientSessionDelegate {
     }
 
     func retrieveSessionFromKeychain(userId: String) throws -> MatrixRustSDK.Session {
-        Logger.matrixClient.debug("client session delegate: retrieve session from keychain: \(userId, privacy: .sensitive)")
+        Logger.matrixClient.debug(
+            "client session delegate: retrieve session from keychain: \(userId, privacy: .sensitive)"
+        )
 
         let userSession = try UserSession.loadUserFromKeychain()
         if let userSession {
@@ -36,7 +37,8 @@ final class MatrixClientSessionDelegate: MatrixRustSDK.ClientSessionDelegate {
     func saveSessionInKeychain(session: MatrixRustSDK.Session) {
         Logger.matrixClient.debug("client session delegate: save session in keychain")
         do {
-            try UserSession(session: session, storeID: storeID, storePassphrase: storePassphrase).saveUserToKeychain()
+            try UserSession(session: session, storeID: storeID, storePassphrase: storePassphrase)
+                .saveUserToKeychain()
         } catch {
             Logger.matrixClient.error("failed to save session in keychain: \(error)")
         }

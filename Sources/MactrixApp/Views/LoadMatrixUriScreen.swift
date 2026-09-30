@@ -42,10 +42,11 @@ struct LoadMatrixUriScreen: View {
                     Logger.viewCycle.debug("Matrix uri match roomId")
                     Task {
                         do {
-                            let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(
-                                roomId: roomId,
-                                viaServers: matrixUri.routingVia
-                            )
+                            let roomPreview = try await matrixClient.client
+                                .getRoomPreviewFromRoomId(
+                                    roomId: roomId,
+                                    viaServers: matrixUri.routingVia
+                                )
                             windowState.selectedScreen = .previewRoom(roomPreview)
                         } catch {
                             Logger.viewCycle.error("Failed to get room id from url: \(error)")
@@ -55,7 +56,8 @@ struct LoadMatrixUriScreen: View {
                     Logger.viewCycle.debug("Matrix uri match room alias")
                     Task {
                         do {
-                            let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomAlias(roomAlias: alias)
+                            let roomPreview = try await matrixClient.client
+                                .getRoomPreviewFromRoomAlias(roomAlias: alias)
                             windowState.selectedScreen = .previewRoom(roomPreview)
                         } catch {
                             Logger.viewCycle.error("Failed to get room alias from url: \(error)")
@@ -65,7 +67,8 @@ struct LoadMatrixUriScreen: View {
                     Logger.viewCycle.debug("Matrix uri match user")
                     Task {
                         do {
-                            let userProfile = try await matrixClient.client.getProfile(userId: userId)
+                            let userProfile = try await matrixClient.client.getProfile(
+                                userId: userId)
                             windowState.selectedScreen = .user(profile: userProfile)
                         } catch {
                             Logger.viewCycle.error("Failed to get user profile from url: \(error)")

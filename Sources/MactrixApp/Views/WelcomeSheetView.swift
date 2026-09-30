@@ -1,7 +1,6 @@
 import AuthenticationServices
 import MatrixRustSDK
 import SwiftUI
-import MactrixApp
 import MatrixIntegration
 
 struct WelcomeSheetView: View {

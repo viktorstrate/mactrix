@@ -1,10 +1,9 @@
-import MatrixRustSDK
-import MatrixProtocols
-import OSLog
-import SwiftUI
 import MactrixUI
 import MatrixIntegration
-import MactrixApp
+import MatrixProtocols
+import MatrixRustSDK
+import OSLog
+import SwiftUI
 
 struct RoomPinRow: View {
     @Environment(AppState.self) private var appState
@@ -32,7 +31,8 @@ struct RoomPinRow: View {
         content
             .task(id: eventId) {
                 do {
-                    event = try await timeline.timeline?.getEventTimelineItemByEventId(eventId: eventId)
+                    event = try await timeline.timeline?.getEventTimelineItemByEventId(
+                        eventId: eventId)
                 } catch {
                     Logger.viewCycle.error("failed to fetch details for pinned event \(error)")
                 }
@@ -48,7 +48,7 @@ struct InspectorRoomPins: View {
     @State var selectedId: String?
 
     var timeline: LiveTimeline? {
-        guard case let .joinedRoom(timeline: timeline) = windowState.selectedScreen else {
+        guard case .joinedRoom(timeline: let timeline) = windowState.selectedScreen else {
             return nil
         }
 

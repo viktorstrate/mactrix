@@ -1,9 +1,9 @@
+import MactrixUI
+import MatrixIntegration
 import MatrixRustSDK
 import OSLog
 import SwiftUI
-import MactrixUI
 import Utils
-import MatrixIntegration
 
 public struct MainView: View {
     @Environment(AppState.self) var appState
@@ -12,32 +12,37 @@ public struct MainView: View {
     private var windowState: WindowState = .init()
 
     @State private var showWelcomeSheet: Bool = false
-    
+
+    let x: Bool = false
+
     public init() {}
 
     @ViewBuilder var details: some View {
         switch windowState.selectedScreen {
-        case .joinedRoom(timeline: let timeline):
+        case .joinedRoom(let timeline):
             ChatView(timeline: timeline).id(timeline.room.id)
         case .previewRoom(let room):
             MactrixUI.RoomPreviewView(
                 preview: room.info(),
                 imageLoader: appState.matrixClient,
-                actions: appState.matrixClient?.roomPreviewActions(forRoomWithId: room.info().roomId, windowState: windowState)
+                actions: appState.matrixClient?.roomPreviewActions(
+                    forRoomWithId: room.info().roomId, windowState: windowState)
             )
         case .newRoom:
             MactrixUI.CreateRoomScreen(onSubmit: { params in
                 guard let matrixClient = appState.matrixClient else { return }
-                let newRoom = try await matrixClient.client.createRoom(request: params.asMatrixRequest)
+                let newRoom = try await matrixClient.client.createRoom(
+                    request: params.asMatrixRequest)
                 windowState.selectedRoomId = newRoom
             })
         case .loadMatrixUrl(let matrixUri):
             LoadMatrixUriScreen(matrixUri: matrixUri)
-        case .user(profile: let profile):
+        case .user(let profile):
             UserProfileView(
                 profile: profile,
                 isUserIgnored: appState.matrixClient?.isUserIgnored(profile.userId) ?? false,
-                actions: appState.matrixClient?.userProfileActions(forUserId: profile.userId, windowState: windowState),
+                actions: appState.matrixClient?.userProfileActions(
+                    forUserId: profile.userId, windowState: windowState),
                 timelineActions: nil,
                 imageLoader: appState.matrixClient
             )
@@ -53,7 +58,8 @@ public struct MainView: View {
                 if !isPresented {
                     Task {
                         do {
-                            try await appState.matrixClient?.client.getSessionVerificationController().declineVerification()
+                            try await appState.matrixClient?.client
+                                .getSessionVerificationController().declineVerification()
                         } catch {
                             Logger.viewCycle.error("failed to decline verification: \(error)")
                             appState.matrixClient?.sessionVerificationData = nil
@@ -71,38 +77,52 @@ public struct MainView: View {
             sidebar: { SidebarView() },
             detail: { details }
         )
-        .inspector(isPresented: $windowState.inspectorVisible, content: {
-            InspectorScreen()
-                .environment(windowState)
-        })
+        .inspector(
+            isPresented: $windowState.inspectorVisible,
+            content: {
+                InspectorScreen()
+                    .environment(windowState)
+            }
+        )
         .task { await attemptLoadUserSession() }
         .sheet(isPresented: $showWelcomeSheet, onDismiss: onLoginModalDismiss) {
             WelcomeSheetView()
         }
-        .sheet(isPresented: verificationSheetPresented, content: {
-            if let verificationData = appState.matrixClient?.sessionVerificationData {
-                MactrixUI.SessionVerificationModal(verificationData: verificationData.asModel, onComplete: { response in
-                    Task {
-                        switch response {
-                        case .accept:
-                            do {
-                                try await appState.matrixClient?.client.getSessionVerificationController().approveVerification()
-                            } catch {
-                                Logger.viewCycle.error("failed to approve verification: \(error)")
-                                appState.matrixClient?.sessionVerificationData = nil
+        .sheet(
+            isPresented: verificationSheetPresented,
+            content: {
+                if let verificationData = appState.matrixClient?.sessionVerificationData {
+                    MactrixUI.SessionVerificationModal(
+                        verificationData: verificationData.asModel,
+                        onComplete: { response in
+                            Task {
+                                switch response {
+                                case .accept:
+                                    do {
+                                        try await appState.matrixClient?.client
+                                            .getSessionVerificationController()
+                                            .approveVerification()
+                                    } catch {
+                                        Logger.viewCycle.error(
+                                            "failed to approve verification: \(error)")
+                                        appState.matrixClient?.sessionVerificationData = nil
+                                    }
+                                case .decline:
+                                    do {
+                                        try await appState.matrixClient?.client
+                                            .getSessionVerificationController()
+                                            .declineVerification()
+                                    } catch {
+                                        Logger.viewCycle.error(
+                                            "failed to decline verification: \(error)")
+                                        appState.matrixClient?.sessionVerificationData = nil
+                                    }
+                                }
                             }
-                        case .decline:
-                            do {
-                                try await appState.matrixClient?.client.getSessionVerificationController().declineVerification()
-                            } catch {
-                                Logger.viewCycle.error("failed to decline verification: \(error)")
-                                appState.matrixClient?.sessionVerificationData = nil
-                            }
-                        }
-                    }
-                })
+                        })
+                }
             }
-        })
+        )
         .onChange(of: appState.matrixClient == nil) { _, matrixClientIsNil in
             if matrixClientIsNil {
                 Logger.viewCycle.info("Matrix client is nil, present welcome sheet")
@@ -191,11 +211,14 @@ public struct MainView: View {
 
             if let roomId = windowState.selectedRoomId {
                 if let selectedRoom = try matrixClient.client.getRoom(roomId: roomId) {
-                    windowState.selectedScreen = .joinedRoom(timeline: LiveTimeline(room: LiveRoom(matrixRoom: selectedRoom)))
+                    windowState.selectedScreen = .joinedRoom(
+                        timeline: LiveTimeline(room: LiveRoom(matrixRoom: selectedRoom)))
                 } else {
-                    let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(roomId: roomId, viaServers: ["matrix.org"])
+                    let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(
+                        roomId: roomId, viaServers: ["matrix.org"])
 
-                    Logger.viewCycle.debug("Selected room preview: \(roomPreview.info().debugDescription)")
+                    Logger.viewCycle.debug(
+                        "Selected room preview: \(roomPreview.info().debugDescription)")
                     windowState.selectedScreen = .previewRoom(roomPreview)
                 }
             } else {

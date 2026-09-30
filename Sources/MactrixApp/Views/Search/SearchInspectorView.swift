@@ -1,9 +1,8 @@
-import MatrixRustSDK
+import MactrixUI
 import MatrixProtocols
+import MatrixRustSDK
 import OSLog
 import SwiftUI
-import MactrixUI
-import MactrixApp
 
 struct SearchResolvedRoomInspectorView: View {
     @Environment(AppState.self) var appState
@@ -16,7 +15,8 @@ struct SearchResolvedRoomInspectorView: View {
 
     var roomActions: RoomPreviewActions? {
         guard let preview = roomPreview else { return nil }
-        return appState.matrixClient?.roomPreviewActions(forRoomWithId: preview.info().roomId, windowState: windowState)
+        return appState.matrixClient?.roomPreviewActions(
+            forRoomWithId: preview.info().roomId, windowState: windowState)
     }
 
     var body: some View {
@@ -38,7 +38,8 @@ struct SearchResolvedRoomInspectorView: View {
         }
         .task(id: alias, priority: .utility) {
             do {
-                let preview = try await appState.matrixClient?.client.getRoomPreviewFromRoomId(roomId: resolvedRoom.roomId, viaServers: resolvedRoom.servers)
+                let preview = try await appState.matrixClient?.client.getRoomPreviewFromRoomId(
+                    roomId: resolvedRoom.roomId, viaServers: resolvedRoom.servers)
                 self.roomPreview = preview
             } catch {
                 Logger.viewCycle.error("failed to get room preview: \(error)")
@@ -62,19 +63,21 @@ struct SearchInspectorView: View {
             SearchUserInspectorView()
         case .spaces:
             Text("Search spaces")
-        case let .resolvedRoomAlias(alias: alias, resolvedRoom: resolvedRoom):
+        case .resolvedRoomAlias(alias: let alias, resolvedRoom: let resolvedRoom):
             SearchResolvedRoomInspectorView(alias: alias, resolvedRoom: resolvedRoom)
-        case let .resolvedRoomId(roomPreview: roomPreview):
+        case .resolvedRoomId(roomPreview: let roomPreview):
             MactrixUI.RoomPreviewView(
                 preview: roomPreview.info(),
                 imageLoader: appState.matrixClient,
-                actions: appState.matrixClient?.roomPreviewActions(forRoomWithId: roomPreview.info().roomId, windowState: windowState)
+                actions: appState.matrixClient?.roomPreviewActions(
+                    forRoomWithId: roomPreview.info().roomId, windowState: windowState)
             )
-        case let .resolvedUser(profile: userProfile):
+        case .resolvedUser(profile: let userProfile):
             MactrixUI.UserProfileView(
                 profile: userProfile,
                 isUserIgnored: appState.matrixClient?.isUserIgnored(userProfile.userId) == true,
-                actions: appState.matrixClient?.userProfileActions(forUserId: userProfile.userId, windowState: windowState),
+                actions: appState.matrixClient?.userProfileActions(
+                    forUserId: userProfile.userId, windowState: windowState),
                 timelineActions: nil,
                 imageLoader: appState.matrixClient
             )

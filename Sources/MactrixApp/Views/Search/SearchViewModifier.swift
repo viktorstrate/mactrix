@@ -1,7 +1,6 @@
 import MatrixRustSDK
 import OSLog
 import SwiftUI
-import MactrixApp
 
 struct SearchViewModifier: ViewModifier {
     @Environment(AppState.self) var appState
@@ -10,7 +9,10 @@ struct SearchViewModifier: ViewModifier {
     func body(content: Content) -> some View {
         @Bindable var windowState = windowState
         content
-            .searchable(text: $windowState.searchQuery, tokens: $windowState.searchTokens, isPresented: windowState.searchFocused, placement: .automatic, prompt: "Search") { token in
+            .searchable(
+                text: $windowState.searchQuery, tokens: $windowState.searchTokens,
+                isPresented: windowState.searchFocused, placement: .automatic, prompt: "Search"
+            ) { token in
                 switch token {
                 case .users:
                     Text("Users")
@@ -20,11 +22,11 @@ struct SearchViewModifier: ViewModifier {
                     Text("Public Spaces")
                 case .messages:
                     Text("Messages")
-                case let .resolvedRoomAlias(alias: alias, resolvedRoom: _):
+                case .resolvedRoomAlias(let alias, resolvedRoom: _):
                     Text(alias)
-                case let .resolvedRoomId(roomPreview: preview):
+                case .resolvedRoomId(roomPreview: let preview):
                     Text(preview.info().roomId)
-                case let .resolvedUser(profile: userProfile):
+                case .resolvedUser(profile: let userProfile):
                     Text(userProfile.userId)
                 }
             }
@@ -63,7 +65,7 @@ struct SearchViewModifier: ViewModifier {
             Label("User not found", systemImage: "exclamationmark.circle")
                 .foregroundStyle(.secondary)
             Divider()
-        case let .resolvedRoomAlias(alias: alias, resolvedRoom: resolvedRoom):
+        case .resolvedRoomAlias(let alias, let resolvedRoom):
             HStack(alignment: .firstTextBaseline) {
                 Text("room")
                     .font(.subheadline.bold())
@@ -72,9 +74,10 @@ struct SearchViewModifier: ViewModifier {
                     .lineLimit(1)
                     .truncationMode(.middle)
             }
-            .searchCompletion(SearchToken.resolvedRoomAlias(alias: alias, resolvedRoom: resolvedRoom))
+            .searchCompletion(
+                SearchToken.resolvedRoomAlias(alias: alias, resolvedRoom: resolvedRoom))
             Divider()
-        case let .resolvedRoomId(roomPreview: roomPreview):
+        case .resolvedRoomId(let roomPreview):
             HStack(alignment: .firstTextBaseline) {
                 Text("room")
                     .font(.subheadline.bold())
@@ -85,7 +88,7 @@ struct SearchViewModifier: ViewModifier {
             }
             .searchCompletion(SearchToken.resolvedRoomId(roomPreview: roomPreview))
             Divider()
-        case let .resolvedUser(profile: userProfile):
+        case .resolvedUser(profile: let userProfile):
             HStack(alignment: .firstTextBaseline) {
                 Text("user")
                     .font(.subheadline.bold())
@@ -104,7 +107,8 @@ struct SearchViewModifier: ViewModifier {
             Label("Users", systemImage: "person").searchCompletion(SearchToken.users)
             Label("Public Rooms", systemImage: "number").searchCompletion(SearchToken.rooms)
             Label("Public Spaces", systemImage: "network").searchCompletion(SearchToken.spaces)
-            Label("Messages", systemImage: "magnifyingglass.circle").searchCompletion(SearchToken.messages)
+            Label("Messages", systemImage: "magnifyingglass.circle").searchCompletion(
+                SearchToken.messages)
         }
     }
 
@@ -136,8 +140,11 @@ struct SearchViewModifier: ViewModifier {
             if try roomAliasRegex.wholeMatch(in: query) != nil {
                 Logger.viewCycle.debug("Matched room alias in query: \(query)")
                 windowState.searchDirectResult = .lookingForRoom(alias: query)
-                if let resolvedRoom = try await matrixClient.client.resolveRoomAlias(roomAlias: query) {
-                    windowState.searchDirectResult = .resolvedRoomAlias(alias: query, resolvedRoom: resolvedRoom)
+                if let resolvedRoom = try await matrixClient.client.resolveRoomAlias(
+                    roomAlias: query)
+                {
+                    windowState.searchDirectResult = .resolvedRoomAlias(
+                        alias: query, resolvedRoom: resolvedRoom)
                 } else {
                     windowState.searchDirectResult = .roomNotFound(alias: query)
                 }
@@ -155,7 +162,8 @@ struct SearchViewModifier: ViewModifier {
                 Logger.viewCycle.debug("Matched room id in query: \(query)")
                 windowState.searchDirectResult = .lookingForRoom(alias: query)
                 do {
-                    let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(roomId: query, viaServers: ["matrix.org"])
+                    let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(
+                        roomId: query, viaServers: ["matrix.org"])
                     windowState.searchDirectResult = .resolvedRoomId(roomPreview: roomPreview)
                 } catch {
                     Logger.viewCycle.error("failed to resolve room id \(query): \(error)")
@@ -164,8 +172,7 @@ struct SearchViewModifier: ViewModifier {
             } else {
                 windowState.searchDirectResult = nil
             }
-        } catch is CancellationError {}
-        catch {
+        } catch is CancellationError {} catch {
             Logger.viewCycle.error("failed to resolve search query '\(query)': \(error)")
         }
     }

@@ -2,9 +2,8 @@ import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
 import OSLog
-import Security
 import Observation
-import MactrixUI
+import Security
 import UniformTypeIdentifiers
 import Utils
 
@@ -30,13 +29,14 @@ struct UserSession: Codable {
     }
 
     var session: Session {
-        Session(accessToken: accessToken,
-                refreshToken: refreshToken,
-                userId: userID,
-                deviceId: deviceID,
-                homeserverUrl: homeserverURL,
-                oauthData: oauthData,
-                slidingSyncVersion: .native)
+        Session(
+            accessToken: accessToken,
+            refreshToken: refreshToken,
+            userId: userID,
+            deviceId: deviceID,
+            homeserverUrl: homeserverURL,
+            oauthData: oauthData,
+            slidingSyncVersion: .native)
     }
 
     fileprivate static var keychainKey: String { "UserSession" }

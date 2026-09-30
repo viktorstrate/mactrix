@@ -2,7 +2,6 @@ import MatrixRustSDK
 import SwiftUI
 import MactrixUI
 import OSLog
-import MactrixApp
 import MatrixIntegration
 
 struct SpaceDisclosureGroup: View {

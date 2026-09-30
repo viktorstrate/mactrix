@@ -8,7 +8,7 @@ let package = Package(
     platforms: [.macOS(.v15)],
     products: [
         // Products define the executables and libraries a package produces, making them visible to other packages.
-        .library(name: "MactrixApp", targets: ["MactrixApp"]),
+        .library(name: "MactrixApp", targets: ["MactrixApp"])
     ],
     dependencies: [
         .package(url: "https://github.com/ZhgChgLi/ZMarkupParser.git", from: "1.12.0"),
@@ -48,7 +48,7 @@ let package = Package(
         .target(
             name: "MessageFormatting",
             dependencies: [
-                .product(name: "ZMarkupParser", package: "zmarkupparser"),
+                .product(name: "ZMarkupParser", package: "zmarkupparser")
             ]
         ),
     ]
