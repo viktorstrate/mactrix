@@ -1,20 +1,22 @@
 {
   "configurations" : [
     {
-      "id" : "2B8801C5-EA6C-461B-83CC-FCDA249AA12E",
-      "name" : "Configuration 1",
+      "id" : "FC9941BB-17A8-4253-9496-7943E2509EB5",
+      "name" : "Test Scheme Action",
       "options" : {
 
       }
     }
   ],
   "defaultOptions" : {
-    "testTimeoutsEnabled" : true
+    "codeCoverage" : false,
+    "performanceAntipatternCheckerEnabled" : true,
+    "testInteropMode" : "complete"
   },
   "testTargets" : [
     {
       "target" : {
-        "containerPath" : "container:MactrixLibrary",
+        "containerPath" : "container:",
         "identifier" : "UtilsTests",
         "name" : "UtilsTests"
       }

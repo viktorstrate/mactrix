@@ -2,18 +2,18 @@ name: Xcode - Build and Test
 
 on:
   push:
-    branches: [ "main" ]
+    branches: ["main"]
   pull_request:
-    branches: [ "main" ]
+    branches: ["main"]
 
-jobs:   
+jobs:
   build:
     name: Build and Test
     strategy:
       max-parallel: 2
       fail-fast: false
       matrix:
-        macos-version: [macos-15, macos-26]
+        macos-version: [macos-15, macos-26, macos-27]
     runs-on: ${{ matrix.macos-version }}
     env:
       scheme: ${{ 'Mactrix' }}
@@ -31,14 +31,11 @@ jobs:
             -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Test
         run: |
-          xcodebuild test \
-            -scheme "$scheme" \
-            -project Mactrix.xcodeproj \
-            -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
+          swift test
       - name: Build release artifact
         if: |
-          matrix.macos-version == 'macos-26' && 
-          github.event_name == 'push' && 
+          matrix.macos-version == 'macos-27' &&
+          github.event_name == 'push' &&
           github.ref == 'refs/heads/main'
         run: |
           xcodebuild archive \
@@ -49,12 +46,10 @@ jobs:
             -archivePath ./Mactrix.xcarchive | xcpretty && exit ${PIPESTATUS[0]}
       - name: Upload Artifact
         if: |
-          matrix.macos-version == 'macos-26' && 
-          github.event_name == 'push' && 
+          matrix.macos-version == 'macos-26' &&
+          github.event_name == 'push' &&
           github.ref == 'refs/heads/main'
         uses: actions/upload-artifact@v4
         with:
           name: Mactrix.app
           path: ./Mactrix.xcarchive/Products/Applications/
-        
-        

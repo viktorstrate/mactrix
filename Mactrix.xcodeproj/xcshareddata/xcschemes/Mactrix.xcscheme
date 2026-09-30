@@ -30,7 +30,7 @@
       shouldUseLaunchSchemeArgsEnv = "YES">
       <TestPlans>
          <TestPlanReference
-            reference = "container:Mactrix/TestPlan.xctestplan"
+            reference = "container:Mactrix.xctestplan"
             default = "YES">
          </TestPlanReference>
       </TestPlans>
