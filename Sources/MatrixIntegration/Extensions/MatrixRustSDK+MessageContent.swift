@@ -1,15 +1,15 @@
 import MatrixRustSDK
 
 public protocol MessageContent {
-    var body: String { get }
-    var formatted: FormattedBody? { get }
+  var body: String { get }
+  var formatted: FormattedBody? { get }
 }
 
 public protocol MediaMessageContent {
-    var filename: String { get }
-    var caption: String? { get }
-    var formattedCaption: FormattedBody? { get }
-    var source: MediaSource { get }
+  var filename: String { get }
+  var caption: String? { get }
+  var formattedCaption: FormattedBody? { get }
+  var source: MediaSource { get }
 }
 
 extension FileMessageContent: MediaMessageContent {}

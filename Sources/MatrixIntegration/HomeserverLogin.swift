@@ -5,58 +5,71 @@ import OSLog
 import SwiftUI
 
 public struct HomeserverLogin {
-    public let storeID: String
-    private let storePassphrase: String
-    public let unauthenticatedClient: ClientProtocol
-    public let loginDetails: HomeserverLoginDetailsProtocol
+  public let storeID: String
+  private let storePassphrase: String
+  public let unauthenticatedClient: ClientProtocol
+  public let loginDetails: HomeserverLoginDetailsProtocol
 
-    init(storeID: String, storePassphrase: String, unauthenticatedClient: ClientProtocol, loginDetails: HomeserverLoginDetailsProtocol) {
-        self.storeID = storeID
-        self.storePassphrase = storePassphrase
-        self.unauthenticatedClient = unauthenticatedClient
-        self.loginDetails = loginDetails
+  init(
+    storeID: String, storePassphrase: String, unauthenticatedClient: ClientProtocol,
+    loginDetails: HomeserverLoginDetailsProtocol
+  ) {
+    self.storeID = storeID
+    self.storePassphrase = storePassphrase
+    self.unauthenticatedClient = unauthenticatedClient
+    self.loginDetails = loginDetails
+  }
+
+  @MainActor
+  public func loginPassword(homeServer _: String, username: String, password: String) async throws
+    -> MatrixClient
+  {
+    // Login using password authentication.
+    try await unauthenticatedClient.login(
+      username: username, password: password, initialDeviceName: "Mactrix", deviceId: nil)
+    return try await onSuccessfullLogin()
+  }
+
+  private var oauthConfiguration: OAuthConfiguration {
+    // redirect uri must be reverse domain of client uri
+    OAuthConfiguration(
+      clientName: "Mactrix", redirectUri: "com.github:/",
+      clientUri: "https://github.com/viktorstrate/mactrix", logoUri: nil, tosUri: nil,
+      policyUri: nil, staticRegistrations: [:])
+  }
+
+  @MainActor
+  public func loginOidc(webAuthSession: WebAuthenticationSession) async throws -> MatrixClient {
+    Logger.matrixClient.debug("login oidc begin")
+    let authInfo = try await unauthenticatedClient.urlForOauth(
+      oauthConfiguration: oauthConfiguration, prompt: .login, loginHint: nil, deviceId: nil,
+      additionalScopes: nil)
+    let url = URL(string: authInfo.loginUrl())!
+
+    Logger.matrixClient.debug("Auth url: \(url, privacy: .sensitive)")
+
+    let callbackUrl = try await webAuthSession.authenticate(
+      using: url, callback: .customScheme("com.github"), additionalHeaderFields: [:])
+
+    Logger.matrixClient.debug("after sign in")
+
+    try await unauthenticatedClient.loginWithOauthCallback(callbackUrl: callbackUrl.absoluteString)
+
+    return try await onSuccessfullLogin()
+  }
+
+  @MainActor
+  fileprivate func onSuccessfullLogin() async throws -> MatrixClient {
+    let matrixClient = await MatrixClient(
+      storeID: storeID, storePassphrase: storePassphrase, client: unauthenticatedClient)
+
+    let userSession = try matrixClient.userSession()
+    do {
+      try userSession.saveUserToKeychain()
+    } catch {
+      print(error.localizedDescription)
     }
 
-    @MainActor
-    public func loginPassword(homeServer _: String, username: String, password: String) async throws -> MatrixClient {
-        // Login using password authentication.
-        try await unauthenticatedClient.login(username: username, password: password, initialDeviceName: "Mactrix", deviceId: nil)
-        return try await onSuccessfullLogin()
-    }
-
-    private var oauthConfiguration: OAuthConfiguration {
-        // redirect uri must be reverse domain of client uri
-        OAuthConfiguration(clientName: "Mactrix", redirectUri: "com.github:/", clientUri: "https://github.com/viktorstrate/mactrix", logoUri: nil, tosUri: nil, policyUri: nil, staticRegistrations: [:])
-    }
-
-    @MainActor
-    public func loginOidc(webAuthSession: WebAuthenticationSession) async throws -> MatrixClient {
-        Logger.matrixClient.debug("login oidc begin")
-        let authInfo = try await unauthenticatedClient.urlForOauth(oauthConfiguration: oauthConfiguration, prompt: .login, loginHint: nil, deviceId: nil, additionalScopes: nil)
-        let url = URL(string: authInfo.loginUrl())!
-
-        Logger.matrixClient.debug("Auth url: \(url, privacy: .sensitive)")
-
-        let callbackUrl = try await webAuthSession.authenticate(using: url, callback: .customScheme("com.github"), additionalHeaderFields: [:])
-
-        Logger.matrixClient.debug("after sign in")
-
-        try await unauthenticatedClient.loginWithOauthCallback(callbackUrl: callbackUrl.absoluteString)
-
-        return try await onSuccessfullLogin()
-    }
-
-    @MainActor
-    fileprivate func onSuccessfullLogin() async throws -> MatrixClient {
-        let matrixClient = await MatrixClient(storeID: storeID, storePassphrase: storePassphrase, client: unauthenticatedClient)
-
-        let userSession = try matrixClient.userSession()
-        do {
-            try userSession.saveUserToKeychain()
-        } catch {
-            print(error.localizedDescription)
-        }
-
-        return matrixClient
-    }
+    return matrixClient
+  }
 }

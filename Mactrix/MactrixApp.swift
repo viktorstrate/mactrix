@@ -1,36 +1,38 @@
-import OSLog
-import SwiftUI
 import MactrixApp
 import MatrixIntegration
+import OSLog
+import SwiftUI
 
 @main
 struct MactrixApp: App {
-    @State var appState = AppState()
-    @FocusedValue(WindowState.self) private var windowState: WindowState?
+  @State var appState = AppState()
+  @FocusedValue(WindowState.self) private var windowState: WindowState?
 
-    var body: some Scene {
-        WindowGroup(id: "main") {
-            MainView()
-        }
-        .windowToolbarStyle(.automatic)
-        .environment(appState)
-        .commands {
-            AppCommands()
-        }
-        .onChange(of: windowState == nil, focusNotification)
-        .onChange(of: appState.matrixClient?.notifications.selectedRoomId == nil, focusNotification)
+  var body: some Scene {
+    WindowGroup(id: "main") {
+      MainView()
+    }
+    .windowToolbarStyle(.automatic)
+    .environment(appState)
+    .commands {
+      AppCommands()
+    }
+    .onChange(of: windowState == nil, focusNotification)
+    .onChange(of: appState.matrixClient?.notifications.selectedRoomId == nil, focusNotification)
 
-        Settings {
-            SettingsView()
-        }
-        .environment(appState)
+    Settings {
+      SettingsView()
+    }
+    .environment(appState)
+  }
+
+  func focusNotification() {
+    guard let windowState else { return }
+    guard let notificationRoomId = appState.matrixClient?.notifications.selectedRoomId else {
+      return
     }
 
-    func focusNotification() {
-        guard let windowState else { return }
-        guard let notificationRoomId = appState.matrixClient?.notifications.selectedRoomId else { return }
-
-        windowState.selectedRoomId = notificationRoomId
-        appState.matrixClient?.notifications.selectedRoomId = nil
-    }
+    windowState.selectedRoomId = notificationRoomId
+    appState.matrixClient?.notifications.selectedRoomId = nil
+  }
 }

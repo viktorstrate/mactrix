@@ -1,7 +1,7 @@
 import SwiftUI
 
 #Preview {
-    let sample = """
+  let sample = """
     <h1>This is a title</h1>
 
     <h1>Header 1</h1>
@@ -67,6 +67,6 @@ import SwiftUI
     This is a link to <a href="https://google.com">google.com</a>
     """
 
-    AttributedTextView(attributedString: parseFormattedBody(sample))
-        .padding()
+  AttributedTextView(attributedString: parseFormattedBody(sample))
+    .padding()
 }

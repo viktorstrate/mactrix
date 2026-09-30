@@ -1,25 +1,25 @@
 import Foundation
 
 public protocol UserProfile: Identifiable {
-    var userId: String { get }
-    var displayName: String? { get }
-    var avatarUrl: String? { get }
+  var userId: String { get }
+  var displayName: String? { get }
+  var avatarUrl: String? { get }
 }
 
-public extension UserProfile {
-    var id: String { userId }
+extension UserProfile {
+  public var id: String { userId }
 }
 
 public struct MockUserProfile: UserProfile {
-    public init() {}
+  public init() {}
 
-    public var userId: String {
-        "@user:matrix.org"
-    }
+  public var userId: String {
+    "@user:matrix.org"
+  }
 
-    public var displayName: String? {
-        "Matrix User"
-    }
+  public var displayName: String? {
+    "Matrix User"
+  }
 
-    public var avatarUrl: String? { nil }
+  public var avatarUrl: String? { nil }
 }
