@@ -13,7 +13,7 @@ jobs:
       max-parallel: 2
       fail-fast: false
       matrix:
-        macos-version: [macos-15, macos-26, macos-27]
+        macos-version: [macos-15, macos-26, xcode-27]
     runs-on: ${{ matrix.macos-version }}
     env:
       scheme: ${{ 'Mactrix' }}
