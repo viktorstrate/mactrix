@@ -29,8 +29,6 @@ public final class LiveTimeline {
   @ObservationIgnored public weak var focusDelegate: (any LiveTimelineFocusDelegate)?
   @ObservationIgnored public weak var diffDelegate: (any LiveTimelineDiffDelegate)?
 
-  public var sendReplyTo: MatrixRustSDK.EventTimelineItem?
-
   public private(set) var timelineItems: [TimelineItem] = []
   public private(set) var loadedReplyDetails: [String: InReplyToDetails] = [:]
 

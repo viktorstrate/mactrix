@@ -10,6 +10,7 @@ struct ChatTextView: NSViewRepresentable {
   let text: Binding<String>
   let placeholder: String
   let disabled: Bool
+  let focusRequest: Int
   let onSubmit: () -> Void
 
   func makeNSView(context: Context) -> DynamicTextView {
@@ -85,6 +86,8 @@ struct ChatTextView: NSViewRepresentable {
       }
     }
 
+    context.coordinator.requestFocus(focusRequest, disabled: disabled)
+
     let currentFont = NSFont.systemFont(ofSize: CGFloat(fontSize))
     if textView.font?.pointSize != currentFont.pointSize {
       textView.font = currentFont
@@ -96,12 +99,31 @@ struct ChatTextView: NSViewRepresentable {
     return Coordinator(text: text)
   }
 
+  @MainActor
   class Coordinator: NSObject, NSTextViewDelegate {
     var textView: NSTextView?
     var text: Binding<String>
+    private var requestedFocus = 0
+    private var fulfilledFocus = 0
 
     init(text: Binding<String>) {
       self.text = text
+    }
+
+    func requestFocus(_ request: Int, disabled: Bool) {
+      requestedFocus = request
+      guard !disabled, request != fulfilledFocus else { return }
+
+      Task { @MainActor [weak self] in
+        await Task.yield()
+        guard let self, requestedFocus == request, let textView, textView.isEditable,
+          let window = textView.window
+        else { return }
+
+        if window.makeFirstResponder(textView) {
+          fulfilledFocus = request
+        }
+      }
     }
 
     func textDidChange(_ notification: Notification) {

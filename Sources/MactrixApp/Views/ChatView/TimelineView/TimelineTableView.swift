@@ -82,14 +82,19 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private var updatingTimelineItems = false
 
   let timeline: LiveTimeline
+  let composer: ChatComposerState
   private var projection: TimelineRowProjection
   var timelineItems: [TimelineItemRowInfo] {
     projection.rows
   }
 
-  init(coordinator: TimelineViewRepresentable.Coordinator, timeline: LiveTimeline) {
+  init(
+    coordinator: TimelineViewRepresentable.Coordinator, timeline: LiveTimeline,
+    composer: ChatComposerState
+  ) {
     self.coordinator = coordinator
     self.timeline = timeline
+    self.composer = composer
     self.projection = TimelineRowProjection(items: timeline.timelineItems)
     super.init(nibName: nil, bundle: nil)
   }
@@ -408,7 +413,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     case .reactionPicker:
       break  // The old picker button does not have an action yet.
     case .reply:
-      timeline.sendReplyTo = event
+      composer.beginReply(to: event)
     case .replyInThread:
       coordinator.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
     case .pin:

@@ -8,21 +8,20 @@ struct ChatInputView: View {
 
   let room: Room
   let timeline: LiveTimeline
-  @Binding var replyTo: MatrixRustSDK.EventTimelineItem?
+  @Bindable var composer: ChatComposerState
   @AppStorage("fontSize") var fontSize: Int = 13
 
-  @State private var isDraftLoaded: Bool = false
-  @State private var chatInput: String = ""
-
   func sendMessage() async {
-    guard !chatInput.isEmpty else { return }
+    guard !composer.text.isEmpty else { return }
     guard let innerTimeline = timeline.timeline else { return }
 
-    let msg = messageEventContentFromMarkdown(md: chatInput)
+    let msg = messageEventContentFromMarkdown(md: composer.text)
 
     do {
-      if let replyTo {
-        _ = try await innerTimeline.sendReply(msg: msg, eventId: replyTo.eventOrTransactionId.id)
+      if let replyTarget = composer.replyTarget {
+        _ = try await innerTimeline.sendReply(
+          msg: msg, eventId: replyTarget.eventOrTransactionId.id
+        )
       } else {
         _ = try await innerTimeline.send(msg: msg)
       }
@@ -30,13 +29,12 @@ struct ChatInputView: View {
       Logger.viewCycle.error("failed to send message: \(error)")
     }
 
-    chatInput = ""
-    replyTo = nil
+    composer.finishSending()
   }
 
   private func saveDraft() async {
-    guard isDraftLoaded else { return }  // avoid saving a draft hasn't yet been restored
-    if chatInput.isEmpty, replyTo == nil {
+    guard composer.isDraftLoaded else { return }  // avoid overwriting a draft before restoration
+    if composer.text.isEmpty, composer.replyTarget == nil {
       Logger.viewCycle.debug("clearing draft")
       do {
         try await room.clearComposerDraft(threadRoot: timeline.focusedThreadId)
@@ -47,13 +45,13 @@ struct ChatInputView: View {
     }
 
     let draftType: ComposerDraftType
-    if let replyTo {
-      draftType = .reply(eventId: replyTo.eventOrTransactionId.id)
+    if let replyTarget = composer.replyTarget {
+      draftType = .reply(eventId: replyTarget.eventOrTransactionId.id)
     } else {
       draftType = .newMessage
     }
     let draft = ComposerDraft(
-      plainText: chatInput,
+      plainText: composer.text,
       htmlText: nil,
       draftType: draftType,
       attachments: []
@@ -66,45 +64,41 @@ struct ChatInputView: View {
   }
 
   private func loadDraft() async {
-    guard !isDraftLoaded else { return }  // don't load a draft more than once
+    guard !composer.isDraftLoaded else { return }  // don't load a draft more than once
     do {
       guard let draft = try await room.loadComposerDraft(threadRoot: timeline.focusedThreadId)
       else {
         // no draft to load
-        isDraftLoaded = true
+        composer.completeDraftRestoration()
         return
       }
-      chatInput = draft.plainText
+      composer.text = draft.plainText
       switch draft.draftType {
       case .reply(let eventId):
         // we need a timeline to be able to populate the reply; return false so we can try again
-        guard let innerTimeline = timeline.timeline else {
-          isDraftLoaded = false
-          return
-        }
+        guard let innerTimeline = timeline.timeline else { return }
 
         do {
           let item = try await innerTimeline.getEventTimelineItemByEventId(eventId: eventId)
-          timeline.sendReplyTo = item
+          composer.restoreReply(to: item)
         } catch {
           Logger.viewCycle.error("failed to resolve reply target: \(error)")
         }
       case .newMessage, .edit:
         // nothing to do
-        isDraftLoaded = true
-        return
+        break
       }
     } catch {
       Logger.viewCycle.error("failed to load draft: \(error)")
     }
-    isDraftLoaded = true  // so we don't try again
+    composer.completeDraftRestoration()
   }
 
   private func chatInputChanged() async {
-    guard isDraftLoaded else { return }  // avoid working on a draft that's being restored
-    if !chatInput.isEmpty {
+    guard composer.isDraftLoaded else { return }  // avoid working on a draft being restored
+    if !composer.text.isEmpty {
       do {
-        try await room.typingNotice(isTyping: !chatInput.isEmpty)
+        try await room.typingNotice(isTyping: !composer.text.isEmpty)
       } catch {
         Logger.viewCycle.warning("Failed to send typing notice: \(error)")
       }
@@ -113,32 +107,35 @@ struct ChatInputView: View {
   }
 
   var replyEmbeddedDetails: EmbeddedEventDetails? {
-    guard let replyTo else { return nil }
+    guard let replyTarget = composer.replyTarget else { return nil }
 
     return .ready(
-      content: replyTo.content, sender: replyTo.sender, senderProfile: replyTo.senderProfile,
-      timestamp: replyTo.timestamp, eventOrTransactionId: replyTo.eventOrTransactionId)
+      content: replyTarget.content, sender: replyTarget.sender,
+      senderProfile: replyTarget.senderProfile, timestamp: replyTarget.timestamp,
+      eventOrTransactionId: replyTarget.eventOrTransactionId
+    )
   }
 
   var content: some View {
     VStack(alignment: .leading) {
       if let replyEmbeddedDetails {
         EmbeddedMessageView(embeddedEvent: replyEmbeddedDetails) {
-          replyTo = nil
+          composer.cancelReply()
         }
       }
       ChatTextView(
-        text: $chatInput,
+        text: $composer.text,
         placeholder: "Message \(room.displayName() ?? "room")",
-        disabled: !isDraftLoaded,
+        disabled: !composer.isDraftLoaded,
+        focusRequest: composer.focusRequest,
         onSubmit: { Task { await sendMessage() } }
       )
     }
     .font(.system(size: .init(fontSize)))
-    .task(id: chatInput) {
+    .task(id: composer.text) {
       await chatInputChanged()
     }
-    .task(id: replyTo?.eventOrTransactionId) {
+    .task(id: composer.replyTarget?.eventOrTransactionId) {
       await saveDraft()
     }
     .task(id: timeline.timeline != nil) {

@@ -13,6 +13,7 @@ struct ChatJoinedRoom: View {
   @Environment(AppState.self) private var appState
   @Environment(\.appearsActive) private var appearsActive
   @Bindable var timeline: LiveTimeline
+  @State private var composer = ChatComposerState()
 
   var room: LiveRoom {
     timeline.room
@@ -25,10 +26,10 @@ struct ChatJoinedRoom: View {
   }
 
   var body: some View {
-    TimelineViewRepresentable(timeline: timeline)
+    TimelineViewRepresentable(timeline: timeline, composer: composer)
       .ignoresSafeArea(edges: .top)
       .safeAreaInset(edge: .bottom, spacing: 8) {
-        ChatInputView(room: room.room, timeline: timeline, replyTo: $timeline.sendReplyTo)
+        ChatInputView(room: room.room, timeline: timeline, composer: composer)
       }
       .background(Color(NSColor.controlBackgroundColor))
       .navigationTitle(room.room.displayName() ?? "Unknown room")
@@ -116,6 +117,7 @@ struct ChatView: View {
     switch room.room.membership() {
     case .joined:
       ChatJoinedRoom(timeline: timeline)
+        .id(timeline.focusedThreadId)
     case .invited:
       invitedRoom
     case .left:
