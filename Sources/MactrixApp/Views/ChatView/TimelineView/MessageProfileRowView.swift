@@ -6,12 +6,10 @@ class MessageProfileRowView: NSView {
   let profilePicture = NSButton()
   let name = NSTextField(labelWithString: "")
 
+  private let avatarView = UserAvatarView()
   private var sender: String?
   private var focusUserAction: (_ sender: String) -> Void = { _ in }
   private var imageLoader: MactrixUI.ImageLoader?
-
-  private var avatarTask: Task<Void, Never>?
-  private var avatarUrl: String?
 
   static let rowHeight: Double = 32
 
@@ -21,13 +19,12 @@ class MessageProfileRowView: NSView {
     profilePicture.target = self
     profilePicture.action = #selector(onProfileClicked)
     profilePicture.translatesAutoresizingMaskIntoConstraints = false
-    profilePicture.imageScaling = .scaleProportionallyDown
-    profilePicture.imagePosition = .imageOnly
+    profilePicture.title = ""
     profilePicture.isBordered = false
-    profilePicture.wantsLayer = true
-    profilePicture.layer?.cornerRadius = 16
-    profilePicture.layer?.masksToBounds = true
-    profilePicture.layer?.backgroundColor = NSColor.gray.cgColor
+
+    avatarView.frame = profilePicture.bounds
+    avatarView.autoresizingMask = [.width, .height]
+    profilePicture.addSubview(avatarView)
 
     name.translatesAutoresizingMaskIntoConstraints = false
     name.isSelectable = true
@@ -67,11 +64,15 @@ class MessageProfileRowView: NSView {
     sender = event.sender
 
     let username: String
+    let displayName: String?
+    let avatarUrl: String?
     switch event.senderProfile {
-    case .ready(let displayName, _, let avatarUrl, _, _):
-      username = displayName ?? event.sender
-      self.avatarUrl = avatarUrl
+    case .ready(let profileDisplayName, _, let profileAvatarUrl, _, _):
+      displayName = profileDisplayName
+      username = profileDisplayName ?? event.sender
+      avatarUrl = profileAvatarUrl
     default:
+      displayName = nil
       username = event.sender
       avatarUrl = nil
     }
@@ -80,7 +81,10 @@ class MessageProfileRowView: NSView {
     name.textColor = NSColor(userID: event.sender)
     name.toolTip = username
 
-    reloadAvatar()
+    avatarView.configure(
+      userID: event.sender, displayName: displayName, avatarUrl: avatarUrl,
+      imageLoader: imageLoader
+    )
   }
 
   @objc func onProfileClicked(_ target: Any) {
@@ -89,24 +93,4 @@ class MessageProfileRowView: NSView {
     }
   }
 
-  private func reloadAvatar() {
-    avatarTask?.cancel()
-    profilePicture.image = nil
-    guard let avatarUrl, let imageLoader else { return }
-
-    if let cached = imageLoader.cachedImage(matrixUrl: avatarUrl) {
-      profilePicture.image = cached
-      return
-    }
-
-    avatarTask = Task { [weak self] in
-      guard let image = try? await imageLoader.loadImage(matrixUrl: avatarUrl, size: nil),
-        !Task.isCancelled,
-        let self,
-        self.avatarUrl == avatarUrl
-      else { return }
-
-      self.profilePicture.image = image
-    }
-  }
 }

@@ -49,9 +49,8 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
   var header: some View {
     VStack(alignment: .center, spacing: 20) {
       VStack(alignment: .center) {
-        AvatarImage(avatarUrl: roomInfo?.avatarUrl, imageLoader: imageLoader)
+        RoomAvatarImage(avatarUrl: roomInfo?.avatarUrl, imageLoader: imageLoader)
           .frame(width: 72, height: 72)
-          .clipShape(.circle)
 
         Text(room.displayName ?? "Unknown room")
           .font(.title)

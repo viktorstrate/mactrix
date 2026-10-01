@@ -74,15 +74,11 @@ public struct RoomRow: View {
           .truncationMode(.tail)
       },
       icon: {
-        MactrixUI.AvatarImage(avatarUrl: avatarUrl, imageLoader: imageLoader) {
-          RoundedRectangle(cornerRadius: 4)
-            .fill(.clear)
-            .overlay {
-              Image(systemName: placeholderImageName)
-            }
-        }
+        RoomRowAvatarImage(
+          avatarUrl: avatarUrl, placeholderSystemImage: placeholderImageName,
+          imageLoader: imageLoader
+        )
         .frame(width: roomAvatarSize, height: roomAvatarSize)
-        .clipShape(RoundedRectangle(cornerRadius: 4))
       }
     )
     .fontWeight(isUnread ? .bold : .regular)

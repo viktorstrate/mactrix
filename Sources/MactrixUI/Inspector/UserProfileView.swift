@@ -38,9 +38,8 @@ public struct UserProfileView<Profile: UserProfile>: View {
   @ViewBuilder
   var profileHeader: some View {
     VStack(alignment: .center) {
-      AvatarImage(userProfile: profile, imageLoader: imageLoader)
+      UserAvatarImage(userProfile: profile, imageLoader: imageLoader)
         .frame(width: 72, height: 72)
-        .clipShape(.circle)
         .padding(.bottom, 6)
 
       Username(userProfile: profile)

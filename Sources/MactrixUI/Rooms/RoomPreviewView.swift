@@ -54,9 +54,8 @@ public struct RoomPreviewView<RoomPreview: RoomPreviewInfo>: View {
 
   var header: some View {
     HStack(alignment: .top, spacing: 15) {
-      AvatarImage(avatarUrl: preview.avatarUrl, imageLoader: imageLoader)
+      RoomAvatarImage(avatarUrl: preview.avatarUrl, imageLoader: imageLoader)
         .frame(width: 72, height: 72)
-        .clipShape(.circle)
 
       VStack(alignment: .leading) {
         Text(preview.name ?? "Unknown name")

@@ -16,8 +16,7 @@ public struct UserProfileRow<Profile: UserProfile>: View {
     Label {
       Username(userProfile: profile)
     } icon: {
-      AvatarImage(userProfile: profile, imageLoader: imageLoader)
-        .clipShape(Circle())
+      UserAvatarImage(userProfile: profile, imageLoader: imageLoader)
     }
   }
 }
@@ -33,9 +32,8 @@ public struct UserProfileRowLarge<Profile: UserProfile>: View {
 
   public var body: some View {
     HStack {
-      AvatarImage(userProfile: profile, imageLoader: imageLoader)
+      UserAvatarImage(userProfile: profile, imageLoader: imageLoader)
         .frame(width: 32, height: 32)
-        .clipShape(.circle)
       VStack(alignment: .leading) {
         Username(userProfile: profile)
         Text(profile.userId)

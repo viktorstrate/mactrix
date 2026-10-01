@@ -13,7 +13,7 @@ final class MessageReadReceiptsView: NSButton {
   }
 
   private let countLabel = NSTextField(labelWithString: "")
-  private var avatars: [ReceiptAvatarView] = []
+  private var avatars: [UserAvatarView] = []
   private var receipts: [(userId: String, date: Date?)] = []
   private var members: [String: MatrixRustSDK.RoomMember] = [:]
   private var imageLoader: MactrixUI.ImageLoader?
@@ -44,14 +44,16 @@ final class MessageReadReceiptsView: NSButton {
 
     let visible = Array(self.receipts.suffix(3))
     while avatars.count < visible.count {
-      let avatar = ReceiptAvatarView(frame: NSRect(x: 0, y: 0, width: 14, height: 14))
+      let avatar = UserAvatarView(frame: NSRect(x: 0, y: 0, width: 14, height: 14))
       addSubview(avatar)
       avatars.append(avatar)
     }
     for (avatar, receipt) in zip(avatars, visible) {
+      let member = self.members[receipt.userId]
       avatar.configure(
-        userId: receipt.userId, avatarUrl: self.members[receipt.userId]?.avatarUrl,
-        imageLoader: imageLoader)
+        userID: receipt.userId, displayName: member?.displayName, avatarUrl: member?.avatarUrl,
+        imageLoader: imageLoader
+      )
       avatar.isHidden = false
     }
     for avatar in avatars.dropFirst(visible.count) {
@@ -130,10 +132,12 @@ final class MessageReadReceiptsView: NSButton {
       row.widthAnchor.constraint(equalToConstant: width - 24).isActive = true
       row.heightAnchor.constraint(equalToConstant: 36).isActive = true
       let content = row.content
-      let avatar = ReceiptAvatarView(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
+      let avatar = UserAvatarView(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
+      let member = members[receipt.userId]
       avatar.configure(
-        userId: receipt.userId, avatarUrl: members[receipt.userId]?.avatarUrl,
-        imageLoader: imageLoader)
+        userID: receipt.userId, displayName: member?.displayName, avatarUrl: member?.avatarUrl,
+        imageLoader: imageLoader
+      )
       avatar.widthAnchor.constraint(equalToConstant: 28).isActive = true
       avatar.heightAnchor.constraint(equalToConstant: 28).isActive = true
       content.addArrangedSubview(avatar)
@@ -229,51 +233,6 @@ private final class ReceiptPopoverRowButton: NSButton {
 
   @objc private func activate() {
     onClick?(userId)
-  }
-
-  @available(*, unavailable)
-  required init?(coder: NSCoder) {
-    fatalError("init(coder:) has not been implemented")
-  }
-}
-
-private final class ReceiptAvatarView: NSImageView {
-  private var loadTask: Task<Void, Never>?
-  private var avatarUrl: String?
-
-  override init(frame frameRect: NSRect) {
-    super.init(frame: frameRect)
-    imageScaling = .scaleProportionallyUpOrDown
-    wantsLayer = true
-    layer?.masksToBounds = true
-  }
-
-  override func layout() {
-    super.layout()
-    layer?.cornerRadius = bounds.width / 2
-  }
-
-  func configure(userId: String, avatarUrl: String?, imageLoader: MactrixUI.ImageLoader?) {
-    cancelLoad()
-    self.avatarUrl = avatarUrl
-    image = nil
-    layer?.backgroundColor = NSColor(userID: userId).cgColor
-    guard let avatarUrl, let imageLoader else { return }
-    if let cached = imageLoader.cachedImage(matrixUrl: avatarUrl) {
-      image = cached
-      return
-    }
-    loadTask = Task { [weak self] in
-      guard let image = try? await imageLoader.loadImage(matrixUrl: avatarUrl, size: nil),
-        !Task.isCancelled, let self, self.avatarUrl == avatarUrl
-      else { return }
-      self.image = image
-    }
-  }
-
-  func cancelLoad() {
-    loadTask?.cancel()
-    loadTask = nil
   }
 
   @available(*, unavailable)
