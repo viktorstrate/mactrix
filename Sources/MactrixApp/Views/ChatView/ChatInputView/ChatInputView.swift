@@ -121,8 +121,15 @@ struct ChatInputView: View {
       if let replyEmbeddedDetails {
         EmbeddedMessageView(embeddedEvent: replyEmbeddedDetails) {
           composer.cancelReply()
-        }
+        }.padding([.horizontal, .top], 10)
       }
+
+      ComposerAttachmentPreviewStrip(attachments: composer.attachments) { attachmentID in
+        composer.removeAttachment(id: attachmentID)
+      }
+      .padding(.horizontal, 10)
+      .padding(.top, replyEmbeddedDetails == nil ? 10 : 0)
+
       ChatTextView(
         text: $composer.text,
         placeholder: "Message \(room.displayName() ?? "room")",

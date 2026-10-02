@@ -2,7 +2,6 @@ import AppKit
 import MatrixIntegration
 import MatrixRustSDK
 import OSLog
-import QuickLookUI
 
 /// One image and its optional text caption. Both views survive table row reuse.
 final class MessageImageContentView: NSView, MessageContentRowView {
@@ -225,27 +224,5 @@ final class MessageImageContentView: NSView, MessageContentRowView {
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
-  }
-}
-
-/// Keeps the temporary media file alive while Quick Look is displaying it.
-@MainActor final class MediaQuickLookPreview: NSObject, @preconcurrency QLPreviewPanelDataSource {
-  static let shared = MediaQuickLookPreview()
-  private var handle: MediaFileHandle?
-  private var url: URL?
-
-  func show(handle: MediaFileHandle, url: URL) {
-    self.handle = handle
-    self.url = url
-    guard let panel = QLPreviewPanel.shared() else { return }
-    panel.dataSource = self
-    panel.reloadData()
-    panel.makeKeyAndOrderFront(nil)
-  }
-
-  func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { url == nil ? 0 : 1 }
-
-  func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
-    url as NSURL?
   }
 }
