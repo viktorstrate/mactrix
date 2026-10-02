@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import MatrixRustSDK
 import Testing
 
 @testable import MactrixApp
@@ -60,7 +61,8 @@ struct ComposerAttachmentImporterTests {
         try await ComposerAttachmentImporter.importFile(at: directory)
       }
       await #expect(throws: ComposerAttachmentImporter.ImportError.self) {
-        try await ComposerAttachmentImporter.importFile(at: URL(string: "https://example.com/file")!)
+        try await ComposerAttachmentImporter.importFile(
+          at: URL(string: "https://example.com/file")!)
       }
 
       let attachments = await ComposerAttachmentImporter.importFiles(at: [first, missing, second])
@@ -73,7 +75,8 @@ struct ComposerAttachmentImporterTests {
       let firstDirectory = directory.appendingPathComponent("one")
       let secondDirectory = directory.appendingPathComponent("two")
       try FileManager.default.createDirectory(at: firstDirectory, withIntermediateDirectories: true)
-      try FileManager.default.createDirectory(at: secondDirectory, withIntermediateDirectories: true)
+      try FileManager.default.createDirectory(
+        at: secondDirectory, withIntermediateDirectories: true)
       let first = firstDirectory.appendingPathComponent("same-name.txt")
       let second = secondDirectory.appendingPathComponent("same-name.txt")
       try Data("one".utf8).write(to: first)
@@ -100,6 +103,150 @@ struct ComposerAttachmentImporterTests {
 
       #expect(targetImport.deduplicationIdentity == linkImport.deduplicationIdentity)
     }
+  }
+
+  @Test func draftAttachmentsUsePathSourcesAndAvailableMetadata() async throws {
+    try await withTemporaryDirectory { directory in
+      let fileURL = directory.appendingPathComponent("note.txt")
+      let imageURL = directory.appendingPathComponent("image.png")
+      let audioURL = directory.appendingPathComponent("audio.mp3")
+      let videoURL = directory.appendingPathComponent("video.mov")
+      try Data("hello".utf8).write(to: fileURL)
+      try pngData(width: 20, height: 10).write(to: imageURL)
+      try Data().write(to: audioURL)
+      try Data().write(to: videoURL)
+
+      let file = try await ComposerAttachmentImporter.importFile(at: fileURL).draftAttachment
+      let image = try await ComposerAttachmentImporter.importFile(at: imageURL).draftAttachment
+      let audio = try await ComposerAttachmentImporter.importFile(at: audioURL).draftAttachment
+      let video = try await ComposerAttachmentImporter.importFile(at: videoURL).draftAttachment
+
+      guard case .file(let info, .file(let path)) = file else {
+        Issue.record("Expected file draft")
+        return
+      }
+      #expect(path == fileURL.path)
+      let restored = try await ComposerAttachment.restoreDraftAttachment(file)
+      #expect(restored.sourceURL == fileURL.standardizedFileURL)
+      #expect(info.size == 5)
+      guard case .image(let info, .file(let path), _) = image else {
+        Issue.record("Expected image draft")
+        return
+      }
+      #expect(path == imageURL.path)
+      #expect(info.width == 20)
+      #expect(info.height == 10)
+      guard case .audio(_, .file(let audioPath)) = audio else {
+        Issue.record("Expected audio draft")
+        return
+      }
+      #expect(audioPath == audioURL.path)
+      guard case .video(_, .file(let videoPath), _) = video else {
+        Issue.record("Expected video draft")
+        return
+      }
+      #expect(videoPath == videoURL.path)
+    }
+  }
+
+  @Test func draftRestorationRejectsMissingDirectoriesAndRestoresNativeData() async throws {
+    try await withTemporaryDirectory { directory in
+      let fileURL = directory.appendingPathComponent("valid.txt")
+      try Data("valid".utf8).write(to: fileURL)
+
+      let restored = try await ComposerAttachment.restoreDraftAttachment(
+        .file(
+          fileInfo: FileInfo(mimetype: nil, size: nil, thumbnailInfo: nil, thumbnailSource: nil),
+          source: .file(filename: fileURL.path)))
+      #expect(restored.sourceURL == fileURL.standardizedFileURL)
+      #expect(restored.storageOwnership == .externalUserFile)
+
+      await #expect(throws: ComposerAttachmentImporter.ImportError.self) {
+        try await ComposerAttachment.restoreDraftAttachment(
+          .file(
+            fileInfo: FileInfo(mimetype: nil, size: nil, thumbnailInfo: nil, thumbnailSource: nil),
+            source: .file(filename: directory.path)))
+      }
+      await #expect(throws: ComposerAttachmentImporter.ImportError.self) {
+        try await ComposerAttachment.restoreDraftAttachment(
+          .file(
+            fileInfo: FileInfo(mimetype: nil, size: nil, thumbnailInfo: nil, thumbnailSource: nil),
+            source: .file(filename: directory.appendingPathComponent("missing.txt").path)))
+      }
+
+      let restoredData = try await ComposerAttachment.restoreDraftAttachment(
+        .file(
+          fileInfo: FileInfo(mimetype: nil, size: nil, thumbnailInfo: nil, thumbnailSource: nil),
+          source: .data(bytes: Data("data".utf8), filename: "data.txt")))
+      defer { try? ComposerAttachmentImporter.cleanupTemporaryAttachment(restoredData) }
+      #expect(restoredData.storageOwnership == .appOwnedTemporaryFile)
+      #expect(try Data(contentsOf: restoredData.sourceURL) == Data("data".utf8))
+    }
+  }
+
+  @Test func nativeDraftDataSurvivesSourceDeletionAndPreservesFilename() async throws {
+    try await withTemporaryDirectory { directory in
+      let url = directory.appendingPathComponent("note.txt")
+      let bytes = Data("hello".utf8)
+      try bytes.write(to: url)
+      // This is the source representation returned by the SDK after saving a .file source.
+      let draft = DraftAttachment.file(
+        fileInfo: FileInfo(
+          mimetype: "text/plain", size: 5, thumbnailInfo: nil, thumbnailSource: nil),
+        source: .data(bytes: bytes, filename: url.lastPathComponent))
+      try FileManager.default.removeItem(at: url)
+      let restored = try await ComposerAttachment.restoreDraftAttachment(draft)
+      defer { try? ComposerAttachmentImporter.cleanupTemporaryAttachment(restored) }
+      #expect(restored.filename == "note.txt")
+      #expect(restored.sourceURL.lastPathComponent == "note.txt")
+      #expect(try Data(contentsOf: restored.sourceURL) == bytes)
+      #expect(restored.storageOwnership == .appOwnedTemporaryFile)
+      let materializedDirectory = restored.sourceURL.deletingLastPathComponent()
+      try ComposerAttachmentImporter.cleanupTemporaryAttachment(restored)
+      #expect(!FileManager.default.fileExists(atPath: materializedDirectory.path))
+    }
+  }
+
+  @Test @MainActor func duplicateNativeDraftDataRestoresOnce() async throws {
+    let draft = DraftAttachment.file(
+      fileInfo: FileInfo(mimetype: nil, size: nil, thumbnailInfo: nil, thumbnailSource: nil),
+      source: .data(bytes: Data("hello".utf8), filename: "note.txt"))
+    let first = try await ComposerAttachment.restoreDraftAttachment(draft)
+    let second = try await ComposerAttachment.restoreDraftAttachment(draft)
+    defer {
+      try? ComposerAttachmentImporter.cleanupTemporaryAttachment(first)
+      try? ComposerAttachmentImporter.cleanupTemporaryAttachment(second)
+    }
+    let composer = ChatComposerState()
+    composer.addAttachments([first, second])
+    #expect(composer.attachments.count == 1)
+  }
+
+  @Test func nativeDraftDataRejectsInvalidFilenames() async {
+    for filename in ["", ".", "..", "bad\0name"] {
+      await #expect(throws: ComposerAttachmentImporter.ImportError.self) {
+        try await ComposerAttachmentImporter.importDraftData(Data(), filename: filename)
+      }
+    }
+  }
+
+  @Test func clipboardDraftRestorationPreservesTemporaryOwnership() async throws {
+    let original = try await ComposerAttachmentImporter.importClipboardImage(
+      pngData: pngData(width: 4, height: 3), tiffData: nil)
+    defer { try? ComposerAttachmentImporter.cleanupTemporaryAttachment(original) }
+    let restored = try await ComposerAttachment.restoreDraftAttachment(
+      .image(
+        imageInfo: ImageInfo(
+          height: 3, width: 4, mimetype: "image/png", size: nil,
+          thumbnailInfo: nil, thumbnailSource: nil, blurhash: nil, isAnimated: nil),
+        source: .data(bytes: try Data(contentsOf: original.sourceURL), filename: original.filename),
+        thumbnailSource: nil))
+    defer { try? ComposerAttachmentImporter.cleanupTemporaryAttachment(restored) }
+    #expect(restored.sourceURL != original.sourceURL)
+    #expect(restored.pixelWidth == 4)
+    #expect(restored.preview != nil)
+    #expect(restored.deduplicationIdentity == original.deduplicationIdentity)
+    #expect(restored.storageOwnership == .appOwnedTemporaryFile)
   }
 
   @Test func clipboardImagesAreTemporaryAndCleanupNeverDeletesExternalFiles() async throws {
@@ -136,7 +283,8 @@ struct ComposerAttachmentImporterTests {
   }
 
   private func makeTemporaryDirectory() throws -> URL {
-    let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString, isDirectory: true)
+    let url = FileManager.default.temporaryDirectory.appendingPathComponent(
+      UUID().uuidString, isDirectory: true)
     try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
     return url
   }
@@ -145,7 +293,8 @@ struct ComposerAttachmentImporterTests {
     let rep = NSBitmapImageRep(
       bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
-      isPlanar: false, colorSpaceName: .deviceRGB, bitmapFormat: [], bytesPerRow: 0, bitsPerPixel: 0)
+      isPlanar: false, colorSpaceName: .deviceRGB, bitmapFormat: [], bytesPerRow: 0, bitsPerPixel: 0
+    )
     guard let rep, let data = rep.representation(using: .png, properties: [:]) else {
       throw CocoaError(.fileWriteUnknown)
     }
@@ -156,7 +305,8 @@ struct ComposerAttachmentImporterTests {
     let rep = NSBitmapImageRep(
       bitmapDataPlanes: nil, pixelsWide: width, pixelsHigh: height,
       bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true,
-      isPlanar: false, colorSpaceName: .deviceRGB, bitmapFormat: [], bytesPerRow: 0, bitsPerPixel: 0)
+      isPlanar: false, colorSpaceName: .deviceRGB, bitmapFormat: [], bytesPerRow: 0, bitsPerPixel: 0
+    )
     guard let rep, let data = rep.tiffRepresentation else { throw CocoaError(.fileWriteUnknown) }
     return data
   }

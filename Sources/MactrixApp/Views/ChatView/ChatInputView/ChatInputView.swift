@@ -71,7 +71,7 @@ struct ChatInputView: View {
 
   private func saveDraft() async {
     guard composer.isDraftLoaded else { return }  // avoid overwriting a draft before restoration
-    if composer.text.isEmpty, composer.replyTarget == nil {
+    if composer.text.isEmpty, composer.replyTarget == nil, composer.attachments.isEmpty {
       Logger.viewCycle.debug("clearing draft")
       do {
         try await room.clearComposerDraft(threadRoot: timeline.focusedThreadId)
@@ -91,7 +91,7 @@ struct ChatInputView: View {
       plainText: composer.text,
       htmlText: nil,
       draftType: draftType,
-      attachments: []
+      attachments: composer.attachments.map(\.draftAttachment)
     )
     do {
       try await room.saveComposerDraft(draft: draft, threadRoot: timeline.focusedThreadId)
@@ -101,20 +101,21 @@ struct ChatInputView: View {
   }
 
   private func loadDraft() async {
-    guard !composer.isDraftLoaded else { return }  // don't load a draft more than once
+    guard composer.beginDraftRestoration() else { return }
     do {
       guard let draft = try await room.loadComposerDraft(threadRoot: timeline.focusedThreadId)
       else {
-        // no draft to load
         composer.completeDraftRestoration()
         return
       }
       composer.text = draft.plainText
       switch draft.draftType {
       case .reply(let eventId):
-        // we need a timeline to be able to populate the reply; return false so we can try again
-        guard let innerTimeline = timeline.timeline else { return }
-
+        // We need a timeline to resolve a reply target, so retry when it becomes available.
+        guard let innerTimeline = timeline.timeline else {
+          composer.deferDraftRestoration()
+          return
+        }
         do {
           let item = try await innerTimeline.getEventTimelineItemByEventId(eventId: eventId)
           composer.restoreReply(to: item)
@@ -122,17 +123,39 @@ struct ChatInputView: View {
           Logger.viewCycle.error("failed to resolve reply target: \(error)")
         }
       case .newMessage, .edit:
-        // nothing to do
         break
+      }
+
+      var discardedAttachment = false
+      for draftAttachment in draft.attachments {
+        let attachmentCount = composer.attachments.count
+        do {
+          let attachment = try await ComposerAttachment.restoreDraftAttachment(draftAttachment)
+          composer.addAttachments([attachment])
+          if composer.attachments.count == attachmentCount {
+            discardedAttachment = true  // duplicate entries are saved only once
+            if attachment.storageOwnership == .appOwnedTemporaryFile {
+              try? ComposerAttachmentImporter.cleanupTemporaryAttachment(attachment)
+            }
+          }
+        } catch {
+          discardedAttachment = true
+          Logger.composerAttachment.warning("Discarding unavailable draft attachment: \(error)")
+        }
+      }
+      composer.completeDraftRestoration()
+      if discardedAttachment {
+        await saveDraft()
       }
     } catch {
       Logger.viewCycle.error("failed to load draft: \(error)")
+      composer.completeDraftRestoration()
     }
-    composer.completeDraftRestoration()
   }
 
   private func chatInputChanged() async {
     guard composer.isDraftLoaded else { return }  // avoid working on a draft being restored
+    await saveDraft()
     if !composer.text.isEmpty {
       do {
         try await room.typingNotice(isTyping: !composer.text.isEmpty)
@@ -140,7 +163,6 @@ struct ChatInputView: View {
         Logger.viewCycle.warning("Failed to send typing notice: \(error)")
       }
     }
-    await saveDraft()
   }
 
   var replyEmbeddedDetails: EmbeddedEventDetails? {
@@ -177,11 +199,8 @@ struct ChatInputView: View {
       )
     }
     .font(.system(size: .init(fontSize)))
-    .task(id: composer.text) {
+    .task(id: composer.draftRevision) {
       await chatInputChanged()
-    }
-    .task(id: composer.replyTarget?.eventOrTransactionId) {
-      await saveDraft()
     }
     .task(id: timeline.timeline != nil) {
       // we need the timeline to be populated before we load a draft

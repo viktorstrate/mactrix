@@ -11,6 +11,7 @@ struct ComposerAttachmentImporter {
     case notFileURL(URL)
     case notReadableRegularFile(URL)
     case invalidClipboardImage
+    case invalidDraftSource(String)
     case cleanupRefused(URL)
 
     var errorDescription: String? {
@@ -19,6 +20,7 @@ struct ComposerAttachmentImporter {
       case .notReadableRegularFile(let url):
         "Attachment is not a readable regular file: \(url.path)"
       case .invalidClipboardImage: "Clipboard data does not contain a valid image"
+      case .invalidDraftSource(let source): "Draft attachment has an invalid source: \(source)"
       case .cleanupRefused(let url): "Refusing to remove externally-owned attachment: \(url.path)"
       }
     }
@@ -58,17 +60,17 @@ struct ComposerAttachmentImporter {
   {
     let materialized = try await Task.detached(priority: .userInitiated) {
       let png: Data
-      let digestSource: Data
+
       if let pngData, let validPNG = try validPNGData(pngData) {
         png = validPNG
-        digestSource = pngData
+
       } else if let tiffData, let convertedPNG = convertTIFFToPNG(tiffData) {
         png = convertedPNG
-        digestSource = tiffData
+
       } else {
         throw ImportError.invalidClipboardImage
       }
-      let digest = SHA256.hash(data: digestSource).map { String(format: "%02x", $0) }.joined()
+      let digest = SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined()
 
       let directory = temporaryDirectoryURL()
       try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
@@ -96,6 +98,48 @@ struct ComposerAttachmentImporter {
     )
   }
 
+  static func importDraftData(_ data: Data, filename: String) async throws -> ComposerAttachment {
+    let url = try await Task.detached(priority: .userInitiated) {
+      let basename = (filename as NSString).lastPathComponent
+      guard !basename.isEmpty, basename != ".", basename != "..", !basename.contains("\0") else {
+        throw ImportError.invalidDraftSource(filename)
+      }
+      let directory = temporaryDirectoryURL().appendingPathComponent(
+        UUID().uuidString, isDirectory: true)
+      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+      let url = directory.appendingPathComponent(basename)
+      do {
+        try data.write(to: url, options: .atomic)
+        return url
+      } catch {
+        try? FileManager.default.removeItem(at: directory)
+        throw error
+      }
+    }.value
+    do {
+      let imported = try await importFile(at: url, storageOwnership: .appOwnedTemporaryFile)
+
+      // Materialized copies have different filesystem identities. Deduplicate matching
+      // draft bytes and names, while preserving distinct filenames with equal content.
+      var identityData = Data()
+      if !imported.filename.hasPrefix("Clipboard Image ") {
+        identityData.append(contentsOf: imported.filename.utf8)
+        identityData.append(0)
+      }
+      identityData.append(data)
+      let digest = SHA256.hash(data: identityData).map { String(format: "%02x", $0) }.joined()
+      return ComposerAttachment(
+        id: imported.id, sourceURL: imported.sourceURL, filename: imported.filename,
+        contentType: imported.contentType, byteCount: imported.byteCount,
+        kind: imported.kind, storageOwnership: imported.storageOwnership,
+        deduplicationIdentity: .contentDigest(digest), pixelWidth: imported.pixelWidth,
+        pixelHeight: imported.pixelHeight, duration: imported.duration, preview: imported.preview)
+    } catch {
+      try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+      throw error
+    }
+  }
+
   static func cleanupTemporaryAttachment(_ attachment: ComposerAttachment) throws {
     let temporaryDirectory = temporaryDirectoryURL().standardizedFileURL.path + "/"
     let attachmentPath = attachment.sourceURL.standardizedFileURL.path
@@ -105,6 +149,14 @@ struct ComposerAttachmentImporter {
       throw ImportError.cleanupRefused(attachment.sourceURL)
     }
     try FileManager.default.removeItem(at: attachment.sourceURL)
+    let parent = attachment.sourceURL.deletingLastPathComponent()
+    if parent.deletingLastPathComponent().standardizedFileURL
+      == temporaryDirectoryURL().standardizedFileURL,
+      UUID(uuidString: parent.lastPathComponent) != nil,
+      (try? FileManager.default.contentsOfDirectory(atPath: parent.path).isEmpty) == true
+    {
+      try? FileManager.default.removeItem(at: parent)
+    }
   }
 
   private static func temporaryDirectoryURL() -> URL {
@@ -119,10 +171,20 @@ struct ComposerAttachmentImporter {
     guard inputURL.isFileURL else { throw ImportError.notFileURL(inputURL) }
 
     let url = inputURL.standardizedFileURL.resolvingSymlinksInPath()
-    let values = try url.resourceValues(forKeys: [
-      .isRegularFileKey, .fileSizeKey, .fileResourceIdentifierKey,
-    ])
-    guard values.isRegularFile == true, FileManager.default.isReadableFile(atPath: url.path) else {
+    guard FileManager.default.fileExists(atPath: url.path),
+      FileManager.default.isReadableFile(atPath: url.path)
+    else {
+      throw ImportError.notReadableRegularFile(inputURL)
+    }
+    let values: URLResourceValues
+    do {
+      values = try url.resourceValues(forKeys: [
+        .isRegularFileKey, .fileSizeKey, .fileResourceIdentifierKey,
+      ])
+    } catch {
+      throw ImportError.notReadableRegularFile(inputURL)
+    }
+    guard values.isRegularFile == true else {
       throw ImportError.notReadableRegularFile(inputURL)
     }
 
