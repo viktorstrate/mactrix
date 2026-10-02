@@ -1,3 +1,4 @@
+import AppKit
 import MatrixIntegration
 import MatrixRustSDK
 import OSLog
@@ -10,6 +11,42 @@ struct ChatInputView: View {
   let timeline: LiveTimeline
   @Bindable var composer: ChatComposerState
   @AppStorage("fontSize") var fontSize: Int = 13
+  @State private var isAttachmentDropTargeted = false
+
+  private func ingestFileURLs(_ urls: [URL]) async {
+    let attachments = await ComposerAttachmentImporter.importFiles(at: urls)
+    guard !attachments.isEmpty else { return }
+    composer.addAttachments(attachments)
+    composer.requestTextFocus()
+  }
+
+  private func handlePaste(from pasteboard: NSPasteboard) -> Bool {
+    let fileURLs =
+      pasteboard.readObjects(
+        forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
+      ) as? [URL] ?? []
+    if !fileURLs.isEmpty {
+      Task { await ingestFileURLs(fileURLs) }
+      return true
+    }
+
+    guard let imageType = pasteboard.availableType(from: [.png, .tiff]),
+      let imageData = pasteboard.data(forType: imageType)
+    else { return false }
+
+    Task {
+      do {
+        let attachment = try await ComposerAttachmentImporter.importClipboardImage(
+          pngData: imageType == .png ? imageData : nil,
+          tiffData: imageType == .tiff ? imageData : nil)
+        composer.addAttachments([attachment])
+        composer.requestTextFocus()
+      } catch {
+        Logger.composerAttachment.error("Unable to import clipboard image: \(error)")
+      }
+    }
+    return true
+  }
 
   func sendMessage() async {
     guard !composer.text.isEmpty else { return }
@@ -121,13 +158,13 @@ struct ChatInputView: View {
       if let replyEmbeddedDetails {
         EmbeddedMessageView(embeddedEvent: replyEmbeddedDetails) {
           composer.cancelReply()
-        }.padding([.horizontal, .top], 10)
+        }
+        .padding([.horizontal, .top], 10)
       }
 
       ComposerAttachmentPreviewStrip(attachments: composer.attachments) { attachmentID in
         composer.removeAttachment(id: attachmentID)
       }
-      .padding(.horizontal, 10)
       .padding(.top, replyEmbeddedDetails == nil ? 10 : 0)
 
       ChatTextView(
@@ -135,7 +172,8 @@ struct ChatInputView: View {
         placeholder: "Message \(room.displayName() ?? "room")",
         disabled: !composer.isDraftLoaded,
         focusRequest: composer.focusRequest,
-        onSubmit: { Task { await sendMessage() } }
+        onSubmit: { Task { await sendMessage() } },
+        onAttachmentPaste: handlePaste
       )
     }
     .font(.system(size: .init(fontSize)))
@@ -156,6 +194,7 @@ struct ChatInputView: View {
   var tahoeView: some View {
     content
       .glassEffect(in: .rect(cornerRadius: 16.0))
+      .background(dropHighlight)
       .padding(.horizontal)
       .padding(.bottom, 10)
   }
@@ -166,17 +205,44 @@ struct ChatInputView: View {
       .cornerRadius(4)
       .overlay(
         RoundedRectangle(cornerRadius: 16.0)
-          .stroke(Color(NSColor.separatorColor), lineWidth: 1)
+          .stroke(
+            isAttachmentDropTargeted ? Color.accentColor : Color(NSColor.separatorColor),
+            lineWidth: isAttachmentDropTargeted ? 2 : 1)
       )
+      .background(dropHighlight)
       .padding(.horizontal)
       .padding(.bottom, 10)
   }
 
+  private var dropHighlight: some View {
+    RoundedRectangle(cornerRadius: 16.0)
+      .fill(Color.accentColor.opacity(isAttachmentDropTargeted ? 0.10 : 0))
+      .overlay(
+        RoundedRectangle(cornerRadius: 16.0)
+          .stroke(Color.accentColor.opacity(isAttachmentDropTargeted ? 0.7 : 0), lineWidth: 2)
+      )
+      .allowsHitTesting(false)
+  }
+
+  private func dropTarget<Content: View>(for view: Content) -> some View {
+    view
+      .contentShape(Rectangle())
+      .dropDestination(for: URL.self) { urls, _ in
+        let fileURLs = urls.filter(\.isFileURL)
+        guard !fileURLs.isEmpty else { return false }
+
+        Task { await ingestFileURLs(fileURLs) }
+        return true
+      } isTargeted: { isTargeted in
+        isAttachmentDropTargeted = isTargeted
+      }
+  }
+
   var body: some View {
     if #available(macOS 26.0, *), !reduceTransparency {
-      tahoeView
+      dropTarget(for: tahoeView)
     } else {
-      oldView
+      dropTarget(for: oldView)
     }
   }
 }

@@ -7,19 +7,14 @@ import UniformTypeIdentifiers
 @MainActor
 struct ComposerAttachmentPreviewTileTests {
   @Test func imageAndVideoUseAvailableThumbnails() {
-    #expect(
-      ComposerAttachmentPreviewTile.usesThumbnail(for: attachment(kind: .image, preview: true)))
-    #expect(
-      ComposerAttachmentPreviewTile.usesThumbnail(for: attachment(kind: .video, preview: true)))
+    #expect(attachment(kind: .image, preview: true).usesThumbnail)
+    #expect(attachment(kind: .video, preview: true).usesThumbnail)
   }
 
   @Test func audioAndFilesUseTypeIconsEvenWhenAnImageIsPresent() {
-    #expect(
-      !ComposerAttachmentPreviewTile.usesThumbnail(for: attachment(kind: .audio, preview: true)))
-    #expect(
-      !ComposerAttachmentPreviewTile.usesThumbnail(for: attachment(kind: .file, preview: true)))
-    #expect(
-      !ComposerAttachmentPreviewTile.usesThumbnail(for: attachment(kind: .image, preview: false)))
+    #expect(!attachment(kind: .audio, preview: true).usesThumbnail)
+    #expect(!attachment(kind: .file, preview: true).usesThumbnail)
+    #expect(!attachment(kind: .image, preview: false).usesThumbnail)
   }
 
   private func attachment(kind: ComposerAttachment.Kind, preview: Bool) -> ComposerAttachment {

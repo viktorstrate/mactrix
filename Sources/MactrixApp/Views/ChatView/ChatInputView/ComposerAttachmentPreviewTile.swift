@@ -2,6 +2,12 @@ import AppKit
 import SwiftUI
 import UniformTypeIdentifiers
 
+extension ComposerAttachment {
+  var usesThumbnail: Bool {
+    self.preview != nil && (self.kind == .image || self.kind == .video)
+  }
+}
+
 struct ComposerAttachmentPreviewTile: View {
   static let sideLength: CGFloat = 72
 
@@ -13,12 +19,8 @@ struct ComposerAttachmentPreviewTile: View {
   let attachment: ComposerAttachment
   let onRemove: () -> Void
 
-  static func usesThumbnail(for attachment: ComposerAttachment) -> Bool {
-    attachment.preview != nil && (attachment.kind == .image || attachment.kind == .video)
-  }
-
-  static func visual(for attachment: ComposerAttachment) -> Visual {
-    if usesThumbnail(for: attachment), let preview = attachment.preview {
+  func visual() -> Visual {
+    if attachment.usesThumbnail, let preview = attachment.preview {
       return .thumbnail(preview)
     }
     return .fileIcon(NSWorkspace.shared.icon(for: attachment.contentType))
@@ -48,7 +50,7 @@ struct ComposerAttachmentPreviewTile: View {
           MediaQuickLookPreview.shared.show(url: attachment.sourceURL)
         } label: {
           ZStack {
-            switch Self.visual(for: attachment) {
+            switch visual() {
             case .thumbnail(let image):
               Image(nsImage: image)
                 .resizable()
@@ -69,7 +71,7 @@ struct ComposerAttachmentPreviewTile: View {
             }
           }
           .frame(width: Self.sideLength, height: Self.sideLength)
-          .background(Color(nsColor: .controlBackgroundColor))
+          // .background(Color(nsColor: .controlBackgroundColor))
           .clipShape(RoundedRectangle(cornerRadius: 8))
         }
         .buttonStyle(.plain)
@@ -95,7 +97,7 @@ struct ComposerAttachmentPreviewTile: View {
         .lineLimit(1)
         .truncationMode(.middle)
         .padding(.horizontal, 5)
-        .padding(.vertical, 4)
+        .padding(.top, 4)
         .frame(width: Self.sideLength)
     }
   }
@@ -115,10 +117,9 @@ struct ComposerAttachmentPreviewStrip: View {
             }
           }
         }
-        .padding(.horizontal, 2)
+        .padding(.horizontal, 10)
       }
       .scrollIndicators(.hidden)
-      .frame(height: ComposerAttachmentPreviewTile.sideLength)
       .accessibilityElement(children: .contain)
       .accessibilityLabel("Attachments")
     }
