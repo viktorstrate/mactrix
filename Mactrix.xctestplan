@@ -20,6 +20,13 @@
         "identifier" : "UtilsTests",
         "name" : "UtilsTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "MactrixAppTests",
+        "name" : "MactrixAppTests"
+      }
     }
   ],
   "version" : 1
