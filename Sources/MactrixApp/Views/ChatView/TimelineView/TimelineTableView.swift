@@ -735,6 +735,7 @@ extension TimelineViewController: NSTableViewDelegate {
         for: content,
         width: tableView.tableColumns[0].width,
         replyDetails: replyDetails(for: content),
+        reactions: event.reactions,
         receiptCount: event.readReceipts.count
       )
     }

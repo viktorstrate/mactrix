@@ -139,7 +139,7 @@ final class MessageRowView: NSView {
     contentView.configure(content: content, matrixClient: matrixClient)
     configureReply(details: replyDetails, onClick: onReplyClick)
     configureThread(summary: content.threadSummary, onClick: onThreadClick)
-    configureReactions(content.reactions, ownUserId: ownUserId, onClick: onReactionClick)
+    configureReactions(event.reactions, ownUserId: ownUserId, onClick: onReactionClick)
     configureReceipts(
       event.userReadReceipts, roomMembers: roomMembers, imageLoader: matrixClient,
       onFocusUser: onFocusUser)
@@ -404,7 +404,8 @@ final class MessageRowView: NSView {
 
   func height(
     for content: MatrixRustSDK.MsgLikeContent, width: CGFloat,
-    replyDetails: MatrixRustSDK.EmbeddedEventDetails?, receiptCount: Int
+    replyDetails: MatrixRustSDK.EmbeddedEventDetails?, reactions: [MatrixRustSDK.Reaction],
+    receiptCount: Int
   ) -> CGFloat {
     let contentWidth = max(width - Self.contentHorizontalInset, 1)
     let replyHeight =
@@ -420,12 +421,12 @@ final class MessageRowView: NSView {
       - (receiptCount > 0
         ? MessageReadReceiptsView.width(for: receiptCount) + Self.receiptSpacing : 0)
     let reactionsHeight =
-      content.reactions.isEmpty
+      reactions.isEmpty
       ? 0
-      : MessageReactionsView.height(for: content.reactions, width: max(availableReactionWidth, 1))
+      : MessageReactionsView.height(for: reactions, width: max(availableReactionWidth, 1))
         + Self.reactionSpacing
     let receiptsHeight =
-      receiptCount == 0 || !content.reactions.isEmpty
+      receiptCount == 0 || !reactions.isEmpty
       ? 0 : MessageReadReceiptsView.rowHeight + Self.receiptSpacing
     return max(
       ceil(contentView.height(for: content, width: contentWidth)) + replyHeight + threadHeight

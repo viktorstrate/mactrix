@@ -13,7 +13,7 @@ let package = Package(
   dependencies: [
     .package(url: "https://github.com/ZhgChgLi/ZMarkupParser.git", from: "1.12.0"),
     .package(
-      url: "https://github.com/matrix-org/matrix-rust-components-swift", from: "26.09.07"
+      url: "https://github.com/matrix-org/matrix-rust-components-swift", from: "26.10.02"
     ),
     .package(url: "https://github.com/apple/swift-async-algorithms.git", from: "1.1.2"),
   ],
