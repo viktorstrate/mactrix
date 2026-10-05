@@ -1,8 +1,5 @@
-
 import Foundation
-
 import MatrixRustSDK
-
 
 struct PreparedMediaUpload {
   enum Media {
@@ -15,6 +12,41 @@ struct PreparedMediaUpload {
   let attachment: ComposerAttachment
   let parameters: UploadParameters
   let media: Media
+
+  var asGalleryItemInfo: GalleryItemInfo {
+    switch self.media {
+    case .audio(let audio):
+      GalleryItemInfo.audio(
+        audioInfo: audio,
+        source: parameters.source,
+        caption: parameters.caption,
+        formattedCaption: nil,
+      )
+    case .file(let file):
+      GalleryItemInfo.file(
+        fileInfo: file,
+        source: parameters.source,
+        caption: parameters.caption,
+        formattedCaption: nil,
+      )
+    case .image(let image, let thumbnailSource):
+      GalleryItemInfo.image(
+        imageInfo: image,
+        source: parameters.source,
+        caption: parameters.caption,
+        formattedCaption: nil,
+        thumbnailSource: thumbnailSource,
+      )
+    case .video(let video, let thumbnailSource):
+      GalleryItemInfo.video(
+        videoInfo: video,
+        source: parameters.source,
+        caption: parameters.caption,
+        formattedCaption: nil,
+        thumbnailSource: thumbnailSource,
+      )
+    }
+  }
 }
 
 enum ComposerMediaPreparation {
@@ -68,5 +100,4 @@ enum ComposerMediaPreparation {
             mimetype: refreshed.mimeType, size: size, thumbnailInfo: nil, thumbnailSource: nil)))
     }
   }
-
 }

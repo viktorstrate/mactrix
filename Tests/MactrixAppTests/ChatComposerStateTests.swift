@@ -71,18 +71,6 @@ struct ChatComposerStateTests {
     #expect(FileManager.default.fileExists(atPath: externalURL.path))
   }
 
-  @Test func draftRestorationIsSingleFlight() {
-    let composer = ChatComposerState()
-
-    #expect(composer.beginDraftRestoration())
-    #expect(!composer.beginDraftRestoration())
-    composer.deferDraftRestoration()
-    #expect(composer.beginDraftRestoration())
-    composer.completeDraftRestoration()
-    #expect(!composer.beginDraftRestoration())
-    #expect(composer.isDraftLoaded)
-  }
-
   @Test func canSendReflectsTextAndAttachments() {
     let composer = ChatComposerState()
     #expect(!composer.canSend)

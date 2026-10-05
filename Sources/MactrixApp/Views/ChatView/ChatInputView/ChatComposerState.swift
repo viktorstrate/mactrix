@@ -124,14 +124,46 @@ final class ChatComposerState {
       }
 
     default:
-      Logger.composerAttachment.notice(
-        "Multiple attachments are pending; gallery upload support arrives in Phase 7")
+      do {
+        let preparedAttachments = try await withThrowingTaskGroup { group in
+          for (i, attachment) in snapshot.attachments.enumerated() {
+            group.addTask {
+              let prepared = try await ComposerMediaPreparation.prepare(
+                attachment: attachment, caption: "", replyID: nil
+              )
+              return (i, prepared)
+            }
+          }
+
+          var result = Array<GalleryItemInfo?>.init(
+            repeating: nil, count: snapshot.attachments.count)
+          for try await (i, prepared) in group {
+            result[i] = prepared.asGalleryItemInfo
+          }
+          return result.compactMap { $0 }
+        }
+
+        let joinHandle = try timeline.sendGallery(
+          params: GalleryUploadParameters(
+            caption: snapshot.text,
+            formattedCaption: nil,
+            mentions: nil,
+            inReplyTo: snapshot.replyEventIdentifier,
+          ),
+          itemInfos: preparedAttachments,
+        )
+
+        try await joinHandle.join()
+        finishSending(snapshot: snapshot, cleanupAttachments: true)
+      } catch {
+        Logger.composerAttachment.error("failed to enqueue attachments: \(error)")
+      }
     }
   }
 
   /// Clears only content included in `snapshot`, preserving edits made while submission was prepared.
   /// Set `cleanupAttachments` to false when the sending layer needs to retain temporary sources.
-  private func finishSending(
+  func finishSending(
     snapshot: ComposerSubmissionSnapshot, cleanupAttachments: Bool = true
   ) {
     if text == snapshot.text {
