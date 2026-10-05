@@ -1,5 +1,6 @@
 import AppKit
 import OSLog
+import QuickLookUI
 import SwiftUI
 
 struct ChatTextView: NSViewRepresentable {

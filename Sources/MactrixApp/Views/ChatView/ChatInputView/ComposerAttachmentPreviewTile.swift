@@ -1,4 +1,5 @@
 import AppKit
+import QuickLook
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -18,6 +19,7 @@ struct ComposerAttachmentPreviewTile: View {
 
   let attachment: ComposerAttachment
   let onRemove: () -> Void
+  @State private var previewURL: URL?
 
   func visual() -> Visual {
     if attachment.usesThumbnail, let preview = attachment.preview {
@@ -47,7 +49,7 @@ struct ComposerAttachmentPreviewTile: View {
     VStack(spacing: 0) {
       ZStack(alignment: .topTrailing) {
         Button {
-          MediaQuickLookPreview.shared.show(url: attachment.sourceURL)
+          previewURL = attachment.sourceURL
         } label: {
           ZStack {
             switch visual() {
@@ -100,6 +102,7 @@ struct ComposerAttachmentPreviewTile: View {
         .padding(.top, 4)
         .frame(width: Self.sideLength)
     }
+    .quickLookPreview($previewURL)
   }
 }
 

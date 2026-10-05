@@ -4,7 +4,9 @@ import MatrixRustSDK
 import OSLog
 
 /// One image and its optional text caption. Both views survive table row reuse.
-final class MessageImageContentView: NSView, MessageContentRowView {
+final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
+  var onMediaPreviewRequest: (() -> Bool)?
+  var onMediaPreview: ((URL, MediaFileHandle) -> Void)?
   var onSelectRequest: (() -> Void)? {
     didSet { captionView.onSelectRequest = onSelectRequest }
   }
@@ -191,10 +193,12 @@ final class MessageImageContentView: NSView, MessageContentRowView {
   }
 
   @objc private func previewImage() {
-    guard let imageContent, let matrixClient else { return }
+    guard let imageContent, let window else { return }
+    if onMediaPreviewRequest?() == true { return }
+    guard let matrixClient else { return }
     let url = imageContent.source.url()
     previewTask?.cancel()
-    previewTask = Task { [weak self] in
+    previewTask = Task { [weak self, weak window] in
       do {
         let handle = try await matrixClient.client.getMediaFile(
           mediaSource: imageContent.source,
@@ -205,9 +209,12 @@ final class MessageImageContentView: NSView, MessageContentRowView {
         )
         try Task.checkCancellation()
         let path = try handle.path()
-        guard let self, self.sourceURL == url else { return }
-        MediaQuickLookPreview.shared.show(
-          handle: handle, url: URL(filePath: path, directoryHint: .notDirectory))
+        guard let self, let window, self.window === window, self.sourceURL == url else {
+          return
+        }
+        self.onMediaPreview?(
+          URL(filePath: path, directoryHint: .notDirectory), handle)
+        self.previewTask = nil
       } catch is CancellationError {
         return
       } catch {

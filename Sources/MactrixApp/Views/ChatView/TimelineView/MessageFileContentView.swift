@@ -4,7 +4,9 @@ import MatrixRustSDK
 import OSLog
 import UniformTypeIdentifiers
 
-final class MessageFileContentView: NSView, MessageContentRowView {
+final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
+  var onMediaPreviewRequest: (() -> Bool)?
+  var onMediaPreview: ((URL, MediaFileHandle) -> Void)?
   var onSelectRequest: (() -> Void)? {
     didSet { captionView.onSelectRequest = onSelectRequest }
   }
@@ -97,11 +99,13 @@ final class MessageFileContentView: NSView, MessageContentRowView {
   }
 
   @objc private func previewFile() {
-    guard let fileContent, let matrixClient else { return }
+    guard let fileContent, let window else { return }
+    if onMediaPreviewRequest?() == true { return }
+    guard let matrixClient else { return }
     let url = fileContent.source.url()
     fileButton.isEnabled = false
     previewTask?.cancel()
-    previewTask = Task { [weak self] in
+    previewTask = Task { [weak self, weak window] in
       do {
         let handle = try await matrixClient.client.getMediaFile(
           mediaSource: fileContent.source,
@@ -112,9 +116,11 @@ final class MessageFileContentView: NSView, MessageContentRowView {
         )
         try Task.checkCancellation()
         let path = try handle.path()
-        guard let self, self.sourceURL == url else { return }
-        MediaQuickLookPreview.shared.show(
-          handle: handle, url: URL(filePath: path, directoryHint: .notDirectory))
+        guard let self, let window, self.window === window, self.sourceURL == url else {
+          return
+        }
+        self.onMediaPreview?(
+          URL(filePath: path, directoryHint: .notDirectory), handle)
         self.fileButton.setIcon(NSWorkspace.shared.icon(forFile: path))
         self.fileButton.isEnabled = true
         self.previewTask = nil

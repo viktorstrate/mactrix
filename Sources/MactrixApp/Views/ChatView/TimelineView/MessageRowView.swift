@@ -10,6 +10,17 @@ final class MessageRowView: NSView {
   var onHoverChange: ((MessageRowView, Bool, NSEvent) -> Bool)?
   var onSelectRequest: ((MessageRowView) -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?
+  var onMediaPreviewRequest: (() -> Bool)? {
+    didSet {
+      (contentView as? any MessageMediaPreviewContentView)?.onMediaPreviewRequest =
+        onMediaPreviewRequest
+    }
+  }
+  var onMediaPreview: ((URL, MediaFileHandle) -> Void)? {
+    didSet {
+      (contentView as? any MessageMediaPreviewContentView)?.onMediaPreview = onMediaPreview
+    }
+  }
   private var isHovered = false
   private var isMessageSelected = false
 
