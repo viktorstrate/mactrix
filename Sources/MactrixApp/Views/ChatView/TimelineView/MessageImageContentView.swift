@@ -89,6 +89,10 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
       case .image(let image) = message.msgType
     else { return }
 
+    configure(image: image, matrixClient: matrixClient)
+  }
+
+  func configure(image: ImageMessageContent, matrixClient: MatrixClient?) {
     self.imageContent = image
     self.matrixClient = matrixClient
     let hasCaption = image.caption?.isEmpty == false || image.formattedCaption != nil
@@ -127,6 +131,10 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
     guard case .message(let message) = content.kind,
       case .image(let image) = message.msgType
     else { return 0 }
+    return height(for: image, width: width)
+  }
+
+  func height(for image: ImageMessageContent, width: CGFloat) -> CGFloat {
     let imageHeight = Self.imageSize(for: image, width: width).height
     guard image.caption?.isEmpty == false || image.formattedCaption != nil else {
       return imageHeight
@@ -221,6 +229,18 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
         Logger.viewCycle.error("failed to preview image: \(error)")
       }
     }
+  }
+
+  func resetMedia() {
+    loadTask?.cancel()
+    previewTask?.cancel()
+    loadTask = nil
+    previewTask = nil
+    sourceURL = nil
+    imageContent = nil
+    matrixClient = nil
+    imageButton.image = nil
+    spinner.stopAnimation(nil)
   }
 
   deinit {

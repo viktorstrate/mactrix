@@ -63,6 +63,10 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
       case .file(let file) = message.msgType
     else { return }
 
+    configure(file: file, matrixClient: matrixClient)
+  }
+
+  func configure(file: FileMessageContent, matrixClient: MatrixClient?) {
     fileContent = file
     self.matrixClient = matrixClient
     let mimeType = file.info?.mimetype.flatMap(UTType.init) ?? .data
@@ -91,6 +95,10 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
     guard case .message(let message) = content.kind,
       case .file(let file) = message.msgType
     else { return 0 }
+    return height(for: file, width: width)
+  }
+
+  func height(for file: FileMessageContent, width: CGFloat) -> CGFloat {
     guard file.caption?.isEmpty == false || file.formattedCaption != nil else { return 36 }
     return 36 + 10
       + ceil(
@@ -133,6 +141,14 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
         self.previewTask = nil
       }
     }
+  }
+
+  func resetMedia() {
+    previewTask?.cancel()
+    previewTask = nil
+    sourceURL = nil
+    fileContent = nil
+    matrixClient = nil
   }
 
   deinit { previewTask?.cancel() }

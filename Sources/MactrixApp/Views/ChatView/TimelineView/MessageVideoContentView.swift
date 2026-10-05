@@ -113,6 +113,10 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
       case .video(let video) = message.msgType
     else { return }
 
+    configure(video: video, matrixClient: matrixClient)
+  }
+
+  func configure(video: VideoMessageContent, matrixClient: MatrixClient?) {
     videoContent = video
     self.matrixClient = matrixClient
     let hasCaption = video.caption?.isEmpty == false || video.formattedCaption != nil
@@ -154,6 +158,10 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
     guard case .message(let message) = content.kind,
       case .video(let video) = message.msgType
     else { return 0 }
+    return height(for: video, width: width)
+  }
+
+  func height(for video: VideoMessageContent, width: CGFloat) -> CGFloat {
     let mediaHeight = Self.mediaSize(for: video, width: width).height
     guard video.caption?.isEmpty == false || video.formattedCaption != nil else {
       return mediaHeight
@@ -272,6 +280,22 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
     ])
     playerView = view
     return view
+  }
+
+  func resetMedia() {
+    thumbnailTask?.cancel()
+    videoTask?.cancel()
+    thumbnailTask = nil
+    videoTask = nil
+    playerView?.player?.pause()
+    playerView?.player = nil
+    playerView?.isHidden = true
+    fileHandle = nil
+    sourceURL = nil
+    videoContent = nil
+    matrixClient = nil
+    thumbnailView.image = nil
+    spinner.stopAnimation(nil)
   }
 
   @MainActor

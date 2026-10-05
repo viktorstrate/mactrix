@@ -23,9 +23,12 @@ protocol MessageMediaPreviewContentView: MessageContentRowView {
   case image
   case video
   case file
+  case gallery
 
   init(content: MatrixRustSDK.MsgLikeContent) {
-    if MessageImageContentView.supports(content: content) {
+    if case .message(let message) = content.kind, case .gallery = message.msgType {
+      self = .gallery
+    } else if MessageImageContentView.supports(content: content) {
       self = .image
     } else if MessageVideoContentView.supports(content: content) {
       self = .video
@@ -42,6 +45,7 @@ protocol MessageMediaPreviewContentView: MessageContentRowView {
     case .image: .init("message.image")
     case .video: .init("message.video")
     case .file: .init("message.file")
+    case .gallery: .init("message.gallery")
     }
   }
 
@@ -52,6 +56,7 @@ protocol MessageMediaPreviewContentView: MessageContentRowView {
     case .image: contentView = MessageImageContentView()
     case .video: contentView = MessageVideoContentView()
     case .file: contentView = MessageFileContentView()
+    case .gallery: contentView = MessageGalleryContentView()
     }
     return MessageRowView(contentKind: self, contentView: contentView)
   }
