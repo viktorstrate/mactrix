@@ -4,7 +4,7 @@ import MatrixRustSDK
 import UniformTypeIdentifiers
 
 struct ComposerAttachment: Identifiable {
-  enum Kind: Sendable {
+  enum Kind: Equatable, Sendable {
     case image
     case video
     case audio

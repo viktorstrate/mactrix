@@ -48,114 +48,8 @@ struct ChatInputView: View {
     return true
   }
 
-  func sendMessage() async {
-    guard !composer.text.isEmpty else { return }
-    guard let innerTimeline = timeline.timeline else { return }
-
-    let msg = messageEventContentFromMarkdown(md: composer.text)
-
-    do {
-      if let replyTarget = composer.replyTarget {
-        _ = try await innerTimeline.sendReply(
-          msg: msg, eventId: replyTarget.eventOrTransactionId.id
-        )
-      } else {
-        _ = try await innerTimeline.send(msg: msg)
-      }
-    } catch {
-      Logger.viewCycle.error("failed to send message: \(error)")
-    }
-
-    composer.finishSending()
-  }
-
-  private func saveDraft() async {
-    guard composer.isDraftLoaded else { return }  // avoid overwriting a draft before restoration
-    if composer.text.isEmpty, composer.replyTarget == nil, composer.attachments.isEmpty {
-      Logger.viewCycle.debug("clearing draft")
-      do {
-        try await room.clearComposerDraft(threadRoot: timeline.focusedThreadId)
-      } catch {
-        Logger.viewCycle.error("failed to clear draft: \(error)")
-      }
-      return
-    }
-
-    let draftType: ComposerDraftType
-    if let replyTarget = composer.replyTarget {
-      draftType = .reply(eventId: replyTarget.eventOrTransactionId.id)
-    } else {
-      draftType = .newMessage
-    }
-    let draft = ComposerDraft(
-      plainText: composer.text,
-      htmlText: nil,
-      draftType: draftType,
-      attachments: composer.attachments.map(\.draftAttachment)
-    )
-    do {
-      try await room.saveComposerDraft(draft: draft, threadRoot: timeline.focusedThreadId)
-    } catch {
-      Logger.viewCycle.error("failed save draft: \(error)")
-    }
-  }
-
-  private func loadDraft() async {
-    guard composer.beginDraftRestoration() else { return }
-    do {
-      guard let draft = try await room.loadComposerDraft(threadRoot: timeline.focusedThreadId)
-      else {
-        composer.completeDraftRestoration()
-        return
-      }
-      composer.text = draft.plainText
-      switch draft.draftType {
-      case .reply(let eventId):
-        // We need a timeline to resolve a reply target, so retry when it becomes available.
-        guard let innerTimeline = timeline.timeline else {
-          composer.deferDraftRestoration()
-          return
-        }
-        do {
-          let item = try await innerTimeline.getEventTimelineItemByEventId(eventId: eventId)
-          composer.restoreReply(to: item)
-        } catch {
-          Logger.viewCycle.error("failed to resolve reply target: \(error)")
-        }
-      case .newMessage, .edit:
-        break
-      }
-
-      var discardedAttachment = false
-      for draftAttachment in draft.attachments {
-        let attachmentCount = composer.attachments.count
-        do {
-          let attachment = try await ComposerAttachment.restoreDraftAttachment(draftAttachment)
-          composer.addAttachments([attachment])
-          if composer.attachments.count == attachmentCount {
-            discardedAttachment = true  // duplicate entries are saved only once
-            if attachment.storageOwnership == .appOwnedTemporaryFile {
-              try? ComposerAttachmentImporter.cleanupTemporaryAttachment(attachment)
-            }
-          }
-        } catch {
-          discardedAttachment = true
-          Logger.composerAttachment.warning("Discarding unavailable draft attachment: \(error)")
-        }
-      }
-      composer.completeDraftRestoration()
-      if discardedAttachment {
-        await saveDraft()
-      }
-    } catch {
-      Logger.viewCycle.error("failed to load draft: \(error)")
-      composer.completeDraftRestoration()
-    }
-  }
-
   private func chatInputChanged() async {
-    guard composer.isDraftLoaded else { return }  // avoid working on a draft being restored
-    await saveDraft()
+    await composer.saveDraft(room: room, timeline: timeline)
     if !composer.text.isEmpty {
       do {
         try await room.typingNotice(isTyping: !composer.text.isEmpty)
@@ -194,7 +88,12 @@ struct ChatInputView: View {
         placeholder: "Message \(room.displayName() ?? "room")",
         disabled: !composer.isDraftLoaded,
         focusRequest: composer.focusRequest,
-        onSubmit: { Task { await sendMessage() } },
+        onSubmit: {
+          Task {
+            guard let timeline = timeline.timeline else { return }
+            await composer.sendMessage(timeline: timeline)
+          }
+        },
         onAttachmentPaste: handlePaste
       )
     }
@@ -205,7 +104,7 @@ struct ChatInputView: View {
     .task(id: timeline.timeline != nil) {
       // we need the timeline to be populated before we load a draft
       // (in case the draft holds a reply)
-      await loadDraft()
+      await composer.loadDraft(room: room, timeline: timeline)
     }
   }
 
