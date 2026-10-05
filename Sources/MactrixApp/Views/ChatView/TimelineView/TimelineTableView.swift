@@ -3,6 +3,7 @@ import MatrixIntegration
 import MatrixProtocols
 import MatrixRustSDK
 import OSLog
+import QuickLookUI
 
 enum TimelineSelectionDirection {
   case up
@@ -80,6 +81,10 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private var hoveredMessageId: String?
   private var hoveredRowIndex: Int?
   private var updatingTimelineItems = false
+  private var previewURL: URL?
+  private var previewEventIdentifier: String?
+  // Keep SDK temporary media alive independently of the reusable row that loaded it.
+  private var previewFileHandle: MediaFileHandle?
 
   let timeline: LiveTimeline
   let composer: ChatComposerState
@@ -186,6 +191,15 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         }
         view.onArrowKey = { [weak self] direction in
           self?.moveSelection(direction)
+        }
+        view.onMediaPreviewRequest = { [weak self] in
+          self?.closeActiveMediaPreview(eventIdentifier: event.eventOrTransactionId.id) ?? false
+        }
+        view.onMediaPreview = { [weak self, weak view] url, handle in
+          guard let self, let view, view.window === self.view.window else { return }
+          self.selectMessageRow(for: view)
+          self.showMediaPreview(
+            url: url, handle: handle, eventIdentifier: event.eventOrTransactionId.id)
         }
         view.configure(
           event: event,
@@ -614,6 +628,67 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     let view = kind.makeRowView()
     measurementMessageViews[kind] = view
     return view
+  }
+}
+
+extension TimelineViewController: @preconcurrency QLPreviewPanelDataSource {
+  private func closeActiveMediaPreview(eventIdentifier: String) -> Bool {
+    guard previewEventIdentifier == eventIdentifier,
+      QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(),
+      panel.isVisible, panel.currentController as AnyObject? === self,
+      let previewURL, panel.currentPreviewItem?.previewItemURL == previewURL
+    else { return false }
+
+    panel.close()
+    return true
+  }
+
+  private func showMediaPreview(url: URL, handle: MediaFileHandle, eventIdentifier: String) {
+    guard let window = view.window, let panel = QLPreviewPanel.shared() else { return }
+    previewFileHandle = handle
+    previewURL = url
+    previewEventIdentifier = eventIdentifier
+
+    // Use the existing view/controller responder chain, bypassing text selection
+    // responders in captions and the composer that can otherwise claim Quick Look.
+    guard window.makeFirstResponder(tableView) else { return }
+    panel.updateController()
+    panel.makeKeyAndOrderFront(nil)
+    if panel.currentController as AnyObject? === self {
+      panel.reloadData()
+      panel.currentPreviewItemIndex = 0
+    } else {
+      Logger.viewCycle.error("Timeline could not obtain Quick Look panel control")
+    }
+  }
+
+  override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
+    MainActor.assumeIsolated { previewURL != nil }
+  }
+
+  override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
+    MainActor.assumeIsolated {
+      panel.dataSource = self
+      panel.reloadData()
+      panel.currentPreviewItemIndex = 0
+    }
+  }
+
+  override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
+    MainActor.assumeIsolated {
+      if panel.dataSource === self {
+        panel.dataSource = nil
+      }
+    }
+  }
+
+  func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int {
+    previewURL == nil ? 0 : 1
+  }
+
+  func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
+    guard index == 0 else { return nil }
+    return previewURL as NSURL?
   }
 }
 

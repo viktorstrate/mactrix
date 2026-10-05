@@ -10,15 +10,25 @@ protocol MessageContentRowView: NSView {
   func height(for content: MatrixRustSDK.MsgLikeContent, width: CGFloat) -> CGFloat
 }
 
+/// Media rows deliver downloaded files to their owning timeline controller.
+protocol MessageMediaPreviewContentView: MessageContentRowView {
+  /// Returns true when an existing preview was closed, avoiding another download.
+  var onMediaPreviewRequest: (() -> Bool)? { get set }
+  var onMediaPreview: ((URL, MediaFileHandle) -> Void)? { get set }
+}
+
 /// Determines the reusable row and its retained content view for a message.
 @MainActor enum MessageContentKind: Hashable {
   case text
   case image
   case video
   case file
+  case gallery
 
   init(content: MatrixRustSDK.MsgLikeContent) {
-    if MessageImageContentView.supports(content: content) {
+    if case .message(let message) = content.kind, case .gallery = message.msgType {
+      self = .gallery
+    } else if MessageImageContentView.supports(content: content) {
       self = .image
     } else if MessageVideoContentView.supports(content: content) {
       self = .video
@@ -35,6 +45,7 @@ protocol MessageContentRowView: NSView {
     case .image: .init("message.image")
     case .video: .init("message.video")
     case .file: .init("message.file")
+    case .gallery: .init("message.gallery")
     }
   }
 
@@ -45,6 +56,7 @@ protocol MessageContentRowView: NSView {
     case .image: contentView = MessageImageContentView()
     case .video: contentView = MessageVideoContentView()
     case .file: contentView = MessageFileContentView()
+    case .gallery: contentView = MessageGalleryContentView()
     }
     return MessageRowView(contentKind: self, contentView: contentView)
   }

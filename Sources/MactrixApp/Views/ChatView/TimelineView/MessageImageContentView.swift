@@ -2,10 +2,11 @@ import AppKit
 import MatrixIntegration
 import MatrixRustSDK
 import OSLog
-import QuickLookUI
 
 /// One image and its optional text caption. Both views survive table row reuse.
-final class MessageImageContentView: NSView, MessageContentRowView {
+final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
+  var onMediaPreviewRequest: (() -> Bool)?
+  var onMediaPreview: ((URL, MediaFileHandle) -> Void)?
   var onSelectRequest: (() -> Void)? {
     didSet { captionView.onSelectRequest = onSelectRequest }
   }
@@ -88,6 +89,10 @@ final class MessageImageContentView: NSView, MessageContentRowView {
       case .image(let image) = message.msgType
     else { return }
 
+    configure(image: image, matrixClient: matrixClient)
+  }
+
+  func configure(image: ImageMessageContent, matrixClient: MatrixClient?) {
     self.imageContent = image
     self.matrixClient = matrixClient
     let hasCaption = image.caption?.isEmpty == false || image.formattedCaption != nil
@@ -126,6 +131,10 @@ final class MessageImageContentView: NSView, MessageContentRowView {
     guard case .message(let message) = content.kind,
       case .image(let image) = message.msgType
     else { return 0 }
+    return height(for: image, width: width)
+  }
+
+  func height(for image: ImageMessageContent, width: CGFloat) -> CGFloat {
     let imageHeight = Self.imageSize(for: image, width: width).height
     guard image.caption?.isEmpty == false || image.formattedCaption != nil else {
       return imageHeight
@@ -192,10 +201,12 @@ final class MessageImageContentView: NSView, MessageContentRowView {
   }
 
   @objc private func previewImage() {
-    guard let imageContent, let matrixClient else { return }
+    guard let imageContent, let window else { return }
+    if onMediaPreviewRequest?() == true { return }
+    guard let matrixClient else { return }
     let url = imageContent.source.url()
     previewTask?.cancel()
-    previewTask = Task { [weak self] in
+    previewTask = Task { [weak self, weak window] in
       do {
         let handle = try await matrixClient.client.getMediaFile(
           mediaSource: imageContent.source,
@@ -206,15 +217,30 @@ final class MessageImageContentView: NSView, MessageContentRowView {
         )
         try Task.checkCancellation()
         let path = try handle.path()
-        guard let self, self.sourceURL == url else { return }
-        MediaQuickLookPreview.shared.show(
-          handle: handle, url: URL(filePath: path, directoryHint: .notDirectory))
+        guard let self, let window, self.window === window, self.sourceURL == url else {
+          return
+        }
+        self.onMediaPreview?(
+          URL(filePath: path, directoryHint: .notDirectory), handle)
+        self.previewTask = nil
       } catch is CancellationError {
         return
       } catch {
         Logger.viewCycle.error("failed to preview image: \(error)")
       }
     }
+  }
+
+  func resetMedia() {
+    loadTask?.cancel()
+    previewTask?.cancel()
+    loadTask = nil
+    previewTask = nil
+    sourceURL = nil
+    imageContent = nil
+    matrixClient = nil
+    imageButton.image = nil
+    spinner.stopAnimation(nil)
   }
 
   deinit {
@@ -225,27 +251,5 @@ final class MessageImageContentView: NSView, MessageContentRowView {
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
-  }
-}
-
-/// Keeps the temporary media file alive while Quick Look is displaying it.
-@MainActor final class MediaQuickLookPreview: NSObject, @preconcurrency QLPreviewPanelDataSource {
-  static let shared = MediaQuickLookPreview()
-  private var handle: MediaFileHandle?
-  private var url: URL?
-
-  func show(handle: MediaFileHandle, url: URL) {
-    self.handle = handle
-    self.url = url
-    guard let panel = QLPreviewPanel.shared() else { return }
-    panel.dataSource = self
-    panel.reloadData()
-    panel.makeKeyAndOrderFront(nil)
-  }
-
-  func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { url == nil ? 0 : 1 }
-
-  func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
-    url as NSURL?
   }
 }

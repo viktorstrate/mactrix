@@ -46,7 +46,7 @@ Then open the project in Xcode and build using `Cmd+B`.
 - [ ] Multi account
 - [ ] Timeline
   - [x] Messages
-    - [ ] Send attachments
+    - [x] Send attachments
     - [x] Markdown formatting
   - [ ] Message actions
     - [x] Add reactions
