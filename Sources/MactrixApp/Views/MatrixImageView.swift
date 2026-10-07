@@ -60,19 +60,10 @@ struct MatrixImageView: View {
         do {
           let data = try await matrixClient.client.getMediaContent(mediaSource: mediaSource)
           let contentType = mimeType.flatMap { UTType(mimeType: $0) }
-
-          if #available(macOS 15.2, *) {
-            image = try await Image(importing: data, contentType: contentType)
-          } else {
-            // Fallback for older macOS versions
-            if let nsImage = NSImage(data: data) {
-              image = Image(nsImage: nsImage)
-            }
-          }
-
-          if let nsImage = NSImage(data: data) {
-            MatrixClient.setCachedImage(nsImage, forKey: cacheKey)
-          }
+          let nsImage = try await data.toOrientedImage(contentType: contentType)
+          try Task.checkCancellation()
+          MatrixClient.setCachedImage(nsImage, forKey: cacheKey)
+          image = Image(nsImage: nsImage)
         } catch {
           errorMessage = error.localizedDescription
         }

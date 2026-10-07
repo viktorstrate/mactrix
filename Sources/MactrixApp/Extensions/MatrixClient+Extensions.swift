@@ -53,7 +53,10 @@ extension MatrixClient: MactrixUI.ImageLoader {
   private static let imageCacheMaxObjectCost = 64 * 1024 * 1024  // 64MB per object (~8000x2000px RGBA)
 
   static func setCachedImage(_ image: NSImage, forKey key: NSString) {
-    let cost = Int(image.size.width * image.size.height) * 4  // decoded RGBA bytes
+    // NSImage.size is in points; account for the actual stored bitmap pixels.
+    let cost = image.representations.reduce(0) { total, rep in
+      total + max(rep.pixelsWide, 0) * max(rep.pixelsHigh, 0) * 4
+    }
     guard cost <= imageCacheMaxObjectCost else { return }
     imageCache.setObject(image, forKey: key, cost: cost)
   }
@@ -86,7 +89,7 @@ extension MatrixClient: MactrixUI.ImageLoader {
     }
 
     do {
-      let nsImage = try imageData.toOrientedImage(contentType: imageData.computeMimeType())
+      let nsImage = try await imageData.toOrientedImage(contentType: imageData.computeMimeType())
       Self.setCachedImage(nsImage, forKey: cacheKey)
       return nsImage
     } catch {

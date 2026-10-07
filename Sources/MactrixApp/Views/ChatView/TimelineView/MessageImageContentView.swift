@@ -174,9 +174,12 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
         let data = try await client.client.getMediaContent(mediaSource: image.source)
         try Task.checkCancellation()
         let cacheKey = NSString(string: url)
-        let decoded =
-          try MatrixClient.imageCache.object(forKey: cacheKey)
-          ?? data.toOrientedImage(contentType: data.computeMimeType())
+        let decoded: NSImage
+        if let cached = MatrixClient.imageCache.object(forKey: cacheKey) {
+          decoded = cached
+        } else {
+          decoded = try await data.toOrientedImage(contentType: data.computeMimeType())
+        }
         try Task.checkCancellation()
         MatrixClient.setCachedImage(decoded, forKey: cacheKey)
         guard let self, self.sourceURL == url else { return }

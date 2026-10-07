@@ -205,7 +205,7 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
       do {
         let data = try await client.client.getMediaContent(mediaSource: source)
         try Task.checkCancellation()
-        let image = try data.toOrientedImage(contentType: data.computeMimeType())
+        let image = try await data.toOrientedImage(contentType: data.computeMimeType())
         try Task.checkCancellation()
         MatrixClient.setCachedImage(image, forKey: NSString(string: source.url()))
         guard let self, self.sourceURL == url else { return }
