@@ -3,6 +3,7 @@ name: Xcode - Build and Test
 on:
   push:
     branches: ["main"]
+    tags: ["v*"]
   pull_request:
     branches: ["main"]
 
@@ -23,35 +24,51 @@ jobs:
           xcode-version: latest-stable
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Calculate build metadata
+        run: bash scripts/build-metadata.sh >> "$GITHUB_ENV"
       - name: Build
         run: |
+          set -o pipefail
           xcodebuild clean build analyze \
             -scheme "$scheme" \
             -workspace Mactrix.xcworkspace \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$APP_BUILD" \
+            MACTRIX_GIT_COMMIT="$APP_COMMIT" \
             -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Test
         run: |
+          set -o pipefail
           xcodebuild test \
             -workspace Mactrix.xcworkspace \
             -scheme "$scheme" \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$APP_BUILD" \
+            MACTRIX_GIT_COMMIT="$APP_COMMIT" \
             -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
       - name: Build release artifact
         if: |
           matrix.macos-version == 'macos-26' &&
           github.event_name == 'push' &&
-          github.ref == 'refs/heads/main'
+          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         run: |
+          set -o pipefail
           xcodebuild archive \
             -workspace Mactrix.xcworkspace \
             -scheme "$scheme" \
             -configuration Release \
+            MARKETING_VERSION="$APP_VERSION" \
+            CURRENT_PROJECT_VERSION="$APP_BUILD" \
+            MACTRIX_GIT_COMMIT="$APP_COMMIT" \
             -destination 'platform=macOS' \
             -archivePath ./Mactrix.xcarchive | xcpretty && exit ${PIPESTATUS[0]}
       - name: Upload Artifact
         if: |
           matrix.macos-version == 'macos-26' &&
           github.event_name == 'push' &&
-          github.ref == 'refs/heads/main'
+          (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         uses: actions/upload-artifact@v4
         with:
           name: Mactrix.app

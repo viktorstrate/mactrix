@@ -12,8 +12,21 @@ public struct AppCommands: Commands {
     TextEditingCommands()
     ToolbarCommands()
 
+    about
     newTab
     fontSizeCommands
+  }
+
+  var about: some Commands {
+    CommandGroup(replacing: .appInfo) {
+      Button("About Mactrix") {
+        let version = AppVersion(info: Bundle.main.infoDictionary ?? [:])
+        NSApp.orderFrontStandardAboutPanel(options: [
+          .applicationVersion: version.displayVersion,
+          .version: version.build,
+        ])
+      }
+    }
   }
 
   var newTab: some Commands {
