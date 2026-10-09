@@ -76,6 +76,8 @@ struct SidebarView: View {
       SidebarGroupsList()
       Divider()
       listView
+        // force list view to re-render to avoid a rendering bug
+        .id(windowState.selectedSpaceId)
     }
     .safeAreaInset(edge: .bottom, spacing: 0) {
       Group {

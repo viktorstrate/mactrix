@@ -16,8 +16,7 @@ struct SidebarGroupsList: View {
         GroupButton(id: nil, title: "Home") {
           Image(systemName: "house.fill")
             .font(.title2)
-            .frame(width: 42, height: 42)
-            .background(.quaternary, in: Circle())
+
         }
         ForEach(spaces) { space in
           GroupButton(id: space.id, title: space.spaceRoom.displayName) {
@@ -25,14 +24,11 @@ struct SidebarGroupsList: View {
               avatarUrl: space.spaceRoom.avatarUrl, placeholderSystemImage: "square.grid.2x2.fill",
               imageLoader: appState.matrixClient
             )
-            .frame(width: 42, height: 42)
-            .background(.quaternary, in: Circle())
-            .clipShape(Circle())
           }
         }
       }
+      .frame(width: 62)
     }
-    .frame(width: 62)
   }
 
 }
@@ -49,9 +45,19 @@ private struct GroupButton<Content: View>: View {
       windowState.selectedSpaceId = id
     } label: {
       content()
+        .frame(width: 42, height: 42)
+        .clipShape(Circle())
+        .background {
+          Circle()
+            .fill(.background)
+            .shadow(color: .black.opacity(0.1), radius: 4, x: 0, y: 0)
+        }
         .overlay {
-          Circle().strokeBorder(
-            windowState.selectedSpaceId == id ? Color.accentColor : .clear, lineWidth: 3)
+          Circle()
+            .strokeBorder(
+              windowState.selectedSpaceId == id ? Color.accentColor : .clear,
+              lineWidth: 2
+            )
         }
     }
     .focusEffectDisabled()
