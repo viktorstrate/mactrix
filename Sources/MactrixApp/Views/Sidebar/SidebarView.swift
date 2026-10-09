@@ -7,30 +7,63 @@ struct SidebarView: View {
   @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
-  @State private var searchText: String = ""
+  @State private var members: [MatrixRustSDK.RoomMember] = []
+  @State private var membersLoading = false
+  @State private var membersError: String?
+
+  var visibleRooms: [SidebarRoom] {
+    let joinedRooms = appState.matrixClient?.rooms ?? []
+    let spaceService = appState.matrixClient?.spaceService
+
+    let selectedSpaceRoom = spaceService?.spaceRooms.first {
+      $0.id == windowState.selectedSpaceId
+    }
+
+    if let selectedSpaceRoom {
+      switch selectedSpaceRoom.children {
+      case .error:
+        return []
+      case .loading:
+        Task { await selectedSpaceRoom.loadChildren() }
+        return []
+      case .loaded(let children):
+        return joinedRooms.filter { room in
+          children.rooms.contains { $0.spaceRoom.id == room.id }
+        }
+      }
+    }
+
+    return joinedRooms
+  }
+
+  var selectedSpace: SidebarSpaceRoom? {
+    spaces.first { $0.id == windowState.selectedSpaceId }
+  }
+
+  var childSpaces: [SidebarSpaceRoom] {
+    guard let selectedSpace, case .loaded(let children) = selectedSpace.children else { return [] }
+    return children.rooms.filter { $0.spaceRoom.roomType == .space }
+  }
 
   var favorites: [SidebarRoom] {
-    (appState.matrixClient?.rooms ?? [])
-      .filter { $0.roomInfo?.isFavourite == true }
+    visibleRooms.filter { $0.roomInfo?.isFavourite == true }
   }
 
   var directs: [SidebarRoom] {
-    (appState.matrixClient?.rooms ?? [])
-      .filter { room in
-        let isDirect = room.roomInfo?.isDirect == true
-        let favoriteIDs = Set(favorites.map { $0.id })
-        return isDirect && !favoriteIDs.contains(room.id)
-      }
+    visibleRooms.filter { room in
+      let isDirect = room.roomInfo?.isDirect == true
+      let favoriteIDs = Set(favorites.map { $0.id })
+      return isDirect && !favoriteIDs.contains(room.id)
+    }
   }
 
   var rooms: [SidebarRoom] {
-    (appState.matrixClient?.rooms ?? [])
-      .filter { room in
-        let isSpace = room.room.isSpace()
-        let isDirect = room.roomInfo?.isDirect == true
-        let favoriteIDs = Set(favorites.map(\.id))
-        return !isSpace && !isDirect && !favoriteIDs.contains(room.id)
-      }
+    visibleRooms.filter { room in
+      let isSpace = room.room.isSpace()
+      let isDirect = room.roomInfo?.isDirect == true
+      let favoriteIDs = Set(favorites.map(\.id))
+      return !isSpace && !isDirect && !favoriteIDs.contains(room.id)
+    }
   }
 
   var spaces: [SidebarSpaceRoom] {
@@ -38,6 +71,15 @@ struct SidebarView: View {
   }
 
   var body: some View {
+    HStack(spacing: 0) {
+      SidebarGroupsList()
+      Divider()
+      listView
+    }
+  }
+
+  @ViewBuilder
+  var listView: some View {
     @Bindable var windowState = windowState
 
     List(selection: $windowState.selectedRoomId) {
@@ -92,13 +134,15 @@ struct SidebarView: View {
         }
       }
 
-      Section("Spaces", isExpanded: $windowState.sidebarSections.spaces) {
-        ForEach(spaces) { space in
-          SpaceDisclosureGroup(space: space)
+      if !childSpaces.isEmpty {
+        Section("Spaces", isExpanded: $windowState.sidebarSections.spaces) {
+          ForEach(childSpaces) { space in
+            SpaceDisclosureGroup(space: space)
+          }
         }
       }
     }
-    .navigationSplitViewColumnWidth(min: 150, ideal: 200, max: nil)
+    .navigationSplitViewColumnWidth(min: 230, ideal: 300, max: nil)
     .toolbar {
       AppCommands.createRoomButton(windowState: windowState)
     }
