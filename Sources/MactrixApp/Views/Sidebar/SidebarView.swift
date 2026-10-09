@@ -77,6 +77,33 @@ struct SidebarView: View {
       Divider()
       listView
     }
+    .safeAreaInset(edge: .bottom, spacing: 0) {
+      Group {
+        if #available(macOS 26.0, *) {
+          statusContent
+            .glassEffect(
+              .regular,
+              in: ConcentricRectangle(corners: .concentric(minimum: .fixed(12)))
+            )
+        } else {
+          statusContent
+            .background(
+              .regularMaterial,
+              in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+            )
+        }
+      }
+      .padding(8)
+    }
+  }
+
+  private var statusContent: some View {
+    VStack(spacing: 8) {
+      SidebarSyncStateView()
+      SessionVerificationStatusView()
+    }
+    .frame(maxWidth: .infinity)
+    .padding(12)
   }
 
   @ViewBuilder
@@ -84,10 +111,6 @@ struct SidebarView: View {
     @Bindable var windowState = windowState
 
     List(selection: $windowState.selectedRoomId) {
-      SidebarSyncStateView()
-
-      SessionVerificationStatusView()
-
       if !favorites.isEmpty {
         Section("Favorites", isExpanded: $windowState.sidebarSections.favorites) {
           ForEach(favorites) { room in

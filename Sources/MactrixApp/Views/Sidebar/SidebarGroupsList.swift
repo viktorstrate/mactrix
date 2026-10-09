@@ -12,7 +12,7 @@ struct SidebarGroupsList: View {
 
   var body: some View {
     ScrollView {
-      VStack(spacing: 12) {
+      VStack(spacing: 8) {
         GroupButton(id: nil, title: "Home") {
           Image(systemName: "house.fill")
             .font(.title2)
@@ -31,7 +31,6 @@ struct SidebarGroupsList: View {
           }
         }
       }
-      .padding(8)
     }
     .frame(width: 62)
   }
