@@ -64,6 +64,13 @@ where Element == [MatrixRustSDK.SpaceListUpdate] {
   }
 }
 
+extension AsyncSDKListener: SpaceServiceSpaceFiltersListener
+where Element == [MatrixRustSDK.SpaceFilterUpdate] {
+  func onUpdate(filterUpdates: [MatrixRustSDK.SpaceFilterUpdate]) {
+    publishValue(filterUpdates)
+  }
+}
+
 extension AsyncSDKListener: TimelineListener where Element == [MatrixRustSDK.TimelineDiff] {
   func onUpdate(diff: [TimelineDiff]) {
     publishValue(diff)

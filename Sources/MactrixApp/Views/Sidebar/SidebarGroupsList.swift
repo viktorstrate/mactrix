@@ -33,7 +33,6 @@ struct SidebarGroupsList: View {
       }
       .padding(8)
     }
-    .scrollIndicators(.hidden)
     .frame(width: 62)
   }
 

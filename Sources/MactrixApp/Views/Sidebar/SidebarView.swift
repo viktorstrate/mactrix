@@ -33,7 +33,8 @@ struct SidebarView: View {
       }
     }
 
-    return joinedRooms
+    let roomsWithParents = spaceService?.roomsWithJoinedSpaceParents ?? []
+    return joinedRooms.filter { !roomsWithParents.contains($0.id) }
   }
 
   var selectedSpace: SidebarSpaceRoom? {

@@ -34,7 +34,7 @@ public class MatrixClient {
     .setSessionDelegate(sessionDelegate: self)
     .build()
 
-    spaceService = LiveSpaceService(spaceService: await client.spaceService())
+    spaceService = LiveSpaceService(client: self.client, spaceService: await client.spaceService())
     clientDelegateHandle = try? client.setDelegate(delegate: self)
   }
 
@@ -43,7 +43,7 @@ public class MatrixClient {
     self.storePassphrase = storePassphrase
     self.client = client
 
-    spaceService = LiveSpaceService(spaceService: await client.spaceService())
+    spaceService = LiveSpaceService(client: self.client, spaceService: await client.spaceService())
     clientDelegateHandle = try? self.client.setDelegate(delegate: self)
   }
 
