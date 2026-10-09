@@ -38,6 +38,7 @@ public final class WindowState {
   public var selectedScreen: SelectedScreen = .none
 
   public var selectedRoomId: String?
+  public var selectedSpaceId: String?
   public var inspectorVisible: Bool = false
 
   public var inspectorContent: InspectorContent = .roomInfo
@@ -129,17 +130,20 @@ public final class WindowState {
 extension WindowState: @MainActor RawRepresentable {
   public struct SceneStorageRepresentation: Codable {
     let selectedRoomId: String?
+    let selectedSpaceId: String?
     let inspectorVisible: Bool
     let sidebarSections: SidebarSectionCollapsibility
 
     @MainActor init(windowState: WindowState) {
       self.selectedRoomId = windowState.selectedRoomId
+      self.selectedSpaceId = windowState.selectedSpaceId
       self.inspectorVisible = windowState.inspectorVisible
       self.sidebarSections = windowState.sidebarSections
     }
 
     @MainActor func restore(windowState: WindowState) {
       windowState.selectedRoomId = selectedRoomId
+      windowState.selectedSpaceId = selectedSpaceId
       windowState.inspectorVisible = inspectorVisible
       windowState.sidebarSections = sidebarSections
     }

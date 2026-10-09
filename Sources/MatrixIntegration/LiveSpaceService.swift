@@ -5,20 +5,84 @@ import OSLog
 
 @MainActor @Observable
 public final class LiveSpaceService {
+  weak private let client: MatrixRustSDK.ClientProtocol?
   public let spaceService: SpaceService
 
   public var spaceRooms: [SidebarSpaceRoom] = []
 
-  @ObservationIgnored private var spaceHandle: TaskHandle?
+  public private(set) var roomsWithJoinedSpaceParents: Set<String> = []
 
-  public init(spaceService: SpaceService) {
+  @ObservationIgnored private var spaceHandle: TaskHandle?
+  @ObservationIgnored private var filtersHandle: TaskHandle?
+  @ObservationIgnored private var setupTask: Task<Void, Never>?
+  @ObservationIgnored private var spacesTask: Task<Void, Never>?
+  @ObservationIgnored private var filtersTask: Task<Void, Never>?
+  @ObservationIgnored private var refreshTask: Task<Void, Never>?
+  @ObservationIgnored private var parentsNeedsRefresh = false
+  @ObservationIgnored private var spaceGraphLoaded = false
+
+  public init(client: MatrixRustSDK.ClientProtocol, spaceService: SpaceService) {
+    self.client = client
     self.spaceService = spaceService
 
-    Task {
-      await self.listenToJoinedSpaces()
+    setupTask = Task { [weak self] in
+      await self?.listenToJoinedSpaces()
+      await self?.listenToSpaceFilters()
 
-      let joinedSpaces = await spaceService.topLevelJoinedSpaces()
-      Logger.liveSpaceService.debug("Joined spaces: \(joinedSpaces)")
+      // initializes the spaces graph
+      _ = await spaceService.topLevelJoinedSpaces()
+      guard !Task.isCancelled, let self else { return }
+      self.spaceGraphLoaded = true
+      self.refreshRoomsWithParents()
+    }
+  }
+
+  deinit {
+    setupTask?.cancel()
+    spacesTask?.cancel()
+    filtersTask?.cancel()
+    refreshTask?.cancel()
+    spaceHandle?.cancel()
+    filtersHandle?.cancel()
+  }
+
+  private func listenToSpaceFilters() async {
+    let listener = AsyncSDKListener<[SpaceFilterUpdate]>()
+    filtersHandle = await spaceService.subscribeToSpaceFilters(listener: listener)
+    filtersTask = Task { [weak self] in
+      for await _ in listener {
+        guard let self else { break }
+        self.refreshRoomsWithParents()
+      }
+    }
+  }
+
+  private func refreshRoomsWithParents() {
+    parentsNeedsRefresh = true
+    guard spaceGraphLoaded, refreshTask == nil else { return }
+
+    let service = spaceService
+    refreshTask = Task { [weak self] in
+      while self?.parentsNeedsRefresh == true && !Task.isCancelled {
+        guard let rooms = self?.client?.rooms() else { return }
+        self?.parentsNeedsRefresh = false
+        var children: Set<String> = []
+        for room in rooms {
+          guard !Task.isCancelled else { return }
+          do {
+            let parents = try await service.joinedParentIdsOfChild(childId: room.id())
+            if !parents.isEmpty {
+              children.insert(room.id())
+            }
+          } catch {
+            Logger.liveSpaceService.error("Failed to look up joined space parents: \(error)")
+          }
+        }
+        if let self {
+          self.roomsWithJoinedSpaceParents = children
+          self.refreshTask = nil
+        }
+      }
     }
   }
 
@@ -26,7 +90,7 @@ public final class LiveSpaceService {
     let listener = AsyncSDKListener<[SpaceListUpdate]>()
     self.spaceHandle = await self.spaceService.subscribeToTopLevelJoinedSpaces(listener: listener)
 
-    Task { [weak self] in
+    spacesTask = Task { [weak self] in
       for await roomUpdates in listener {
         guard let self else { break }
 

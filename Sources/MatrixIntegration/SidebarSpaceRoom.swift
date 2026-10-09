@@ -6,6 +6,7 @@ public final class SidebarSpaceRoom {
   public let spaceRoom: SpaceRoom
 
   public private(set) var children: Children = .loading
+  private var loadingChildren = false
 
   private let spaceService: LiveSpaceService
 
@@ -15,9 +16,13 @@ public final class SidebarSpaceRoom {
   }
 
   public func loadChildren() async {
-    if case .loaded(children: _) = children {
+    if case .loaded = children {
       return
     }
+    
+    guard !loadingChildren else { return }
+    loadingChildren = true
+    defer { loadingChildren = false }
 
     do {
       let result = try await spaceService.spaceService.spaceRoomList(spaceId: spaceRoom.roomId)
