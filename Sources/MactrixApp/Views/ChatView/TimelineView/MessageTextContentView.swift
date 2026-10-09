@@ -4,7 +4,7 @@ import MatrixRustSDK
 import MessageFormatting
 
 final class MessageEditingView: NSView, NSTextViewDelegate {
-  private let editor = NSTextView(frame: .zero)
+  private let editor = SubmitableTextView(frame: .zero)
   private let editorScrollView = NSScrollView()
   private let saveButton = NSButton(title: "Save", target: nil, action: nil)
   private let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
@@ -17,40 +17,65 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
 
+    editor.onSubmit = self.saveEdit
     editor.isRichText = false
     editor.font = .systemFont(ofSize: 13)
     editor.isHorizontallyResizable = false
     editor.isVerticallyResizable = true
     editor.autoresizingMask = [.width]
     editor.textContainer?.widthTracksTextView = true
-    editor.textContainerInset = NSSize(width: 5, height: 5)
+    editor.textContainerInset = NSSize(width: 2, height: 5)
     editor.delegate = self
     editor.setAccessibilityLabel("Edit message")
 
     editorScrollView.documentView = editor
     editorScrollView.hasVerticalScroller = true
-    editorScrollView.borderType = .bezelBorder
+    editorScrollView.borderType = .noBorder
+    editorScrollView.translatesAutoresizingMaskIntoConstraints = false
+
+    let containerView = NSBox()
+    containerView.boxType = .custom
+    containerView.borderWidth = 1
+    containerView.borderColor = .separatorColor
+    containerView.cornerRadius = 6
+    containerView.addSubview(editorScrollView)
+
+    editorScrollView.wantsLayer = true
+    editorScrollView.layer?.cornerRadius = 6
+    editorScrollView.layer?.masksToBounds = true
+    editorScrollView.contentView.wantsLayer = true
+    editorScrollView.contentView.layer?.cornerRadius = 6
+    editorScrollView.contentView.layer?.masksToBounds = true
 
     saveButton.target = self
     saveButton.action = #selector(saveEdit)
+    saveButton.keyEquivalent = "\r"
+    saveButton.keyEquivalentModifierMask = [.command]
 
     cancelButton.target = self
     cancelButton.action = #selector(cancelEdit)
+    cancelButton.keyEquivalent = "\u{1b}"  // escape button
 
     editErrorLabel.textColor = .systemRed
     editErrorLabel.lineBreakMode = .byTruncatingTail
     editErrorLabel.isSelectable = true
 
-    for view in [editorScrollView, saveButton, cancelButton, editErrorLabel] {
+    for view in [containerView, saveButton, cancelButton, editErrorLabel] {
       view.translatesAutoresizingMaskIntoConstraints = false
       addSubview(view)
     }
 
     NSLayoutConstraint.activate([
-      editorScrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
-      editorScrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
-      editorScrollView.topAnchor.constraint(equalTo: topAnchor),
-      editorScrollView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -6),
+      editorScrollView.leadingAnchor.constraint(equalTo: containerView.leadingAnchor, constant: 1),
+      editorScrollView.trailingAnchor.constraint(
+        equalTo: containerView.trailingAnchor, constant: -1),
+      editorScrollView.topAnchor.constraint(equalTo: containerView.topAnchor, constant: 1),
+      editorScrollView.bottomAnchor.constraint(equalTo: containerView.bottomAnchor, constant: -1),
+
+      containerView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      containerView.trailingAnchor.constraint(equalTo: trailingAnchor),
+      containerView.topAnchor.constraint(equalTo: topAnchor),
+      containerView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -6),
 
       saveButton.trailingAnchor.constraint(equalTo: trailingAnchor),
       saveButton.bottomAnchor.constraint(equalTo: bottomAnchor),
