@@ -76,7 +76,8 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
       size: file.info?.size?.formatted(.byteCount(style: .file))
     )
 
-    let hasCaption = file.caption?.isEmpty == false || file.formattedCaption != nil
+    let hasCaption =
+      captionView.isEditing || file.caption?.isEmpty == false || file.formattedCaption != nil
     captionView.isHidden = !hasCaption
     captionView.configureCaption(file.caption, formatted: file.formattedCaption)
     fileBottomConstraint.isActive = !hasCaption
@@ -91,6 +92,19 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
     }
   }
 
+  func configureEditing(_ state: MessageEditState?) {
+    captionView.configureEditing(state)
+    let hasCaption =
+      state != nil || fileContent?.caption?.isEmpty == false
+      || fileContent?.formattedCaption != nil
+    fileBottomConstraint.isActive = false
+    captionBottomConstraint.isActive = false
+    captionView.isHidden = !hasCaption
+    fileBottomConstraint.isActive = !hasCaption
+    captionBottomConstraint.isActive = hasCaption
+    needsLayout = true
+  }
+
   func height(for content: MsgLikeContent, width: CGFloat) -> CGFloat {
     guard case .message(let message) = content.kind,
       case .file(let file) = message.msgType
@@ -99,7 +113,8 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
   }
 
   func height(for file: FileMessageContent, width: CGFloat) -> CGFloat {
-    guard file.caption?.isEmpty == false || file.formattedCaption != nil else { return 36 }
+    guard captionView.isEditing || file.caption?.isEmpty == false || file.formattedCaption != nil
+    else { return 36 }
     return 36 + 10
       + ceil(
         captionView.height(forCaption: file.caption, formatted: file.formattedCaption, width: width)

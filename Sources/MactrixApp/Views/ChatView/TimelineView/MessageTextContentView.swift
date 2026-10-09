@@ -3,11 +3,125 @@ import MatrixIntegration
 import MatrixRustSDK
 import MessageFormatting
 
+final class MessageEditingView: NSView, NSTextViewDelegate {
+  private let editor = NSTextView(frame: .zero)
+  private let editorScrollView = NSScrollView()
+  private let saveButton = NSButton(title: "Save", target: nil, action: nil)
+  private let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+  private let editErrorLabel = NSTextField(labelWithString: "")
+  private var editState: MessageEditState?
+  private var restoringEditor = false
+
+  public var isEditing: Bool { editState != nil }
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+
+    editor.isRichText = false
+    editor.font = .systemFont(ofSize: 13)
+    editor.isHorizontallyResizable = false
+    editor.isVerticallyResizable = true
+    editor.autoresizingMask = [.width]
+    editor.textContainer?.widthTracksTextView = true
+    editor.textContainerInset = NSSize(width: 5, height: 5)
+    editor.delegate = self
+    editor.setAccessibilityLabel("Edit message")
+
+    editorScrollView.documentView = editor
+    editorScrollView.hasVerticalScroller = true
+    editorScrollView.borderType = .bezelBorder
+
+    saveButton.target = self
+    saveButton.action = #selector(saveEdit)
+
+    cancelButton.target = self
+    cancelButton.action = #selector(cancelEdit)
+
+    editErrorLabel.textColor = .systemRed
+    editErrorLabel.lineBreakMode = .byTruncatingTail
+    editErrorLabel.isSelectable = true
+
+    for view in [editorScrollView, saveButton, cancelButton, editErrorLabel] {
+      view.translatesAutoresizingMaskIntoConstraints = false
+      addSubview(view)
+    }
+
+    NSLayoutConstraint.activate([
+      editorScrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      editorScrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
+      editorScrollView.topAnchor.constraint(equalTo: topAnchor),
+      editorScrollView.bottomAnchor.constraint(equalTo: saveButton.topAnchor, constant: -6),
+
+      saveButton.trailingAnchor.constraint(equalTo: trailingAnchor),
+      saveButton.bottomAnchor.constraint(equalTo: bottomAnchor),
+
+      cancelButton.trailingAnchor.constraint(equalTo: saveButton.leadingAnchor, constant: -6),
+      cancelButton.centerYAnchor.constraint(equalTo: saveButton.centerYAnchor),
+
+      editErrorLabel.leadingAnchor.constraint(equalTo: leadingAnchor),
+      editErrorLabel.trailingAnchor.constraint(
+        lessThanOrEqualTo: cancelButton.leadingAnchor, constant: 8),
+      editErrorLabel.centerYAnchor.constraint(equalTo: saveButton.centerYAnchor),
+    ])
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  func configureEditing(_ state: MessageEditState?) {
+    editState = state
+    guard let state else { return }
+    restoringEditor = true
+    if editor.string != state.text { editor.string = state.text }
+    let length = (state.text as NSString).length
+    let location = min(max(state.selectedRange.location, 0), length)
+    editor.setSelectedRange(
+      NSRange(
+        location: location, length: min(max(state.selectedRange.length, 0), length - location)))
+    restoringEditor = false
+    editor.isEditable = !state.isSaving
+    saveButton.isEnabled = !state.isSaving
+    cancelButton.isEnabled = !state.isSaving
+    saveButton.title = state.isSaving ? "Saving…" : "Save"
+    editErrorLabel.stringValue = state.error ?? ""
+    editErrorLabel.toolTip = state.error
+  }
+
+  func textDidChange(_ notification: Notification) {
+    guard !restoringEditor, let state = editState else { return }
+    state.text = editor.string
+    state.selectedRange = editor.selectedRange()
+    state.onChange?()
+  }
+
+  func textViewDidChangeSelection(_ notification: Notification) {
+    guard !restoringEditor, let state = editState else { return }
+    state.selectedRange = editor.selectedRange()
+  }
+
+  @objc private func saveEdit() {
+    guard let state = editState, !state.isSaving else { return }
+    state.onSave?()
+  }
+
+  @objc private func cancelEdit() {
+    guard let state = editState, !state.isSaving else { return }
+    state.onCancel?()
+  }
+}
+
 /// Retains the NSTextView and its layout machinery when its table row is reused.
 final class MessageTextContentView: NSView, MessageContentRowView {
   var onSelectRequest: (() -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?
+
   private let bodyText = OcclusionAwareTextView(frame: .zero)
+
+  static let editingHeight: CGFloat = 140
+  var cachedEditingView: MessageEditingView? = nil
+  public var isEditing: Bool { cachedEditingView?.isEditing ?? false }
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
@@ -26,6 +140,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
     bodyText.onArrowKey = { [weak self] direction in self?.onArrowKey?(direction) }
 
     addSubview(bodyText)
+
     NSLayoutConstraint.activate([
       bodyText.leadingAnchor.constraint(equalTo: leadingAnchor),
       bodyText.trailingAnchor.constraint(equalTo: trailingAnchor),
@@ -43,11 +158,38 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   }
 
   func height(forCaption caption: String?, formatted: FormattedBody?, width: CGFloat) -> CGFloat {
-    measure(Self.attributedCaption(caption, formatted: formatted), width: width)
+    isEditing
+      ? Self.editingHeight
+      : measure(Self.attributedCaption(caption, formatted: formatted), width: width)
   }
 
   func height(for content: MatrixRustSDK.MsgLikeContent, width: CGFloat) -> CGFloat {
-    measure(Self.attributedBody(for: content), width: width)
+    isEditing ? Self.editingHeight : measure(Self.attributedBody(for: content), width: width)
+  }
+
+  func configureEditing(_ state: MessageEditState?) {
+    let editingView: MessageEditingView
+    if let cachedEditingView {
+      editingView = cachedEditingView
+    } else {
+      editingView = MessageEditingView(frame: .zero)
+      cachedEditingView = editingView
+      editingView.isHidden = true
+      editingView.translatesAutoresizingMaskIntoConstraints = false
+      addSubview(editingView)
+
+      NSLayoutConstraint.activate([
+        editingView.leadingAnchor.constraint(equalTo: leadingAnchor),
+        editingView.trailingAnchor.constraint(equalTo: trailingAnchor),
+        editingView.topAnchor.constraint(equalTo: topAnchor),
+        editingView.bottomAnchor.constraint(equalTo: bottomAnchor),
+      ])
+    }
+
+    editingView.configureEditing(state)
+
+    bodyText.isHidden = state != nil
+    editingView.isHidden = state == nil
   }
 
   private func measure(_ text: NSAttributedString, width: CGFloat) -> CGFloat {
@@ -91,6 +233,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   {
     let fontSize = UserDefaults.standard.object(forKey: "fontSize") as? Int ?? 13
     let font = NSFont.systemFont(ofSize: CGFloat(fontSize))
+
     func plain(_ text: String, color: NSColor = .labelColor, italic: Bool = false)
       -> NSAttributedString
     {

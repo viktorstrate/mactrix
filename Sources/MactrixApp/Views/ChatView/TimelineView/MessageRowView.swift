@@ -116,6 +116,10 @@ final class MessageRowView: NSView {
     ])
   }
 
+  func configureEditing(_ state: MessageEditState?) {
+    contentView.configureEditing(state)
+  }
+
   func configure(
     event: MatrixRustSDK.EventTimelineItem,
     content: MatrixRustSDK.MsgLikeContent,

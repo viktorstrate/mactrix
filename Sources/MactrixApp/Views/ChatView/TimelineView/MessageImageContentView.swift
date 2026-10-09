@@ -95,7 +95,8 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
   func configure(image: ImageMessageContent, matrixClient: MatrixClient?) {
     self.imageContent = image
     self.matrixClient = matrixClient
-    let hasCaption = image.caption?.isEmpty == false || image.formattedCaption != nil
+    let hasCaption =
+      captionView.isEditing || image.caption?.isEmpty == false || image.formattedCaption != nil
     captionView.isHidden = !hasCaption
     captionView.configureCaption(image.caption, formatted: image.formattedCaption)
     imageBottomConstraint.isActive = !hasCaption
@@ -121,6 +122,19 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
     }
   }
 
+  func configureEditing(_ state: MessageEditState?) {
+    captionView.configureEditing(state)
+    let hasCaption =
+      state != nil || imageContent?.caption?.isEmpty == false
+      || imageContent?.formattedCaption != nil
+    imageBottomConstraint.isActive = false
+    captionBottomConstraint.isActive = false
+    captionView.isHidden = !hasCaption
+    imageBottomConstraint.isActive = !hasCaption
+    captionBottomConstraint.isActive = hasCaption
+    needsLayout = true
+  }
+
   override func layout() {
     super.layout()
     guard let imageContent else { return }
@@ -136,7 +150,8 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
 
   func height(for image: ImageMessageContent, width: CGFloat) -> CGFloat {
     let imageHeight = Self.imageSize(for: image, width: width).height
-    guard image.caption?.isEmpty == false || image.formattedCaption != nil else {
+    guard captionView.isEditing || image.caption?.isEmpty == false || image.formattedCaption != nil
+    else {
       return imageHeight
     }
     return imageHeight + 10
