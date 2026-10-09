@@ -34,6 +34,8 @@ public class MatrixClient {
     .setSessionDelegate(sessionDelegate: self)
     .build()
 
+    try await client.restoreSession(session: userSession.session)
+
     spaceService = LiveSpaceService(client: self.client, spaceService: await client.spaceService())
     clientDelegateHandle = try? client.setDelegate(delegate: self)
   }
@@ -105,12 +107,7 @@ public class MatrixClient {
   public static func attemptRestore() async throws -> MatrixClient? {
     guard let userSession = try UserSession.loadUserFromKeychain() else { return nil }
 
-    let matrixClient = try await MatrixClient(userSession: userSession)
-
-    // Restore the client using the session.
-    try await matrixClient.client.restoreSession(session: userSession.session)
-
-    return matrixClient
+    return try await MatrixClient(userSession: userSession)
   }
 
   public func reset() async throws {
