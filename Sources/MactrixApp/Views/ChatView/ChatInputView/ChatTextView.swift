@@ -138,12 +138,11 @@ struct ChatTextView: NSViewRepresentable {
   }
 }
 
-class DynamicTextView: NSTextView {
+class DynamicTextView: SubmitableTextView {
   @objc var placeholderAttributedString: NSAttributedString?
 
   static let padding = NSSize(width: 10, height: 10)
 
-  var onSubmit: (() -> Void)?
   var onAttachmentPaste: ((NSPasteboard) -> Bool)?
 
   override func paste(_ sender: Any?) {
@@ -180,6 +179,11 @@ class DynamicTextView: NSTextView {
     super.didChangeText()
     invalidateIntrinsicContentSize()
   }
+
+}
+
+class SubmitableTextView: NSTextView {
+  var onSubmit: (() -> Void)?
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
     // Always submit on cmd+enter

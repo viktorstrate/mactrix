@@ -8,12 +8,14 @@ final class MessageHoverOverlayView: NSView {
     case reply
     case replyInThread
     case pin
+    case edit
   }
 
   var onAction: ((Action) -> Void)?
   var onMouseExited: ((NSEvent) -> Void)?
 
   private let stack = NSStackView()
+  private let editButton = HoverActionButton(symbol: "pencil", label: "Edit message")
   private let replyButton = HoverActionButton(symbol: "arrowshape.turn.up.left", label: "Reply")
   private let threadButton = HoverActionButton(symbol: "ellipsis.message", label: "Reply in thread")
 
@@ -74,6 +76,8 @@ final class MessageHoverOverlayView: NSView {
     threadButton.onClick = { [weak self] in self?.onAction?(.replyInThread) }
     stack.addArrangedSubview(replyButton)
     stack.addArrangedSubview(threadButton)
+    editButton.onClick = { [weak self] in self?.onAction?(.edit) }
+    stack.addArrangedSubview(editButton)
 
     let pinButton = HoverActionButton(symbol: "pin", label: "Pin")
     pinButton.onClick = { [weak self] in self?.onAction?(.pin) }
@@ -92,7 +96,8 @@ final class MessageHoverOverlayView: NSView {
     configure(canReply: true)
   }
 
-  func configure(canReply: Bool) {
+  func configure(canReply: Bool, canEdit: Bool = false) {
+    editButton.isHidden = !canEdit
     replyButton.isHidden = !canReply
     threadButton.isHidden = !canReply
     setFrameSize(fittingSize)

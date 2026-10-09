@@ -63,6 +63,23 @@ final class MessageGalleryContentView: NSView, MessageMediaPreviewContentView {
     }
     attachments = nextAttachments
 
+    rebuildComposition()
+    updateCallbacks()
+  }
+
+  func configureEditing(_ state: MessageEditState?) {
+    captionView.configureEditing(state)
+    captionMeasurementView.configureEditing(state)
+    rebuildComposition()
+    needsLayout = true
+  }
+
+  private func rebuildComposition() {
+    guard let gallery else { return }
+    NSLayoutConstraint.deactivate(compositionConstraints)
+    compositionConstraints = []
+    attachmentHeightConstraints = []
+    captionHeightConstraint = nil
     var previous: NSView?
     for attachment in attachments {
       let view = attachment.view
@@ -79,7 +96,7 @@ final class MessageGalleryContentView: NSView, MessageMediaPreviewContentView {
       previous = view
     }
 
-    let hasCaption = Self.hasCaption(gallery)
+    let hasCaption = captionView.isEditing || Self.hasCaption(gallery)
     captionView.isHidden = !hasCaption
     captionView.configureCaption(gallery.body, formatted: gallery.formatted)
     if hasCaption {
@@ -102,7 +119,6 @@ final class MessageGalleryContentView: NSView, MessageMediaPreviewContentView {
     compositionConstraints.append(bottom)
     updateHeights()
     NSLayoutConstraint.activate(compositionConstraints)
-    updateCallbacks()
   }
 
   override func layout() {
@@ -123,7 +139,7 @@ final class MessageGalleryContentView: NSView, MessageMediaPreviewContentView {
     var height =
       itemHeights.reduce(0, +)
       + CGFloat(max(itemHeights.count - 1, 0)) * Self.itemSpacing
-    if Self.hasCaption(gallery) {
+    if captionView.isEditing || Self.hasCaption(gallery) {
       height +=
         (itemHeights.isEmpty ? 0 : Self.captionSpacing)
         + ceil(

@@ -119,7 +119,8 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
   func configure(video: VideoMessageContent, matrixClient: MatrixClient?) {
     videoContent = video
     self.matrixClient = matrixClient
-    let hasCaption = video.caption?.isEmpty == false || video.formattedCaption != nil
+    let hasCaption =
+      captionView.isEditing || video.caption?.isEmpty == false || video.formattedCaption != nil
     captionView.isHidden = !hasCaption
     captionView.configureCaption(video.caption, formatted: video.formattedCaption)
     mediaBottomConstraint.isActive = !hasCaption
@@ -147,6 +148,19 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
     loadThumbnail(for: video, from: matrixClient)
   }
 
+  func configureEditing(_ state: MessageEditState?) {
+    captionView.configureEditing(state)
+    let hasCaption =
+      state != nil || videoContent?.caption?.isEmpty == false
+      || videoContent?.formattedCaption != nil
+    mediaBottomConstraint.isActive = false
+    captionBottomConstraint.isActive = false
+    captionView.isHidden = !hasCaption
+    mediaBottomConstraint.isActive = !hasCaption
+    captionBottomConstraint.isActive = hasCaption
+    needsLayout = true
+  }
+
   override func layout() {
     if let videoContent, bounds.width > 0 {
       updateMediaSize(for: videoContent, width: bounds.width)
@@ -163,7 +177,8 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
 
   func height(for video: VideoMessageContent, width: CGFloat) -> CGFloat {
     let mediaHeight = Self.mediaSize(for: video, width: width).height
-    guard video.caption?.isEmpty == false || video.formattedCaption != nil else {
+    guard captionView.isEditing || video.caption?.isEmpty == false || video.formattedCaption != nil
+    else {
       return mediaHeight
     }
     return mediaHeight + 10

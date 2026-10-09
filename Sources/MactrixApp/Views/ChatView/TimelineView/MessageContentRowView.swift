@@ -8,6 +8,11 @@ protocol MessageContentRowView: NSView {
   var onArrowKey: ((TimelineSelectionDirection) -> Void)? { get set }
   func configure(content: MatrixRustSDK.MsgLikeContent, matrixClient: MatrixClient?)
   func height(for content: MatrixRustSDK.MsgLikeContent, width: CGFloat) -> CGFloat
+  func configureEditing(_ state: MessageEditState?)
+}
+
+extension MessageContentRowView {
+  func configureEditing(_ state: MessageEditState?) {}
 }
 
 /// Media rows deliver downloaded files to their owning timeline controller.

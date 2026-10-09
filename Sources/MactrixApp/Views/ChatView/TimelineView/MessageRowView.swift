@@ -31,6 +31,7 @@ final class MessageRowView: NSView {
   private static let receiptSpacing: CGFloat = 10
 
   private let timestamp = NSTextField(labelWithString: "")
+  private let editedLabel = NSTextField(labelWithString: "(edited)")
   private let contentView: any MessageContentRowView
   private var replyPreview: MessageReplyPreviewView?
   private var replyDetails: MatrixRustSDK.EmbeddedEventDetails?
@@ -81,6 +82,13 @@ final class MessageRowView: NSView {
     timestamp.textColor = .secondaryLabelColor
     timestamp.alignment = .right
     timestamp.translatesAutoresizingMaskIntoConstraints = false
+
+    editedLabel.font = .systemFont(ofSize: 10)
+    editedLabel.textColor = .secondaryLabelColor
+    editedLabel.alignment = .right
+    editedLabel.isHidden = true
+    editedLabel.translatesAutoresizingMaskIntoConstraints = false
+
     contentView.translatesAutoresizingMaskIntoConstraints = false
     contentView.onSelectRequest = { [weak self] in
       guard let self else { return }
@@ -101,19 +109,28 @@ final class MessageRowView: NSView {
       ))
 
     addSubview(timestamp)
+    addSubview(editedLabel)
     addSubview(contentView)
+    
     // NSTableView may retain an old encapsulated height while a reused row is reconfigured.
     contentBottomToRow.priority = .init(999)
     NSLayoutConstraint.activate([
       timestamp.leadingAnchor.constraint(equalTo: leadingAnchor),
       timestamp.topAnchor.constraint(equalTo: topAnchor, constant: 6),
       timestamp.widthAnchor.constraint(equalToConstant: 48),
+      editedLabel.leadingAnchor.constraint(equalTo: timestamp.leadingAnchor),
+      editedLabel.trailingAnchor.constraint(equalTo: timestamp.trailingAnchor),
+      editedLabel.topAnchor.constraint(equalTo: timestamp.bottomAnchor, constant: 1),
 
       contentView.leadingAnchor.constraint(equalTo: timestamp.trailingAnchor, constant: 16),
       contentView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
       contentTopToRow,
       contentBottomToRow,
     ])
+  }
+
+  func configureEditing(_ state: MessageEditState?) {
+    contentView.configureEditing(state)
   }
 
   func configure(
@@ -136,6 +153,7 @@ final class MessageRowView: NSView {
 
     let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
     timestamp.stringValue = Self.timeFormatter.string(from: date)
+    editedLabel.isHidden = !Self.hasBeenEdited(content)
     contentView.configure(content: content, matrixClient: matrixClient)
     configureReply(details: replyDetails, onClick: onReplyClick)
     configureThread(summary: content.threadSummary, onClick: onThreadClick)
@@ -402,6 +420,14 @@ final class MessageRowView: NSView {
     }
   }
 
+  private static func hasBeenEdited(_ content: MatrixRustSDK.MsgLikeContent) -> Bool {
+    switch content.kind {
+    case .message(let message): return message.isEdited
+    case .poll(_, _, _, _, _, _, let hasBeenEdited): return hasBeenEdited
+    default: return false
+    }
+  }
+
   func height(
     for content: MatrixRustSDK.MsgLikeContent, width: CGFloat,
     replyDetails: MatrixRustSDK.EmbeddedEventDetails?, reactions: [MatrixRustSDK.Reaction],
@@ -430,7 +456,7 @@ final class MessageRowView: NSView {
       ? 0 : MessageReadReceiptsView.rowHeight + Self.receiptSpacing
     return max(
       ceil(contentView.height(for: content, width: contentWidth)) + replyHeight + threadHeight
-        + reactionsHeight + receiptsHeight + 8, 28)
+        + reactionsHeight + receiptsHeight + 8, Self.hasBeenEdited(content) ? 40 : 28)
   }
 
   @available(*, unavailable)

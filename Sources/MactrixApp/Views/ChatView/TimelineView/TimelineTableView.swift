@@ -49,6 +49,21 @@ enum TimelineItemRowInfo {
       return NSUserInterfaceItemIdentifier("typing-indicator")
     }
   }
+
+  var timelineItem: TimelineItem? {
+    switch self {
+    case .message(let item, _, _):
+      item
+    case .profile(let item, _):
+      item
+    case .state(let item, _):
+      item
+    case .virtual(let item, _):
+      item
+    case .typingIndicator:
+      nil
+    }
+  }
 }
 
 extension TimelineItemRowInfo: Identifiable {
@@ -80,6 +95,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private weak var hoveredMessageView: MessageRowView?
   private var hoveredMessageId: String?
   private var hoveredRowIndex: Int?
+  private var messageEdit: MessageEditState?
   private var updatingTimelineItems = false
   private var previewURL: URL?
   private var previewEventIdentifier: String?
@@ -201,6 +217,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
           self.showMediaPreview(
             url: url, handle: handle, eventIdentifier: event.eventOrTransactionId.id)
         }
+        view.configureEditing(messageEdit?.id == event.eventOrTransactionId ? messageEdit : nil)
         view.configure(
           event: event,
           content: content,
@@ -338,7 +355,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     guard row >= 0, row < timelineItems.count,
       case .message(_, let event, _) = timelineItems[row]
     else { return false }
-    hoverOverlay.configure(canReply: event.canBeRepliedTo)
+    hoverOverlay.configure(
+      canReply: event.canBeRepliedTo,
+      canEdit: event.isOwn && event.isEditable && editableText(for: event) != nil)
     if hoveredMessageView !== rowView {
       hoveredMessageView?.setHoverHighlight(false)
     }
@@ -426,6 +445,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       toggleReaction(key, for: event)
     case .reactionPicker:
       break  // The old picker button does not have an action yet.
+    case .edit:
+      beginEditing(event: event)
     case .reply:
       composer.beginReply(to: event)
     case .replyInThread:
@@ -501,17 +522,19 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
   }
 
+  func rowForEventId(id eventId: MatrixRustSDK.EventOrTransactionId) -> Int? {
+    timelineItems.firstIndex { item in
+      switch item {
+      case .message(item: _, let event, content: _):
+        return event.eventOrTransactionId == eventId
+      default:
+        return false
+      }
+    }
+  }
+
   func focusTimelineEvent(id eventId: MatrixRustSDK.EventOrTransactionId) {
-    guard
-      let rowIndex = timelineItems.firstIndex(where: { item in
-        switch item {
-        case .message(item: _, let event, content: _):
-          return event.eventOrTransactionId == eventId
-        default:
-          return false
-        }
-      })
-    else { return }
+    guard let rowIndex = rowForEventId(id: eventId) else { return }
 
     tableView.selectRowIndexes(IndexSet(integer: rowIndex), byExtendingSelection: false)
     updateSelectedMessage()
@@ -731,7 +754,10 @@ extension TimelineViewController: NSTableViewDelegate {
 
     if case .message(_, let event, let content) = item {
       let kind = MessageContentKind(content: content)
-      return measurementView(for: kind).height(
+      let measurement = measurementView(for: kind)
+      measurement.configureEditing(
+        messageEdit?.id == event.eventOrTransactionId ? messageEdit : nil)
+      return measurement.height(
         for: content,
         width: tableView.tableColumns[0].width,
         replyDetails: replyDetails(for: content),
@@ -741,6 +767,114 @@ extension TimelineViewController: NSTableViewDelegate {
     }
 
     preconditionFailure("Unsupported timeline row")
+  }
+}
+
+// Message editing
+extension TimelineViewController {
+  private func editableText(for event: MatrixRustSDK.EventTimelineItem) -> String? {
+    guard case .msgLike(let content) = event.content,
+      case .message(let message) = content.kind
+    else { return nil }
+    switch message.msgType {
+    case .text(let text): return text.body
+    case .notice(let notice): return notice.body
+    case .emote(let emote): return emote.body
+    case .image(let image): return image.caption ?? ""
+    case .video(let video): return video.caption ?? ""
+    case .file(let file): return file.caption ?? ""
+    case .gallery(let gallery): return gallery.body
+    default: return nil
+    }
+  }
+
+  private func beginEditing(event: MatrixRustSDK.EventTimelineItem) {
+    guard event.isOwn, event.isEditable, let text = editableText(for: event) else { return }
+    if messageEdit?.id == event.eventOrTransactionId { return }
+
+    var dirtyEvents = Set<MatrixRustSDK.EventOrTransactionId>([event.eventOrTransactionId])
+    if let messageEdit {
+      dirtyEvents.insert(messageEdit.id)
+    }
+
+    let state = MessageEditState(id: event.eventOrTransactionId, text: text)
+    state.onCancel = { [weak self, weak state] in
+      guard let self, let state, self.messageEdit === state else { return }
+      self.messageEdit = nil
+      self.refreshEditingRows(events: [event.eventOrTransactionId])
+    }
+    state.onSave = { [weak self, weak state] in
+      guard let self, let state else { return }
+      self.saveEdit(state, event: event)
+    }
+    messageEdit = state
+    hideHoverOverlay()
+
+    refreshEditingRows(events: dirtyEvents)
+  }
+
+  private func refreshEditingRows(events: Set<MatrixRustSDK.EventOrTransactionId>) {
+    var rows = IndexSet()
+    for eventId in events {
+      guard
+        let row = rowForEventId(id: eventId),
+        let view = tableView.view(atColumn: 0, row: row, makeIfNecessary: false)
+          as? MessageRowView
+      else { continue }
+
+      view.configureEditing(messageEdit?.id == eventId ? messageEdit : nil)
+      rows.insert(row)
+    }
+    tableView.noteHeightOfRows(withIndexesChanged: rows)
+  }
+
+  private func saveEdit(_ state: MessageEditState, event: MatrixRustSDK.EventTimelineItem) {
+    guard messageEdit === state, !state.isSaving, let sdkTimeline = timeline.timeline,
+      case .msgLike(let content) = event.content,
+      case .message(let message) = content.kind
+    else { return }
+
+    let editedContent: EditedContent
+
+    switch message.msgType {
+    case .text:
+      editedContent = .roomMessage(content: messageEventContentFromMarkdown(md: state.text))
+    case .emote:
+      editedContent = .roomMessage(content: messageEventContentFromMarkdownAsEmote(md: state.text))
+    case .notice(var notice):
+      notice.body = state.text
+      notice.formatted = nil
+      do {
+        editedContent = .roomMessage(
+          content: try messageEventContentNew(msgtype: .notice(content: notice))
+        )
+      } catch {
+        state.error = error.localizedDescription
+        refreshEditingRows(events: [event.eventOrTransactionId])
+        return
+      }
+    default:
+      editedContent = .mediaCaption(
+        caption: state.text.isEmpty ? nil : state.text,
+        formattedCaption: nil, mentions: nil)
+    }
+    state.isSaving = true
+    state.error = nil
+    refreshEditingRows(events: [event.eventOrTransactionId])
+    Task { [weak self] in
+      do {
+        try await sdkTimeline.edit(
+          eventOrTransactionId: event.eventOrTransactionId, newContent: editedContent)
+        guard let self, self.messageEdit === state else { return }
+        self.messageEdit = nil
+        self.refreshEditingRows(events: [event.eventOrTransactionId])
+      } catch {
+        guard let self, self.messageEdit === state else { return }
+        state.isSaving = false
+        state.error = error.localizedDescription
+        self.refreshEditingRows(events: [event.eventOrTransactionId])
+      }
+    }
   }
 }
 
