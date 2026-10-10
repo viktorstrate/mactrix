@@ -3,9 +3,9 @@ import OSLog
 import SwiftUI
 
 @MainActor
-public protocol ImageLoader {
+public protocol ImageLoader: AnyObject {
   func loadImage(matrixUrl: String, size: CGSize?) async throws -> NSImage?
-  func cachedImage(matrixUrl: String) -> NSImage?
+  func cachedImage(matrixUrl: String, size: CGSize?) -> NSImage?
 }
 
 public struct AvatarImage: View {

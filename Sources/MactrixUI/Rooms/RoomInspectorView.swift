@@ -50,7 +50,8 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
     VStack(alignment: .center, spacing: 20) {
       VStack(alignment: .center) {
         AvatarImage(
-          userID: room.id, kind: .room, displayName: room.displayName,
+          userID: room.id, kind: roomInfo?.isDirect == true ? .user : .room,
+          displayName: room.displayName,
           avatarUrl: roomInfo?.avatarUrl,
           imageLoader: imageLoader
         )

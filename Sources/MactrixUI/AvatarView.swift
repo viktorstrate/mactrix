@@ -27,6 +27,7 @@ public final class AvatarView: NSView {
   private let imageView = AspectFillImageView()
   private var loadTask: Task<Void, Never>?
   private var avatarUrl: String?
+  private weak var imageLoader: ImageLoader?
   private var userID: String?
   private var kind: AvatarKind = .user
 
@@ -99,11 +100,15 @@ public final class AvatarView: NSView {
     userID: String, displayName: String?, avatarUrl: String?, kind: AvatarKind,
     imageLoader: ImageLoader?
   ) {
-    cancelLoad()
+    let sourceChanged = self.avatarUrl != avatarUrl || self.imageLoader !== imageLoader
+    if sourceChanged {
+      cancelLoad()
+      imageView.image = nil
+    }
     self.avatarUrl = avatarUrl
+    self.imageLoader = imageLoader
     self.kind = kind
     self.userID = userID
-    imageView.image = nil
     initialLabel.stringValue =
       if kind == .user {
         userAvatarInitial(userID: userID, displayName: displayName) ?? ""
@@ -114,18 +119,25 @@ public final class AvatarView: NSView {
     configureCornerRadius()
     needsLayout = true
 
-    guard let avatarUrl, let imageLoader else { return }
-    if let cached = imageLoader.cachedImage(matrixUrl: avatarUrl) {
+    // Keep an existing image or request across updates that only change presentation.
+    guard imageView.image == nil, loadTask == nil,
+      let avatarUrl, let imageLoader
+    else { return }
+    let imageSize = CGSize(width: 256, height: 256)
+
+    if let cached = imageLoader.cachedImage(
+      matrixUrl: avatarUrl, size: imageSize)
+    {
       imageView.image = cached
       return
     }
 
     loadTask = Task { [weak self] in
-      guard let image = try? await imageLoader.loadImage(matrixUrl: avatarUrl, size: nil),
-        !Task.isCancelled,
-        let self,
-        self.avatarUrl == avatarUrl
+      let image = try? await imageLoader.loadImage(matrixUrl: avatarUrl, size: imageSize)
+      guard !Task.isCancelled, let self,
+        self.avatarUrl == avatarUrl, self.imageLoader === imageLoader
       else { return }
+      self.loadTask = nil
       self.imageView.image = image
     }
   }

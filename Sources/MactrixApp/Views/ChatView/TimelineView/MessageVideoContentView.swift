@@ -212,7 +212,7 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
   private func loadThumbnail(for video: VideoMessageContent, from client: MatrixClient?) {
     guard let source = video.info?.thumbnailSource, let client else { return }
     let url = video.source.url()
-    if let cached = client.cachedImage(matrixUrl: source.url()) {
+    if let cached = client.cachedImage(matrixUrl: source.url(), size: nil) {
       thumbnailView.image = cached
       return
     }
