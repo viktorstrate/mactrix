@@ -42,7 +42,12 @@ private struct GroupButton<Content: View>: View {
 
   var body: some View {
     Button {
-      windowState.selectedSpaceId = id
+      if windowState.selectedSpaceId == id {
+        // Select the space room to show details about the space itself
+        windowState.selectedRoomId = id
+      } else {
+        windowState.selectedSpaceId = id
+      }
     } label: {
       content()
         .frame(width: 42, height: 42)
