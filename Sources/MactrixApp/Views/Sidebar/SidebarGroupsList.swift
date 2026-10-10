@@ -20,10 +20,13 @@ struct SidebarGroupsList: View {
         }
         ForEach(spaces) { space in
           GroupButton(id: space.id, title: space.spaceRoom.displayName) {
-            RoomRowAvatarImage(
-              avatarUrl: space.spaceRoom.avatarUrl, placeholderSystemImage: "square.grid.2x2.fill",
-              imageLoader: appState.matrixClient
-            )
+            AvatarImage(
+              userID: space.id, kind: .room, displayName: space.spaceRoom.displayName,
+              avatarUrl: space.spaceRoom.avatarUrl, imageLoader: appState.matrixClient)
+            // RoomRowAvatarImage(
+            //   avatarUrl: space.spaceRoom.avatarUrl, placeholderSystemImage: "square.grid.2x2.fill",
+            //   imageLoader: appState.matrixClient
+            // )
           }
         }
       }

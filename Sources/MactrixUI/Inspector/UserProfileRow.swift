@@ -16,7 +16,7 @@ public struct UserProfileRow<Profile: UserProfile>: View {
     Label {
       Username(userProfile: profile)
     } icon: {
-      UserAvatarImage(userProfile: profile, imageLoader: imageLoader)
+      AvatarImage(userProfile: profile, imageLoader: imageLoader)
     }
   }
 }
@@ -32,7 +32,7 @@ public struct UserProfileRowLarge<Profile: UserProfile>: View {
 
   public var body: some View {
     HStack {
-      UserAvatarImage(userProfile: profile, imageLoader: imageLoader)
+      AvatarImage(userProfile: profile, imageLoader: imageLoader)
         .frame(width: 32, height: 32)
       VStack(alignment: .leading) {
         Username(userProfile: profile)

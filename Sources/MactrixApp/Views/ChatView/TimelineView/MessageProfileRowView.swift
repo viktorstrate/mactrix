@@ -64,7 +64,7 @@ class MessageProfileRowView: NSView {
 
 class ProfilePictureButton: NSButton {
 
-  private let avatarView = UserAvatarView()
+  private let avatarView = AvatarView()
   private var sender: String?
   private var focusUserAction: (_ sender: String) -> Void = { _ in }
   private var imageLoader: MactrixUI.ImageLoader?
@@ -108,7 +108,7 @@ class ProfilePictureButton: NSButton {
     }
 
     avatarView.configure(
-      userID: event.sender, displayName: displayName, avatarUrl: avatarUrl,
+      userID: event.sender, displayName: displayName, avatarUrl: avatarUrl, kind: .user,
       imageLoader: imageLoader
     )
   }

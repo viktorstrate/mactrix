@@ -235,7 +235,8 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   {
     let fontSize = UserDefaults.standard.object(forKey: "fontSize") as? Int ?? 13
     if let formatted, formatted.format == .html {
-      return parseFormattedBody(formatted.body, baseFontSize: CGFloat(fontSize))
+      return attributedFormattedBody(
+        formatted.body, baseFontSize: CGFloat(fontSize), color: .labelColor)
     }
     let options = AttributedString.MarkdownParsingOptions(
       interpretedSyntax: .inlineOnlyPreservingWhitespace)
@@ -244,6 +245,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
       ?? AttributedString(caption ?? "")
     let result = NSMutableAttributedString(attributedString: NSAttributedString(attributed))
     let fullRange = NSRange(location: 0, length: result.length)
+    result.addAttribute(.foregroundColor, value: NSColor.labelColor, range: fullRange)
     result.enumerateAttribute(.font, in: fullRange) { font, range, _ in
       if font == nil {
         result.addAttribute(
@@ -311,15 +313,8 @@ final class MessageTextContentView: NSView, MessageContentRowView {
     for message: some MatrixIntegration.MessageContent, font: NSFont, color: NSColor
   ) -> NSAttributedString {
     if let formatted = message.formatted, formatted.format == .html {
-      let result = NSMutableAttributedString(
-        attributedString: parseFormattedBody(
-          formatted.body, baseFontSize: font.pointSize
-        ))
-      if color == .secondaryLabelColor {
-        result.addAttribute(
-          .foregroundColor, value: color, range: NSRange(location: 0, length: result.length))
-      }
-      return result
+      return attributedFormattedBody(
+        formatted.body, baseFontSize: font.pointSize, color: color)
     }
     return NSAttributedString(
       string: message.body.trimmingCharacters(in: .whitespacesAndNewlines),
@@ -327,6 +322,16 @@ final class MessageTextContentView: NSView, MessageContentRowView {
         .font: font,
         .foregroundColor: color,
       ])
+  }
+
+  private static func attributedFormattedBody(
+    _ body: String, baseFontSize: CGFloat, color: NSColor
+  ) -> NSAttributedString {
+    let result = NSMutableAttributedString(
+      attributedString: parseFormattedBody(body, baseFontSize: baseFontSize))
+    result.addAttribute(
+      .foregroundColor, value: color, range: NSRange(location: 0, length: result.length))
+    return result
   }
 
   @available(*, unavailable)

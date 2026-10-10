@@ -13,7 +13,7 @@ final class MessageReadReceiptsView: NSButton {
   }
 
   private let countLabel = NSTextField(labelWithString: "")
-  private var avatars: [UserAvatarView] = []
+  private var avatars: [AvatarView] = []
   private var receipts: [(userId: String, date: Date?)] = []
   private var members: [String: MatrixRustSDK.RoomMember] = [:]
   private var imageLoader: MactrixUI.ImageLoader?
@@ -44,7 +44,7 @@ final class MessageReadReceiptsView: NSButton {
 
     let visible = Array(self.receipts.suffix(3))
     while avatars.count < visible.count {
-      let avatar = UserAvatarView(frame: NSRect(x: 0, y: 0, width: 14, height: 14))
+      let avatar = AvatarView(frame: NSRect(x: 0, y: 0, width: 14, height: 14))
       addSubview(avatar)
       avatars.append(avatar)
     }
@@ -52,7 +52,7 @@ final class MessageReadReceiptsView: NSButton {
       let member = self.members[receipt.userId]
       avatar.configure(
         userID: receipt.userId, displayName: member?.displayName, avatarUrl: member?.avatarUrl,
-        imageLoader: imageLoader
+        kind: .user, imageLoader: imageLoader
       )
       avatar.isHidden = false
     }
@@ -132,11 +132,11 @@ final class MessageReadReceiptsView: NSButton {
       row.widthAnchor.constraint(equalToConstant: width - 24).isActive = true
       row.heightAnchor.constraint(equalToConstant: 36).isActive = true
       let content = row.content
-      let avatar = UserAvatarView(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
+      let avatar = AvatarView(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
       let member = members[receipt.userId]
       avatar.configure(
         userID: receipt.userId, displayName: member?.displayName, avatarUrl: member?.avatarUrl,
-        imageLoader: imageLoader
+        kind: .user, imageLoader: imageLoader
       )
       avatar.widthAnchor.constraint(equalToConstant: 28).isActive = true
       avatar.heightAnchor.constraint(equalToConstant: 28).isActive = true
