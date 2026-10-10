@@ -74,8 +74,9 @@ public struct RoomRow: View {
           .truncationMode(.tail)
       },
       icon: {
-        RoomRowAvatarImage(
-          avatarUrl: avatarUrl, placeholderSystemImage: placeholderImageName,
+        AvatarImage(
+          userID: title, kind: roomInfo?.isDirect == true ? .user : .room,
+          displayName: roomInfo?.displayName, avatarUrl: avatarUrl,
           imageLoader: imageLoader
         )
         .frame(width: roomAvatarSize, height: roomAvatarSize)

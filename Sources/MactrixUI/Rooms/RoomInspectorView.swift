@@ -49,8 +49,13 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
   var header: some View {
     VStack(alignment: .center, spacing: 20) {
       VStack(alignment: .center) {
-        RoomAvatarImage(avatarUrl: roomInfo?.avatarUrl, imageLoader: imageLoader)
-          .frame(width: 72, height: 72)
+        AvatarImage(
+          userID: room.id, kind: roomInfo?.isDirect == true ? .user : .room,
+          displayName: room.displayName,
+          avatarUrl: roomInfo?.avatarUrl,
+          imageLoader: imageLoader
+        )
+        .frame(width: 72, height: 72)
 
         Text(room.displayName ?? "Unknown room")
           .font(.title)

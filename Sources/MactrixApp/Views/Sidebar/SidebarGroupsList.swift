@@ -20,10 +20,9 @@ struct SidebarGroupsList: View {
         }
         ForEach(spaces) { space in
           GroupButton(id: space.id, title: space.spaceRoom.displayName) {
-            RoomRowAvatarImage(
-              avatarUrl: space.spaceRoom.avatarUrl, placeholderSystemImage: "square.grid.2x2.fill",
-              imageLoader: appState.matrixClient
-            )
+            AvatarImage(
+              userID: space.id, kind: .room, displayName: space.spaceRoom.displayName,
+              avatarUrl: space.spaceRoom.avatarUrl, imageLoader: appState.matrixClient)
           }
         }
       }
@@ -42,7 +41,12 @@ private struct GroupButton<Content: View>: View {
 
   var body: some View {
     Button {
-      windowState.selectedSpaceId = id
+      if windowState.selectedSpaceId == id {
+        // Select the space room to show details about the space itself
+        windowState.selectedRoomId = id
+      } else {
+        windowState.selectedSpaceId = id
+      }
     } label: {
       content()
         .frame(width: 42, height: 42)

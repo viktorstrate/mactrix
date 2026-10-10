@@ -76,12 +76,12 @@ final class VirtualItemRowView: NSView {
   }
 
   private func updateLineColor() {
+    let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
     let color: NSColor
     if isReadMarker {
-      let isDark = effectiveAppearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
       color = NSColor.red.blended(withFraction: 0.1, of: isDark ? .white : .black) ?? .red
     } else {
-      color = .separatorColor
+      color = isDark ? NSColor(white: 0.3, alpha: 1) : .separatorColor
     }
     label.textColor = isReadMarker ? color : .labelColor
     leadingLine.layer?.backgroundColor = color.cgColor

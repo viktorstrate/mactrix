@@ -8,6 +8,7 @@ public enum SelectedRoom<R: Room, RP: RoomPreview> {
 public protocol RoomPreview: Hashable, Identifiable {}
 
 public protocol Room: Hashable, Identifiable {
+  var id: String { get }
   var displayName: String? { get }
   var topic: String? { get }
   var encryptionState: EncryptionState { get }

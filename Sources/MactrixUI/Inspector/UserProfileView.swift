@@ -38,7 +38,7 @@ public struct UserProfileView<Profile: UserProfile>: View {
   @ViewBuilder
   var profileHeader: some View {
     VStack(alignment: .center) {
-      UserAvatarImage(userProfile: profile, imageLoader: imageLoader)
+      AvatarImage(userProfile: profile, imageLoader: imageLoader)
         .frame(width: 72, height: 72)
         .padding(.bottom, 6)
 
