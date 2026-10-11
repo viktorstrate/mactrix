@@ -41,6 +41,9 @@ struct SpaceDisclosureGroup: View {
     } label: {
       roomRow
     }
+    .contextMenu {
+      SpaceContextMenu(space: space)
+    }
     .task(id: isExpanded) {
       if isExpanded {
         await space.loadChildren()

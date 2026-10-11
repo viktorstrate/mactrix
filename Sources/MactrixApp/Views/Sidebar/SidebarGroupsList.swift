@@ -24,6 +24,9 @@ struct SidebarGroupsList: View {
               userID: space.id, kind: .room, displayName: space.spaceRoom.displayName,
               avatarUrl: space.spaceRoom.avatarUrl, imageLoader: appState.matrixClient)
           }
+          .contextMenu {
+            SpaceContextMenu(space: space)
+          }
         }
       }
       .frame(width: 62)
