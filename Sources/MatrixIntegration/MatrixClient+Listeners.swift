@@ -4,6 +4,7 @@ import OSLog
 
 extension MatrixClient {
   func updateRoomEntries(roomEntriesUpdate: [RoomListEntriesUpdate]) {
+    let previousRoomIDs = Set(rooms.map(\.id))
     for update in roomEntriesUpdate {
       switch update {
       case .append(let values):
@@ -42,6 +43,9 @@ extension MatrixClient {
           return SidebarRoom(room: room)
         }
       }
+    }
+    if Set(rooms.map(\.id)) != previousRoomIDs {
+      spaceService?.refreshRoomsWithParents()
     }
   }
 }

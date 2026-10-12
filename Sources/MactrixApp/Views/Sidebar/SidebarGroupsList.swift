@@ -10,16 +10,41 @@ struct SidebarGroupsList: View {
     appState.matrixClient?.spaceService.spaceRooms ?? []
   }
 
+  var unreadRoomIDs: Set<String> {
+    Set(
+      (appState.matrixClient?.rooms ?? []).compactMap { room in
+        guard !room.room.isSpace(), let info = room.roomInfo else { return nil }
+        let isUnread =
+          info.isMarkedUnread || info.numUnreadNotifications > 0 || info.numUnreadMentions > 0
+        // || info.numUnreadMessages > 0
+        return isUnread ? room.id : nil
+      })
+  }
+
   var body: some View {
+    let unreadIDs = unreadRoomIDs
+    let service = appState.matrixClient?.spaceService
+    let homeNotifications = unreadIDs.subtracting(service?.roomsWithJoinedSpaceParents ?? []).count
+    let spaceNotifications = Dictionary(
+      (service?.spaceFilters ?? [])
+        .filter { $0.level == 0 }
+        .map { filter in
+          (filter.spaceRoom.roomId, unreadIDs.intersection(filter.descendants).count)
+        }, uniquingKeysWith: { first, _ in first }
+    )
+
     ScrollView {
       VStack(spacing: 8) {
-        GroupButton(id: nil, title: "Home") {
+        GroupButton(id: nil, title: "Home", notifications: homeNotifications) {
           Image(systemName: "house.fill")
             .font(.title2)
 
         }
         ForEach(spaces) { space in
-          GroupButton(id: space.id, title: space.spaceRoom.displayName) {
+          GroupButton(
+            id: space.id, title: space.spaceRoom.displayName,
+            notifications: spaceNotifications[space.id, default: 0]
+          ) {
             AvatarImage(
               userID: space.id, kind: .room, displayName: space.spaceRoom.displayName,
               avatarUrl: space.spaceRoom.avatarUrl, imageLoader: appState.matrixClient)
@@ -40,6 +65,7 @@ private struct GroupButton<Content: View>: View {
 
   let id: String?
   let title: String
+  let notifications: Int
   let content: () -> Content
 
   var body: some View {
@@ -65,6 +91,26 @@ private struct GroupButton<Content: View>: View {
               windowState.selectedSpaceId == id ? Color.accentColor : .clear,
               lineWidth: 2
             )
+        }
+        .overlay {
+          if notifications > 0 {
+
+            Text("\(notifications)")
+              .foregroundColor(Color(nsColor: .textBackgroundColor))
+              .fontWeight(.medium)
+              .padding(.vertical, 1)
+              .padding(.horizontal, 2)
+              .frame(minWidth: 18)
+              .background {
+                RoundedRectangle(cornerRadius: 8)
+                  .fill(.red)
+              }
+              .compositingGroup()
+              .shadow(
+                color: Color(red: 0.5, green: 0, blue: 0).opacity(0.35), radius: 3, x: 0, y: 0
+              )
+              .position(x: 42 - 6, y: 4)
+          }
         }
     }
     .focusEffectDisabled()

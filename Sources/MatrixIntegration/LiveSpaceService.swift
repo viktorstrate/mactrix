@@ -9,6 +9,7 @@ public final class LiveSpaceService {
   public let spaceService: SpaceService
 
   public var spaceRooms: [SidebarSpaceRoom] = []
+  public private(set) var spaceFilters: [SpaceFilter] = []
 
   public private(set) var roomsWithJoinedSpaceParents: Set<String> = []
 
@@ -50,19 +51,46 @@ public final class LiveSpaceService {
     let listener = AsyncSDKListener<[SpaceFilterUpdate]>()
     filtersHandle = await spaceService.subscribeToSpaceFilters(listener: listener)
     filtersTask = Task { [weak self] in
-      for await _ in listener {
+      for await updates in listener {
         guard let self else { break }
+        for update in updates {
+          switch update {
+          case .append(let values):
+            self.spaceFilters.append(contentsOf: values)
+          case .clear:
+            self.spaceFilters.removeAll()
+          case .pushFront(let value):
+            self.spaceFilters.insert(value, at: 0)
+          case .pushBack(let value):
+            self.spaceFilters.append(value)
+          case .popFront:
+            self.spaceFilters.removeFirst()
+          case .popBack:
+            self.spaceFilters.removeLast()
+          case .insert(let index, let value):
+            self.spaceFilters.insert(value, at: Int(index))
+          case .set(let index, let value):
+            self.spaceFilters[Int(index)] = value
+          case .remove(let index):
+            self.spaceFilters.remove(at: Int(index))
+          case .truncate(let length):
+            self.spaceFilters.removeSubrange(Int(length)..<self.spaceFilters.count)
+          case .reset(let values):
+            self.spaceFilters = values
+          }
+        }
         self.refreshRoomsWithParents()
       }
     }
   }
 
-  private func refreshRoomsWithParents() {
+  func refreshRoomsWithParents() {
     parentsNeedsRefresh = true
     guard spaceGraphLoaded, refreshTask == nil else { return }
 
     let service = spaceService
     refreshTask = Task { [weak self] in
+      defer { self?.refreshTask = nil }
       while self?.parentsNeedsRefresh == true && !Task.isCancelled {
         guard let rooms = self?.client?.rooms() else { return }
         self?.parentsNeedsRefresh = false
@@ -80,7 +108,6 @@ public final class LiveSpaceService {
         }
         if let self {
           self.roomsWithJoinedSpaceParents = children
-          self.refreshTask = nil
         }
       }
     }
