@@ -74,12 +74,16 @@ public struct RoomRow: View {
           .truncationMode(.tail)
       },
       icon: {
-        AvatarImage(
-          userID: title, kind: roomInfo?.isDirect == true ? .user : .room,
-          displayName: roomInfo?.displayName, avatarUrl: avatarUrl,
-          imageLoader: imageLoader
-        )
-        .frame(width: roomAvatarSize, height: roomAvatarSize)
+        if avatarUrl != nil || roomInfo?.isDirect == true {
+          AvatarImage(
+            userID: title, kind: roomInfo?.isDirect == true ? .user : .room,
+            displayName: roomInfo?.displayName, avatarUrl: avatarUrl,
+            imageLoader: imageLoader
+          )
+          .frame(width: roomAvatarSize, height: roomAvatarSize)
+        } else {
+          Image(systemName: placeholderImageName)
+        }
       }
     )
     .fontWeight(isUnread ? .bold : .regular)
@@ -145,7 +149,7 @@ public struct RoomRow: View {
     }
     .badge(notifications)
     .badgeProminence(badgeProminence)
-    .listItemTint(.gray)
+    .listItemTint(.secondary)
     .task(id: joining) {
       guard joining else { return }
       guard let joinRoom else { return }

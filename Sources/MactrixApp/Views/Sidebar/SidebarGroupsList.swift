@@ -96,13 +96,13 @@ private struct GroupButton<Content: View>: View {
           if notifications > 0 {
 
             Text("\(notifications)")
-              .foregroundColor(Color(nsColor: .textBackgroundColor))
+              .foregroundColor(.white)
               .fontWeight(.medium)
               .padding(.vertical, 1)
-              .padding(.horizontal, 2)
+              .padding(.horizontal, 3)
               .frame(minWidth: 18)
               .background {
-                RoundedRectangle(cornerRadius: 8)
+                RoundedRectangle(cornerRadius: 10)
                   .fill(.red)
               }
               .compositingGroup()
