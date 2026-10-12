@@ -798,6 +798,16 @@ extension TimelineViewController {
     }
 
     let state = MessageEditState(id: event.eventOrTransactionId, text: text)
+    state.onChange = { [weak self, weak state] in
+      guard let self, let state, self.messageEdit === state,
+        let row = self.rowForEventId(id: state.id)
+      else { return }
+      NSAnimationContext.runAnimationGroup { context in
+        context.duration = 0
+        context.allowsImplicitAnimation = false
+        self.tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
+      }
+    }
     state.onCancel = { [weak self, weak state] in
       guard let self, let state, self.messageEdit === state else { return }
       self.messageEdit = nil

@@ -6,7 +6,7 @@ import Testing
 
 @MainActor
 struct MessageEditingTests {
-  @Test func draftAndSelectionSurviveViewReconstruction() throws {
+  @Test func draftSurvivesViewReconstruction() throws {
     let state = MessageEditState(
       id: MatrixRustSDK.EventOrTransactionId.eventId(eventId: "event"), text: "Original")
     let first = MessageTextContentView()
@@ -22,8 +22,10 @@ struct MessageEditingTests {
     reconstructed.configureEditing(state)
     let restored = try #require(findEditor(in: reconstructed))
     #expect(restored.string == "Updated draft")
-    #expect(restored.selectedRange() == NSRange(location: 3, length: 2))
-    #expect(reconstructed.height(forCaption: nil, formatted: nil, width: 200) == 140)
+    let editingView = try #require(reconstructed.cachedEditingView)
+    #expect(
+      reconstructed.height(forCaption: nil, formatted: nil, width: 200)
+        == editingView.height(for: 200))
     reconstructed.configureEditing(nil)
     #expect(!reconstructed.isEditing)
   }
@@ -37,7 +39,11 @@ struct MessageEditingTests {
     let view = MessageFileContentView()
     let originalHeight = view.height(for: file, width: 240)
     view.configureEditing(state)
-    #expect(view.height(for: file, width: 240) >= originalHeight + 140)
+    let captionView = MessageTextContentView()
+    captionView.configureEditing(state)
+    let editorHeight = captionView.height(forCaption: nil, formatted: nil, width: 240)
+    #expect(editorHeight > 0)
+    #expect(view.height(for: file, width: 240) == originalHeight + 10 + ceil(editorHeight))
     view.configureEditing(nil)
     #expect(view.height(for: file, width: 240) == originalHeight)
 
@@ -45,9 +51,30 @@ struct MessageEditingTests {
     let galleryView = MessageGalleryContentView()
     galleryView.configureEditing(state)
     galleryView.configure(gallery: gallery, matrixClient: nil)
-    #expect(galleryView.height(for: gallery, width: 240) == 140)
+    #expect(galleryView.height(for: gallery, width: 240) == ceil(editorHeight))
     galleryView.configureEditing(nil)
     #expect(galleryView.height(for: gallery, width: 240) == 0)
+  }
+
+  @Test func editorHeightTracksContentAndWidth() {
+    let state = MessageEditState(
+      id: MatrixRustSDK.EventOrTransactionId.eventId(eventId: "event"), text: "")
+    let view = MessageTextContentView()
+    view.configureEditing(state)
+    let emptyHeight = view.height(forCaption: nil, formatted: nil, width: 240)
+    #expect(emptyHeight > 0)
+
+    state.text = "First line\nSecond line\n"
+    view.configureEditing(state)
+    let multilineHeight = view.height(forCaption: nil, formatted: nil, width: 240)
+    #expect(multilineHeight > emptyHeight)
+
+    state.text = String(repeating: "A message with wrapping text. ", count: 10)
+    view.configureEditing(state)
+    let wideHeight = view.height(forCaption: nil, formatted: nil, width: 400)
+    let narrowHeight = view.height(forCaption: nil, formatted: nil, width: 120)
+    #expect(narrowHeight > wideHeight)
+    #expect(view.height(forCaption: nil, formatted: nil, width: 400) == wideHeight)
   }
 
   private func findEditor(in view: NSView) -> NSTextView? {

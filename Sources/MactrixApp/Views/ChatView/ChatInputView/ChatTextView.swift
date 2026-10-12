@@ -151,19 +151,25 @@ class DynamicTextView: SubmitableTextView {
     }
   }
 
-  override var intrinsicContentSize: NSSize {
+  func height(for width: CGFloat) -> CGFloat {
     guard let container = unsafe textContainer, let manager = unsafe layoutManager else {
-      return .zero
+      return 0
     }
 
-    // Force the layout for the current width
+    container.containerSize = NSSize(
+      width: max(width - 2 * textContainerInset.width, 1),
+      height: .greatestFiniteMagnitude)
     manager.ensureLayout(for: container)
-    let usedRect = manager.usedRect(for: container)
 
-    // Return a flexible width but a fixed height based on text
-    return NSSize(
-      width: NSView.noIntrinsicMetric,
-      height: ceil(usedRect.height) + CGFloat(2 * Self.padding.height))
+    let lineHeight = manager.defaultLineHeight(for: font ?? .systemFont(ofSize: 13))
+    let textHeight = max(
+      lineHeight,
+      max(manager.usedRect(for: container).maxY, manager.extraLineFragmentRect.maxY))
+    return ceil(textHeight + 2 * textContainerInset.height)
+  }
+
+  override var intrinsicContentSize: NSSize {
+    NSSize(width: NSView.noIntrinsicMetric, height: height(for: frame.width))
   }
 
   override func setFrameSize(_ newSize: NSSize) {
