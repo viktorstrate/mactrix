@@ -1,3 +1,4 @@
+import AppKit
 import MatrixProtocols
 import SwiftUI
 
@@ -31,17 +32,17 @@ public struct CreateRoomScreen: View {
         .textFieldStyle(.roundedBorder)
         .padding(.bottom, 8)
 
-      LabeledContent("Topic") {
-        TextEditor(text: $params.topic)
-          .textEditorStyle(.plain)
-          .padding(6)
-          .background(
-            RoundedRectangle(cornerRadius: 6)
-              .foregroundStyle(Color.white)
+      TextField("Topic", text: $params.topic, axis: .vertical)
+        .textFieldStyle(.roundedBorder)
+        .lineLimit(3...8)
+        .onKeyPress(.return) {
+          // By default return submits the form, this makes it insert a newline instead
+          NSApp.sendAction(
+            #selector(NSResponder.insertNewlineIgnoringFieldEditor(_:)), to: nil, from: nil
           )
-          .frame(height: 80)
-      }
-      .padding(.bottom, 30)
+          return .handled
+        }
+        .padding(.bottom, 30)
 
       Picker("Access", selection: $params.access) {
         VStack(alignment: .leading) {

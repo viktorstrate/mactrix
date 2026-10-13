@@ -1,6 +1,8 @@
+import AppKit
 import Foundation
 import MatrixRustSDK
 import OSLog
+import Observation
 
 extension MatrixClient {
   func updateRoomEntries(roomEntriesUpdate: [RoomListEntriesUpdate]) {
@@ -47,6 +49,29 @@ extension MatrixClient {
     if Set(rooms.map(\.id)) != previousRoomIDs {
       spaceService?.refreshRoomsWithParents()
     }
+  }
+
+  var unreadRoomCount: Int {
+    rooms.reduce(0) { count, room in
+      guard let info = room.roomInfo else { return count }
+      let isUnread =
+        info.isMarkedUnread || info.numUnreadNotifications > 0 || info.numUnreadMentions > 0
+      return count + (isUnread ? 1 : 0)
+    }
+  }
+
+  func observeDockIconUnreadCount() {
+    let count = withObservationTracking {
+      unreadRoomCount
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.observeDockIconUnreadCount()
+      }
+    }
+
+    guard count != lastAppliedDockUnreadCount else { return }
+    NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
+    lastAppliedDockUnreadCount = count
   }
 }
 

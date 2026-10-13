@@ -16,6 +16,8 @@ public class MatrixClient {
 
   public internal(set) var rooms: [SidebarRoom] = []
 
+  @ObservationIgnored var lastAppliedDockUnreadCount: Int?
+
   public internal(set) var spaceService: LiveSpaceService!
 
   private var clientDelegateHandle: TaskHandle?
@@ -38,6 +40,7 @@ public class MatrixClient {
 
     spaceService = LiveSpaceService(client: self.client, spaceService: await client.spaceService())
     clientDelegateHandle = try? client.setDelegate(delegate: self)
+    observeDockIconUnreadCount()
   }
 
   init(storeID: String, storePassphrase: String, client: ClientProtocol) async {
@@ -47,6 +50,7 @@ public class MatrixClient {
 
     spaceService = LiveSpaceService(client: self.client, spaceService: await client.spaceService())
     clientDelegateHandle = try? self.client.setDelegate(delegate: self)
+    observeDockIconUnreadCount()
   }
 
   func userSession() throws -> UserSession {

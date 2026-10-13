@@ -12,7 +12,8 @@ struct SidebarView: View {
   @State private var membersError: String?
 
   var visibleRooms: [SidebarRoom] {
-    let joinedRooms = appState.matrixClient?.rooms ?? []
+    // filter out rooms whose room info hasn't loaded yet, to avoid flickering
+    let joinedRooms = (appState.matrixClient?.rooms ?? []).filter { $0.roomInfo != nil }
     let spaceService = appState.matrixClient?.spaceService
 
     let selectedSpaceRoom = spaceService?.spaceRooms.first {
