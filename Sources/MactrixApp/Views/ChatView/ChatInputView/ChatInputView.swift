@@ -3,8 +3,9 @@ import MatrixIntegration
 import MatrixRustSDK
 import OSLog
 import SwiftUI
+import UniformTypeIdentifiers
 
-struct ChatInputView: View {
+struct ChatInputView: View, DropDelegate {
   @Environment(\.accessibilityReduceTransparency) var reduceTransparency
 
   let room: Room
@@ -13,37 +14,21 @@ struct ChatInputView: View {
   @AppStorage("fontSize") var fontSize: Int = 13
   @State private var isAttachmentDropTargeted = false
 
-  private func ingestFileURLs(_ urls: [URL]) async {
-    let attachments = await ComposerAttachmentImporter.importFiles(at: urls)
-    guard !attachments.isEmpty else { return }
-    composer.addAttachments(attachments)
-    composer.requestTextFocus()
-  }
-
   private func handlePaste(from pasteboard: NSPasteboard) -> Bool {
-    let fileURLs =
-      pasteboard.readObjects(
-        forClasses: [NSURL.self], options: [.urlReadingFileURLsOnly: true]
-      ) as? [URL] ?? []
-    if !fileURLs.isEmpty {
-      Task { await ingestFileURLs(fileURLs) }
-      return true
-    }
-
-    guard let imageType = pasteboard.availableType(from: [.png, .tiff]),
-      let imageData = pasteboard.data(forType: imageType)
-    else { return false }
-
+    let inputs = ComposerAttachmentInputAdapter.inputs(from: pasteboard)
+    guard !inputs.isEmpty else { return false }
     Task {
-      do {
-        let attachment = try await ComposerAttachmentImporter.importClipboardImage(
-          pngData: imageType == .png ? imageData : nil,
-          tiffData: imageType == .tiff ? imageData : nil)
-        composer.addAttachments([attachment])
-        composer.requestTextFocus()
-      } catch {
-        Logger.composerAttachment.error("Unable to import clipboard image: \(error)")
+      var attachments: [ComposerAttachment] = []
+      for input in inputs {
+        do {
+          attachments.append(try await ComposerAttachmentImporter.importInput(input))
+          Logger.composerAttachment.debug("Pasted attachment import succeeded")
+        } catch {
+          Logger.composerAttachment.error("Unable to import pasted attachment: \(error)")
+        }
       }
+      composer.addAttachments(attachments)
+      if !attachments.isEmpty { composer.requestTextFocus() }
     }
     return true
   }
@@ -94,6 +79,7 @@ struct ChatInputView: View {
             await composer.sendMessage(timeline: timeline)
           }
         },
+        onCanPasteAttachments: ComposerAttachmentInputAdapter.canImportAttachments,
         onAttachmentPaste: handlePaste
       )
     }
@@ -145,15 +131,44 @@ struct ChatInputView: View {
   private func dropTarget<Content: View>(for view: Content) -> some View {
     view
       .contentShape(Rectangle())
-      .dropDestination(for: URL.self) { urls, _ in
-        let fileURLs = urls.filter(\.isFileURL)
-        guard !fileURLs.isEmpty else { return false }
+      .onDrop(of: [.fileURL, .image, .pdf], delegate: self)
+  }
 
-        Task { await ingestFileURLs(fileURLs) }
-        return true
-      } isTargeted: { isTargeted in
-        isAttachmentDropTargeted = isTargeted
-      }
+  private func dropProviders(for info: DropInfo)
+    -> (providers: [NSItemProvider], mode: ComposerAttachmentInputAdapter.DropMode)
+  {
+    let files = info.itemProviders(for: [.fileURL])
+    return files.isEmpty ? (info.itemProviders(for: [.item]), .raw) : (files, .files)
+  }
+
+  func validateDrop(info: DropInfo) -> Bool {
+    let selection = dropProviders(for: info)
+    return ComposerAttachmentInputAdapter.canImportAttachments(
+      from: selection.providers, mode: selection.mode)
+  }
+
+  func dropEntered(info: DropInfo) {
+    isAttachmentDropTargeted = validateDrop(info: info)
+  }
+
+  func dropExited(info: DropInfo) {
+    isAttachmentDropTargeted = false
+  }
+
+  func dropUpdated(info: DropInfo) -> DropProposal? {
+    let accepted = validateDrop(info: info)
+    return DropProposal(operation: accepted ? .copy : .forbidden)
+  }
+
+  func performDrop(info: DropInfo) -> Bool {
+    isAttachmentDropTargeted = false
+    let selection = dropProviders(for: info)
+    return ComposerAttachmentInputAdapter.startImportProviders(
+      selection.providers, mode: selection.mode
+    ) { attachments in
+      composer.addAttachments(attachments)
+      if !attachments.isEmpty { composer.requestTextFocus() }
+    }
   }
 
   var body: some View {
@@ -164,7 +179,3 @@ struct ChatInputView: View {
     }
   }
 }
-
-/* #Preview {
-     ChatInputView()
- } */

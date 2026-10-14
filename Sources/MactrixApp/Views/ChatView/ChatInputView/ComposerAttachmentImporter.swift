@@ -1,27 +1,27 @@
 import AVFoundation
 import AppKit
+import CoreGraphics
 import CryptoKit
 import Foundation
 import ImageIO
-import OSLog
 import UniformTypeIdentifiers
 
 struct ComposerAttachmentImporter {
-  enum ImportError: Error, LocalizedError {
+  enum ImportError: LocalizedError {
     case notFileURL(URL)
     case notReadableRegularFile(URL)
-    case invalidClipboardImage
     case invalidDraftSource(String)
     case cleanupRefused(URL)
+    case invalidRawRepresentation
 
     var errorDescription: String? {
       switch self {
       case .notFileURL(let url): "Attachment URL is not a file URL: \(url)"
       case .notReadableRegularFile(let url):
         "Attachment is not a readable regular file: \(url.path)"
-      case .invalidClipboardImage: "Clipboard data does not contain a valid image"
       case .invalidDraftSource(let source): "Draft attachment has an invalid source: \(source)"
       case .cleanupRefused(let url): "Refusing to remove externally-owned attachment: \(url.path)"
+      case .invalidRawRepresentation: "No valid image or PDF representation"
       }
     }
   }
@@ -32,124 +32,248 @@ struct ComposerAttachmentImporter {
   /// Imports one readable regular file. This method performs file and media work off the main actor.
   static func importFile(
     at url: URL,
-    storageOwnership: ComposerAttachment.StorageOwnership = .externalUserFile
+    storageOwnership: ComposerAttachment.StorageOwnership = .externalUserFile,
+    mimeType: String? = nil, typeIdentifier: String? = nil,
+    kind: ComposerAttachment.Kind? = nil
   ) async throws -> ComposerAttachment {
     try await Task.detached(priority: .userInitiated) {
-      try await importFileSynchronously(at: url, storageOwnership: storageOwnership)
+      try await inspectFile(
+        at: url, storageOwnership: storageOwnership,
+        mimeType: mimeType, typeIdentifier: typeIdentifier, kind: kind)
     }.value
   }
 
-  /// Imports every valid URL in the supplied order. Invalid inputs are logged and do not prevent later files importing.
-  static func importFiles(at urls: [URL]) async -> [ComposerAttachment] {
-    var attachments: [ComposerAttachment] = []
-    for url in urls {
-      do {
-        attachments.append(try await importFile(at: url))
-      } catch {
-        Logger.composerAttachment.error(
-          "Unable to import attachment \(url.path): \(error)"
-        )
-      }
-    }
-    return attachments
+  enum Input: Sendable {
+    case file(URL)
+    case ownedFile(URL)
+    case rawRepresentations([RawRepresentation])
   }
 
-  /// Materializes valid PNG or TIFF clipboard data in app-owned temporary storage, then follows the normal file importer path.
-  static func importClipboardImage(pngData: Data?, tiffData: Data?) async throws
+  struct RawRepresentation: Sendable {
+    let data: Data
+    let type: UTType
+    var filename: String? = nil
+  }
+
+  static func importInput(_ input: Input) async throws -> ComposerAttachment {
+    switch input {
+    case .file(let url): return try await importFile(at: url)
+    case .ownedFile(let url): return try await importOwnedFile(at: url)
+    case .rawRepresentations(let representations):
+      for representation in representations {
+        if let attachment = try? await importRawData(representation) { return attachment }
+      }
+      throw ImportError.invalidRawRepresentation
+    }
+  }
+
+  private static let imageTypeIdentifiers = Set(
+    CGImageSourceCopyTypeIdentifiers() as? [String] ?? [])
+
+  static func supportedRawType(for identifier: String) -> UTType? {
+    guard let type = UTType(identifier),
+      type == .pdf || (type.conforms(to: .image) && imageTypeIdentifiers.contains(type.identifier)),
+      type.preferredMIMEType != nil, type.preferredFilenameExtension != nil
+    else { return nil }
+    return type
+  }
+
+  /// Inspect image headers for representation fallback, without requiring a successful decode.
+  /// PDFs are opaque file attachments: encryption or renderability must not gate uploading.
+  private static func rawImageSource(_ data: Data, advertisedType: UTType) throws -> CGImageSource?
+  {
+    guard !data.isEmpty, supportedRawType(for: advertisedType.identifier) != nil else {
+      throw ImportError.invalidRawRepresentation
+    }
+    if advertisedType == .pdf { return nil }
+    guard let source = CGImageSourceCreateWithData(data as CFData, imageSourceOptions),
+      let identifier = CGImageSourceGetType(source), UTType(identifier as String) == advertisedType
+    else { throw ImportError.invalidRawRepresentation }
+    return source
+  }
+
+  private static func rawFilename(_ filename: String?, type: UTType) throws -> String? {
+    guard let filename else { return nil }
+    let basename = try sanitizedFilename(filename)
+    if UTType(filenameExtension: (basename as NSString).pathExtension) == type { return basename }
+    guard let ext = type.preferredFilenameExtension else {
+      throw ImportError.invalidRawRepresentation
+    }
+    return basename + "." + ext
+  }
+
+  private static func importRawData(_ representation: RawRepresentation) async throws
     -> ComposerAttachment
   {
-    let materialized = try await Task.detached(priority: .userInitiated) {
-      let png: Data
-
-      if let pngData, let validPNG = try validPNGData(pngData) {
-        png = validPNG
-
-      } else if let tiffData, let convertedPNG = convertTIFFToPNG(tiffData) {
-        png = convertedPNG
-
-      } else {
-        throw ImportError.invalidClipboardImage
-      }
-      let digest = SHA256.hash(data: png).map { String(format: "%02x", $0) }.joined()
-
-      let directory = temporaryDirectoryURL()
-      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-
-      let formatter = DateFormatter()
-      formatter.locale = Locale(identifier: "en_US_POSIX")
-      formatter.dateFormat = "yyyy-MM-dd_HH-mm-ss_SSS"
-      let filename = "Clipboard Image \(formatter.string(from: Date())) \(UUID().uuidString).png"
-      let url = directory.appendingPathComponent(filename)
-      try png.write(to: url)
-
-      return (url: url, digest: digest)
+    try await Task.detached(priority: .userInitiated) {
+      let type = representation.type
+      let source = try rawImageSource(representation.data, advertisedType: type)
+      return try await storeData(
+        representation.data, filename: rawFilename(representation.filename, type: type),
+        mimeType: type.preferredMIMEType, typeIdentifier: type.identifier, kind: nil,
+        imageSource: source)
     }.value
-
-    let imported = try await importFile(
-      at: materialized.url, storageOwnership: .appOwnedTemporaryFile
-    )
-
-    return ComposerAttachment(
-      id: imported.id, sourceURL: imported.sourceURL, filename: imported.filename,
-      contentType: imported.contentType, byteCount: imported.byteCount,
-      kind: imported.kind, storageOwnership: imported.storageOwnership,
-      deduplicationIdentity: .contentDigest(materialized.digest), pixelWidth: imported.pixelWidth,
-      pixelHeight: imported.pixelHeight, duration: imported.duration, preview: imported.preview
-    )
   }
 
-  static func importDraftData(_ data: Data, filename: String) async throws -> ComposerAttachment {
-    let url = try await Task.detached(priority: .userInitiated) {
-      let basename = (filename as NSString).lastPathComponent
-      guard !basename.isEmpty, basename != ".", basename != "..", !basename.contains("\0") else {
-        throw ImportError.invalidDraftSource(filename)
-      }
-      let directory = temporaryDirectoryURL().appendingPathComponent(
-        UUID().uuidString, isDirectory: true)
-      try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-      let url = directory.appendingPathComponent(basename)
-      do {
-        try data.write(to: url, options: .atomic)
-        return url
-      } catch {
-        try? FileManager.default.removeItem(at: directory)
-        throw error
-      }
+  /// Stores the selected encoded representation verbatim. Decoding is optional.
+  static func importData(
+    _ data: Data, filename: String? = nil, mimeType: String? = nil,
+    typeIdentifier: String? = nil, kind: ComposerAttachment.Kind? = nil
+  ) async throws -> ComposerAttachment {
+    try await Task.detached(priority: .userInitiated) {
+      let declared = declaredType(mimeType: mimeType, typeIdentifier: typeIdentifier)
+      let source =
+        shouldInspectImage(declaredType: declared, kind: kind)
+        ? CGImageSourceCreateWithData(data as CFData, imageSourceOptions) : nil
+      return try await storeData(
+        data, filename: filename, mimeType: mimeType, typeIdentifier: typeIdentifier, kind: kind,
+        imageSource: source)
     }.value
-    do {
-      let imported = try await importFile(at: url, storageOwnership: .appOwnedTemporaryFile)
+  }
 
-      // Materialized copies have different filesystem identities. Deduplicate matching
-      // draft bytes and names, while preserving distinct filenames with equal content.
-      var identityData = Data()
-      if !imported.filename.hasPrefix("Clipboard Image ") {
-        identityData.append(contentsOf: imported.filename.utf8)
-        identityData.append(0)
-      }
-      identityData.append(data)
-      let digest = SHA256.hash(data: identityData).map { String(format: "%02x", $0) }.joined()
-      return ComposerAttachment(
-        id: imported.id, sourceURL: imported.sourceURL, filename: imported.filename,
-        contentType: imported.contentType, byteCount: imported.byteCount,
-        kind: imported.kind, storageOwnership: imported.storageOwnership,
-        deduplicationIdentity: .contentDigest(digest), pixelWidth: imported.pixelWidth,
-        pixelHeight: imported.pixelHeight, duration: imported.duration, preview: imported.preview)
+  private static func storeData(
+    _ data: Data, filename: String?, mimeType: String?, typeIdentifier: String?,
+    kind: ComposerAttachment.Kind?, imageSource: CGImageSource?
+  ) async throws -> ComposerAttachment {
+    let type =
+      declaredType(mimeType: mimeType, typeIdentifier: typeIdentifier)
+      ?? imageSource.flatMap { CGImageSourceGetType($0) }.flatMap { UTType($0 as String) }
+    let proposedName =
+      filename
+      ?? "Attachment \(SHA256.hash(data: data).prefix(6).map { String(format: "%02x", $0) }.joined())"
+      + (type?.preferredFilenameExtension.map { "." + $0 } ?? "")
+    let basename = try sanitizedFilename(proposedName)
+    let directory = temporaryDirectoryURL().appendingPathComponent(
+      UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let url = directory.appendingPathComponent(basename)
+    do {
+      try data.write(to: url, options: .atomic)
+      return try await inspectFile(
+        at: url, storageOwnership: .appOwnedTemporaryFile,
+        mimeType: mimeType, typeIdentifier: typeIdentifier, kind: kind,
+        data: data, imageSource: imageSource)
     } catch {
-      try? FileManager.default.removeItem(at: url.deletingLastPathComponent())
+      try? FileManager.default.removeItem(at: directory)
       throw error
     }
   }
 
+  /// Used inside provider callbacks: copy the original bytes while the source URL is valid.
+  static func copyToTemporaryStorage(from inputURL: URL, filename: String? = nil) throws -> URL {
+    let source = try readableRegularFile(at: inputURL).url
+    let basename = try sanitizedFilename(filename ?? inputURL.lastPathComponent)
+    let directory = temporaryDirectoryURL().appendingPathComponent(
+      UUID().uuidString, isDirectory: true)
+    try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+    let copy = directory.appendingPathComponent(basename)
+    do {
+      try FileManager.default.copyItem(at: source, to: copy)
+      return copy
+    } catch {
+      try? FileManager.default.removeItem(at: directory)
+      throw error
+    }
+  }
+
+  /// Both byte inputs and provider files use the same inspection, identity, and cleanup path.
+  static func importOwnedFile(
+    at url: URL, mimeType: String? = nil, typeIdentifier: String? = nil,
+    kind: ComposerAttachment.Kind? = nil
+  ) async throws -> ComposerAttachment {
+    try await Task.detached(priority: .userInitiated) {
+      try requireTemporaryFile(url)
+      do {
+        return try await inspectFile(
+          at: url, storageOwnership: .appOwnedTemporaryFile,
+          mimeType: mimeType, typeIdentifier: typeIdentifier, kind: kind)
+      } catch {
+        try? removeTemporaryFile(at: url)
+        throw error
+      }
+    }.value
+  }
+
+  private static func sanitizedFilename(_ filename: String) throws -> String {
+    let basename = (filename as NSString).lastPathComponent
+    guard !basename.isEmpty, basename != ".", basename != "..", !basename.contains("\0") else {
+      throw ImportError.invalidDraftSource(filename)
+    }
+    return basename
+  }
+
+  private static func filenameDigest(_ filename: String) -> SHA256 {
+    var digest = SHA256()
+    // Retain the filename+bytes identity, including bytes-only identities for legacy clipboard drafts.
+    if !filename.hasPrefix("Clipboard Image ") {
+      digest.update(data: Data(filename.utf8))
+      digest.update(data: Data([0]))
+    }
+    return digest
+  }
+
+  private static func contentDigest(_ data: Data, filename: String) -> String {
+    var digest = filenameDigest(filename)
+    digest.update(data: data)
+    return digest.finalize().map { String(format: "%02x", $0) }.joined()
+  }
+
+  private static func contentDigest(at url: URL, filename: String) throws -> String {
+    var digest = filenameDigest(filename)
+    let file = try FileHandle(forReadingFrom: url)
+    defer { try? file.close() }
+    while let chunk = try file.read(upToCount: 1_048_576), !chunk.isEmpty {
+      digest.update(data: chunk)
+    }
+    return digest.finalize().map { String(format: "%02x", $0) }.joined()
+  }
+
+  /// File import and receiver eligibility use the same resolved-file rules.
+  static func readableRegularFile(at inputURL: URL) throws -> (url: URL, values: URLResourceValues)
+  {
+    guard inputURL.isFileURL else { throw ImportError.notFileURL(inputURL) }
+    var url = inputURL.standardizedFileURL.resolvingSymlinksInPath()
+    url.removeAllCachedResourceValues()
+    guard FileManager.default.isReadableFile(atPath: url.path),
+      let values = try? url.resourceValues(forKeys: [
+        .isRegularFileKey, .fileSizeKey, .fileResourceIdentifierKey,
+      ]),
+      values.isRegularFile == true
+    else { throw ImportError.notReadableRegularFile(inputURL) }
+    return (url, values)
+  }
+
+  static func validateSource(_ attachment: ComposerAttachment) throws -> Int64 {
+    var url = attachment.sourceURL
+    url.removeAllCachedResourceValues()
+    let values = try url.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
+    guard url.isFileURL, values.isRegularFile == true,
+      FileManager.default.isReadableFile(atPath: url.path), let size = values.fileSize
+    else { throw ImportError.notReadableRegularFile(url) }
+    return Int64(size)
+  }
+
   static func cleanupTemporaryAttachment(_ attachment: ComposerAttachment) throws {
-    let temporaryDirectory = temporaryDirectoryURL().standardizedFileURL.path + "/"
-    let attachmentPath = attachment.sourceURL.standardizedFileURL.path
-    guard attachment.storageOwnership == .appOwnedTemporaryFile,
-      attachmentPath.hasPrefix(temporaryDirectory)
-    else {
+    guard attachment.storageOwnership == .appOwnedTemporaryFile else {
       throw ImportError.cleanupRefused(attachment.sourceURL)
     }
-    try FileManager.default.removeItem(at: attachment.sourceURL)
-    let parent = attachment.sourceURL.deletingLastPathComponent()
+    try removeTemporaryFile(at: attachment.sourceURL)
+  }
+
+  private static func requireTemporaryFile(_ url: URL) throws {
+    guard
+      url.standardizedFileURL.path.hasPrefix(temporaryDirectoryURL().standardizedFileURL.path + "/")
+    else {
+      throw ImportError.cleanupRefused(url)
+    }
+  }
+
+  private static func removeTemporaryFile(at url: URL) throws {
+    try requireTemporaryFile(url)
+    if FileManager.default.fileExists(atPath: url.path) {
+      try FileManager.default.removeItem(at: url)
+    }
+    let parent = url.deletingLastPathComponent()
     if parent.deletingLastPathComponent().standardizedFileURL
       == temporaryDirectoryURL().standardizedFileURL,
       UUID(uuidString: parent.lastPathComponent) != nil,
@@ -164,35 +288,52 @@ struct ComposerAttachmentImporter {
       .appendingPathComponent(temporaryDirectoryName, isDirectory: true)
   }
 
-  private static func importFileSynchronously(
+  private static var imageSourceOptions: CFDictionary {
+    [kCGImageSourceShouldCache: false] as CFDictionary
+  }
+
+  private static func declaredType(mimeType: String?, typeIdentifier: String?) -> UTType? {
+    mimeType.flatMap { UTType(mimeType: $0) } ?? typeIdentifier.flatMap { UTType($0) }
+  }
+
+  private static func shouldInspectImage(
+    declaredType: UTType?, kind: ComposerAttachment.Kind?
+  ) -> Bool {
+    declaredType == nil || declaredType?.conforms(to: .image) == true || kind == .image
+  }
+
+  private static func inspectFile(
     at inputURL: URL,
-    storageOwnership: ComposerAttachment.StorageOwnership
+    storageOwnership: ComposerAttachment.StorageOwnership,
+    mimeType: String?, typeIdentifier: String?, kind requestedKind: ComposerAttachment.Kind?,
+    data: Data? = nil, imageSource capturedSource: CGImageSource? = nil
   ) async throws -> ComposerAttachment {
-    guard inputURL.isFileURL else { throw ImportError.notFileURL(inputURL) }
-
-    let url = inputURL.standardizedFileURL.resolvingSymlinksInPath()
-    guard FileManager.default.fileExists(atPath: url.path),
-      FileManager.default.isReadableFile(atPath: url.path)
-    else {
-      throw ImportError.notReadableRegularFile(inputURL)
+    let (url, values) = try readableRegularFile(at: inputURL)
+    let declared = declaredType(mimeType: mimeType, typeIdentifier: typeIdentifier)
+    // Byte inputs have already been inspected; reuse their source even when inspection returned nil.
+    let source =
+      data != nil
+      ? capturedSource
+      : (shouldInspectImage(declaredType: declared, kind: requestedKind)
+        ? CGImageSourceCreateWithURL(url as CFURL, imageSourceOptions) : nil)
+    let detected =
+      declared?.preferredMIMEType == nil
+      ? source.flatMap { CGImageSourceGetType($0) }.flatMap { UTType($0 as String) } : nil
+    let type = declared ?? detected ?? UTType(filenameExtension: url.pathExtension) ?? .data
+    let kind = requestedKind ?? attachmentKind(for: type)
+    let identity: ComposerAttachment.DeduplicationIdentity
+    if storageOwnership == .appOwnedTemporaryFile {
+      let digest: String
+      if let data {
+        digest = contentDigest(data, filename: inputURL.lastPathComponent)
+      } else {
+        digest = try contentDigest(at: url, filename: inputURL.lastPathComponent)
+      }
+      identity = .contentDigest(digest)
+    } else {
+      identity = deduplicationIdentity(for: url, resourceIdentifier: values.fileResourceIdentifier)
     }
-    let values: URLResourceValues
-    do {
-      values = try url.resourceValues(forKeys: [
-        .isRegularFileKey, .fileSizeKey, .fileResourceIdentifierKey,
-      ])
-    } catch {
-      throw ImportError.notReadableRegularFile(inputURL)
-    }
-    guard values.isRegularFile == true else {
-      throw ImportError.notReadableRegularFile(inputURL)
-    }
-
-    let type = UTType(filenameExtension: url.pathExtension) ?? .data
-    let kind = attachmentKind(for: type)
-    let identity = deduplicationIdentity(
-      for: url, resourceIdentifier: values.fileResourceIdentifier)
-    let metadata = await mediaMetadata(for: url, kind: kind)
+    let metadata = await mediaMetadata(for: url, kind: kind, imageSource: source)
 
     return ComposerAttachment(
       sourceURL: url,
@@ -205,7 +346,9 @@ struct ComposerAttachmentImporter {
       pixelWidth: metadata.width,
       pixelHeight: metadata.height,
       duration: metadata.duration,
-      preview: metadata.preview
+      preview: metadata.preview,
+      mimeType: mimeType ?? declared?.preferredMIMEType ?? detected?.preferredMIMEType
+        ?? type.preferredMIMEType ?? "application/octet-stream"
     )
   }
 
@@ -227,12 +370,14 @@ struct ComposerAttachmentImporter {
     return .absolutePath(canonicalURL.path)
   }
 
-  private static func mediaMetadata(for url: URL, kind: ComposerAttachment.Kind) async -> (
+  private static func mediaMetadata(
+    for url: URL, kind: ComposerAttachment.Kind, imageSource: CGImageSource?
+  ) async -> (
     width: Int?, height: Int?, duration: TimeInterval?, preview: NSImage?
   ) {
     switch kind {
     case .image:
-      return imageMetadata(for: url)
+      return imageMetadata(from: imageSource)
     case .video:
       let asset = AVURLAsset(url: url)
       let duration = try? await asset.load(.duration).seconds
@@ -257,28 +402,17 @@ struct ComposerAttachmentImporter {
     }
   }
 
-  private static func imageMetadata(for url: URL) -> (
+  private static func imageMetadata(from source: CGImageSource?) -> (
     width: Int?, height: Int?, duration: TimeInterval?, preview: NSImage?
   ) {
-    guard let source = CGImageSourceCreateWithURL(url as CFURL, nil) else {
-      return (nil, nil, nil, nil)
-    }
+    guard let source else { return (nil, nil, nil, nil) }
     let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any]
     let width = properties?[kCGImagePropertyPixelWidth] as? Int
     let height = properties?[kCGImagePropertyPixelHeight] as? Int
-    return (width, height, nil, imagePreview(from: source))
-  }
-
-  private static func imagePreview(from source: CGImageSource) -> NSImage? {
-    let options: [CFString: Any] = [
-      kCGImageSourceCreateThumbnailFromImageAlways: true,
-      kCGImageSourceThumbnailMaxPixelSize: previewMaximumPixelSize,
-      kCGImageSourceCreateThumbnailWithTransform: true,
-    ]
-    guard let image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else {
-      return nil
-    }
-    return NSImage(cgImage: image, size: .zero)
+    let preview =
+      (try? source.orientedBitmap(maximumPixelSize: previewMaximumPixelSize))
+      .map { NSImage(cgImage: $0, size: .zero) }
+    return (width, height, nil, preview)
   }
 
   private static func videoPreview(for asset: AVAsset) async -> NSImage? {
@@ -294,18 +428,4 @@ struct ComposerAttachmentImporter {
     return NSImage(cgImage: image, size: .zero)
   }
 
-  private static func validPNGData(_ data: Data) throws -> Data? {
-    guard let source = CGImageSourceCreateWithData(data as CFData, nil),
-      let type = CGImageSourceGetType(source), UTType(type as String) == .png
-    else { return nil }
-    return data
-  }
-
-  private static func convertTIFFToPNG(_ data: Data) -> Data? {
-    guard let image = NSImage(data: data),
-      let tiff = image.tiffRepresentation,
-      let representation = NSBitmapImageRep(data: tiff)
-    else { return nil }
-    return representation.representation(using: .png, properties: [:])
-  }
 }

@@ -47,8 +47,15 @@ final class ChatComposerState {
 
   func addAttachments(_ newAttachments: [ComposerAttachment]) {
     var identities = Set(attachments.map(\.deduplicationIdentity))
-    let uniqueAttachments = newAttachments.filter {
-      identities.insert($0.deduplicationIdentity).inserted
+    var uniqueAttachments: [ComposerAttachment] = []
+    for candidate in newAttachments {
+      if identities.insert(candidate.deduplicationIdentity).inserted {
+        uniqueAttachments.append(candidate)
+      } else if !(attachments + uniqueAttachments).contains(where: {
+        $0.sourceURL == candidate.sourceURL
+      }) {
+        cleanupIfOwned(candidate)
+      }
     }
     guard !uniqueAttachments.isEmpty else { return }
     attachments.append(contentsOf: uniqueAttachments)

@@ -48,40 +48,51 @@ extension Data {
     return NSImage(cgImage: bitmap, size: .zero)
   }
 
-  nonisolated func orientedBitmap(contentType: UTType? = nil) throws -> CGImage {
+  nonisolated func orientedBitmap(contentType: UTType? = nil, maximumPixelSize: Int? = nil) throws
+    -> CGImage
+  {
     var sourceOptions: [CFString: Any] = [kCGImageSourceShouldCache: false]
     if let contentType {
       sourceOptions[kCGImageSourceTypeIdentifierHint] = contentType.identifier
     }
-    guard let source = CGImageSourceCreateWithData(self as CFData, sourceOptions as CFDictionary),
-      let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+    guard let source = CGImageSourceCreateWithData(self as CFData, sourceOptions as CFDictionary)
+    else {
+      throw ImageDecodeError()
+    }
+    return try source.orientedBitmap(maximumPixelSize: maximumPixelSize)
+  }
+}
+
+extension CGImageSource {
+  nonisolated func orientedBitmap(maximumPixelSize: Int? = nil) throws -> CGImage {
+    guard let properties = CGImageSourceCopyPropertiesAtIndex(self, 0, nil) as? [CFString: Any],
       let width = properties[kCGImagePropertyPixelWidth] as? Int,
       let height = properties[kCGImagePropertyPixelHeight] as? Int,
       width > 0, height > 0
-    else { throw ImageDecodeError() }
+    else { throw Data.ImageDecodeError() }
 
-    // At the original pixel dimensions this applies EXIF rotation/mirroring
-    // without reducing resolution. ImageIO performs the decode eagerly.
+    // Apply EXIF rotation/mirroring at full resolution unless a preview bound is supplied.
+    // ImageIO performs the decode eagerly.
     let options: [CFString: Any] = [
       kCGImageSourceCreateThumbnailFromImageAlways: true,
       kCGImageSourceCreateThumbnailWithTransform: true,
-      kCGImageSourceThumbnailMaxPixelSize: Swift.max(width, height),
+      kCGImageSourceThumbnailMaxPixelSize: maximumPixelSize ?? Swift.max(width, height),
       kCGImageSourceShouldCacheImmediately: true,
     ]
-    guard let oriented = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary),
+    guard let oriented = CGImageSourceCreateThumbnailAtIndex(self, 0, options as CFDictionary),
       let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
       let context = CGContext(
         data: nil, width: oriented.width, height: oriented.height,
         bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace,
         bitmapInfo: CGImageAlphaInfo.premultipliedFirst.rawValue
           | CGBitmapInfo.byteOrder32Little.rawValue)
-    else { throw ImageDecodeError() }
+    else { throw Data.ImageDecodeError() }
 
     // Materialize a standard display bitmap here, including color conversion,
     // instead of retaining a lazy Core Image representation.
     try Task.checkCancellation()
     context.draw(oriented, in: CGRect(x: 0, y: 0, width: oriented.width, height: oriented.height))
-    guard let bitmap = context.makeImage() else { throw ImageDecodeError() }
+    guard let bitmap = context.makeImage() else { throw Data.ImageDecodeError() }
     return bitmap
   }
 }

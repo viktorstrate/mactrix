@@ -50,14 +50,12 @@ struct PreparedMediaUpload {
 }
 
 enum ComposerMediaPreparation {
-  /// Re-importing immediately before enqueueing confirms that the path still names a
-  /// readable regular file and refreshes its size and media metadata.
+  /// Validate the source without discarding the selected representation metadata.
   static func prepare(
     attachment: ComposerAttachment, caption: String, replyID: String?
   ) async throws -> PreparedMediaUpload {
-    let refreshed = try await ComposerAttachmentImporter.importFile(
-      at: attachment.sourceURL, storageOwnership: attachment.storageOwnership)
-    let source = UploadSource.file(filename: refreshed.sourceURL.path)
+    let byteCount = try ComposerAttachmentImporter.validateSource(attachment)
+    let source = UploadSource.file(filename: attachment.sourceURL.path)
     let parameters = UploadParameters(
       source: source,
       caption: caption.isEmpty ? nil : caption,
@@ -65,39 +63,40 @@ enum ComposerMediaPreparation {
       mentions: nil,
       inReplyTo: replyID,
       extraContentJson: nil)
-    let size = refreshed.byteCount.flatMap { $0 >= 0 ? UInt64($0) : nil }
+    let size = UInt64(byteCount)
 
-    switch refreshed.kind {
+    switch attachment.kind {
     case .image:
       return PreparedMediaUpload(
-        attachment: refreshed, parameters: parameters,
+        attachment: attachment, parameters: parameters,
         media: .image(
           ImageInfo(
-            height: refreshed.pixelHeight.map(UInt64.init),
-            width: refreshed.pixelWidth.map(UInt64.init),
-            mimetype: refreshed.mimeType, size: size, thumbnailInfo: nil, thumbnailSource: nil,
+            height: attachment.pixelHeight.map(UInt64.init),
+            width: attachment.pixelWidth.map(UInt64.init),
+            mimetype: attachment.mimeType, size: size, thumbnailInfo: nil, thumbnailSource: nil,
             blurhash: nil, isAnimated: nil),
           thumbnailSource: nil))
     case .video:
       return PreparedMediaUpload(
-        attachment: refreshed, parameters: parameters,
+        attachment: attachment, parameters: parameters,
         media: .video(
           VideoInfo(
-            duration: refreshed.duration, height: refreshed.pixelHeight.map(UInt64.init),
-            width: refreshed.pixelWidth.map(UInt64.init), mimetype: refreshed.mimeType, size: size,
+            duration: attachment.duration, height: attachment.pixelHeight.map(UInt64.init),
+            width: attachment.pixelWidth.map(UInt64.init), mimetype: attachment.mimeType,
+            size: size,
             thumbnailInfo: nil, thumbnailSource: nil, blurhash: nil),
           thumbnailSource: nil))
     case .audio:
       return PreparedMediaUpload(
-        attachment: refreshed, parameters: parameters,
+        attachment: attachment, parameters: parameters,
         media: .audio(
-          AudioInfo(duration: refreshed.duration, size: size, mimetype: refreshed.mimeType)))
+          AudioInfo(duration: attachment.duration, size: size, mimetype: attachment.mimeType)))
     case .file:
       return PreparedMediaUpload(
-        attachment: refreshed, parameters: parameters,
+        attachment: attachment, parameters: parameters,
         media: .file(
           FileInfo(
-            mimetype: refreshed.mimeType, size: size, thumbnailInfo: nil, thumbnailSource: nil)))
+            mimetype: attachment.mimeType, size: size, thumbnailInfo: nil, thumbnailSource: nil)))
     }
   }
 }

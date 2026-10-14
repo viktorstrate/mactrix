@@ -36,9 +36,7 @@ struct ComposerAttachment: Identifiable {
   let duration: TimeInterval?
   let preview: NSImage?
 
-  var mimeType: String? {
-    contentType.preferredMIMEType
-  }
+  let mimeType: String
 
   init(
     id: UUID = UUID(),
@@ -52,12 +50,14 @@ struct ComposerAttachment: Identifiable {
     pixelWidth: Int? = nil,
     pixelHeight: Int? = nil,
     duration: TimeInterval? = nil,
-    preview: NSImage? = nil
+    preview: NSImage? = nil,
+    mimeType: String? = nil
   ) {
     self.id = id
     self.sourceURL = sourceURL
     self.filename = filename
     self.contentType = contentType
+    self.mimeType = mimeType ?? contentType.preferredMIMEType ?? "application/octet-stream"
     self.byteCount = byteCount
     self.kind = kind
     self.storageOwnership = storageOwnership
@@ -105,20 +105,60 @@ extension ComposerAttachment {
     -> ComposerAttachment
   {
     let source: UploadSource
+    let kind: Kind
+    let mimeType: String?
+    let width: Int?
+    let height: Int?
+    let duration: TimeInterval?
     switch draftAttachment {
-    case .audio(_, let attachmentSource), .file(_, let attachmentSource),
-      .image(_, let attachmentSource, _), .video(_, let attachmentSource, _):
+    case .audio(let info, let attachmentSource):
       source = attachmentSource
+      kind = .audio
+      mimeType = info.mimetype
+      width = nil
+      height = nil
+      duration = info.duration
+    case .file(let info, let attachmentSource):
+      source = attachmentSource
+      kind = .file
+      mimeType = info.mimetype
+      width = nil
+      height = nil
+      duration = nil
+    case .image(let info, let attachmentSource, _):
+      source = attachmentSource
+      kind = .image
+      mimeType = info.mimetype
+      width = info.width.flatMap(Int.init(exactly:))
+      height = info.height.flatMap(Int.init(exactly:))
+      duration = nil
+    case .video(let info, let attachmentSource, _):
+      source = attachmentSource
+      kind = .video
+      mimeType = info.mimetype
+      width = info.width.flatMap(Int.init(exactly:))
+      height = info.height.flatMap(Int.init(exactly:))
+      duration = info.duration
     }
-
+    let imported: ComposerAttachment
     switch source {
     case .file(let filename):
       guard !filename.isEmpty, (filename as NSString).isAbsolutePath else {
         throw ComposerAttachmentImporter.ImportError.invalidDraftSource(filename)
       }
-      return try await ComposerAttachmentImporter.importFile(at: URL(fileURLWithPath: filename))
+      imported = try await ComposerAttachmentImporter.importFile(
+        at: URL(fileURLWithPath: filename), mimeType: mimeType, kind: kind)
     case .data(let bytes, let filename):
-      return try await ComposerAttachmentImporter.importDraftData(bytes, filename: filename)
+      imported = try await ComposerAttachmentImporter.importData(
+        bytes, filename: filename, mimeType: mimeType, kind: kind)
     }
+    return ComposerAttachment(
+      id: imported.id, sourceURL: imported.sourceURL, filename: imported.filename,
+      contentType: imported.contentType, byteCount: imported.byteCount, kind: kind,
+      storageOwnership: imported.storageOwnership,
+      deduplicationIdentity: imported.deduplicationIdentity,
+      pixelWidth: width ?? imported.pixelWidth, pixelHeight: height ?? imported.pixelHeight,
+      duration: duration ?? imported.duration, preview: imported.preview,
+      mimeType: imported.mimeType)
   }
 }

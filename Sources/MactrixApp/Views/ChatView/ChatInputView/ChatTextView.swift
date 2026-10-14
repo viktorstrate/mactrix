@@ -13,12 +13,14 @@ struct ChatTextView: NSViewRepresentable {
   let disabled: Bool
   let focusRequest: Int
   let onSubmit: () -> Void
+  let onCanPasteAttachments: (NSPasteboard) -> Bool
   let onAttachmentPaste: (NSPasteboard) -> Bool
 
   func makeNSView(context: Context) -> DynamicTextView {
     let textView = DynamicTextView()
 
     textView.onSubmit = onSubmit
+    textView.onCanPasteAttachments = onCanPasteAttachments
     textView.onAttachmentPaste = onAttachmentPaste
 
     textView.placeholderAttributedString = NSAttributedString(
@@ -53,6 +55,7 @@ struct ChatTextView: NSViewRepresentable {
     context.coordinator.text = text
 
     textView.onSubmit = onSubmit
+    textView.onCanPasteAttachments = onCanPasteAttachments
     textView.onAttachmentPaste = onAttachmentPaste
 
     if textView.string != text.wrappedValue {
@@ -143,9 +146,21 @@ class DynamicTextView: SubmitableTextView {
 
   static let padding = NSSize(width: 10, height: 10)
 
+  var onCanPasteAttachments: ((NSPasteboard) -> Bool)?
   var onAttachmentPaste: ((NSPasteboard) -> Bool)?
 
+  override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
+    if item.action == #selector(paste(_:)) {
+      guard isEditable else { return false }
+      if onAttachmentPaste != nil, onCanPasteAttachments?(NSPasteboard.general) == true {
+        return true
+      }
+    }
+    return super.validateUserInterfaceItem(item)
+  }
+
   override func paste(_ sender: Any?) {
+    guard isEditable else { return }
     if onAttachmentPaste?(NSPasteboard.general) != true {
       super.paste(sender)
     }
