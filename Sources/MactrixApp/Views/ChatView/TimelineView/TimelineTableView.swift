@@ -3,6 +3,7 @@ import MatrixIntegration
 import MatrixProtocols
 import MatrixRustSDK
 import OSLog
+import QuartzCore
 import QuickLookUI
 
 enum TimelineSelectionDirection {
@@ -318,6 +319,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func refreshVisibleReplyRows() {
+    tableView.finishAnchoredResize()
     let visibleRows = tableView.rows(in: tableView.visibleRect)
     var changedRows = IndexSet()
     for row in visibleRows.lowerBound..<visibleRows.upperBound {
@@ -508,21 +510,26 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       case .state(let items) = timelineItems[row], items.count > 1
     else { return }
 
-    if !expandedStateRowIDs.insert(id).inserted {
-      expandedStateRowIDs.remove(id)
+    tableView.withTopAnchor(ofRow: row, animated: true) {
+      if !expandedStateRowIDs.insert(id).inserted {
+        expandedStateRowIDs.remove(id)
+      }
+
+      if let view = tableView.view(atColumn: 0, row: row, makeIfNecessary: false)
+        as? StateEventRowView
+      {
+        configureStateRow(view, items: items, id: id)
+      }
+      return StateEventRowView.height(
+        for: items, width: tableView.tableColumns[0].width,
+        expanded: expandedStateRowIDs.contains(id))
     }
-
-    guard
-      let view = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? StateEventRowView
-    else { return }
-
-    configureStateRow(view, items: items, id: id)
-    tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
     positionHoverOverlay()
   }
 
   @objc func handleTableResize(_ notification: Notification) {
     if oldWidth != tableView.frame.width {
+      tableView.finishAnchoredResize()
       oldWidth = tableView.frame.width
 
       NSAnimationContext.runAnimationGroup { context in
@@ -626,6 +633,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   func timelineDidApply(diffs: [TimelineDiff]) {
+    tableView.finishAnchoredResize()
     let change = projection.apply(diffs)
     assert(
       projection.sourceItems.map { $0.uniqueId().id }
@@ -768,6 +776,9 @@ extension TimelineViewController: NSTableViewDelegate {
   }
 
   func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
+    if let height = self.tableView.animatedHeight(forRow: row) {
+      return height
+    }
     let item = timelineItems[row]
 
     if case .profile = item {
@@ -838,6 +849,7 @@ extension TimelineViewController {
       guard let self, let state, self.messageEdit === state,
         let row = self.rowForEventId(id: state.id)
       else { return }
+      self.tableView.finishAnchoredResize()
       NSAnimationContext.runAnimationGroup { context in
         context.duration = 0
         context.allowsImplicitAnimation = false
@@ -860,6 +872,7 @@ extension TimelineViewController {
   }
 
   private func refreshEditingRows(events: Set<MatrixRustSDK.EventOrTransactionId>) {
+    tableView.finishAnchoredResize()
     var rows = IndexSet()
     for eventId in events {
       guard
@@ -927,6 +940,135 @@ extension TimelineViewController {
 class BottomStickyTableView: NSTableView {
   var onLayout: (() -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?
+
+  private struct AnchoredResize {
+    let row: Int
+    let rowIndexes: IndexSet
+    let topOffset: CGFloat
+    let startHeight: CGFloat
+    var targetHeight: CGFloat
+    var height: CGFloat
+    var startTime: CFTimeInterval
+  }
+
+  private var anchoredResize: AnchoredResize?
+  private var resizeDisplayLink: CADisplayLink?
+
+  /// The height delegate must return this override when it is non-nil.
+  func animatedHeight(forRow row: Int) -> CGFloat? {
+    guard let resize = anchoredResize, resize.row == row else { return nil }
+    return resize.height
+  }
+
+  /// Keeps the row's top at the same viewport position, subject to scroll bounds.
+  /// The synchronous update returns the target height and must not change row order
+  /// or count. Call finishAnchoredResize() before other model or height changes.
+  func withTopAnchor(ofRow row: Int, animated: Bool, _ update: () -> CGFloat) {
+    finishAnchoredResize()
+    layoutSubtreeIfNeeded()
+    precondition((0..<numberOfRows).contains(row))
+    guard let scrollView = enclosingScrollView else {
+      NSAnimationContext.runAnimationGroup { context in
+        context.duration = 0
+        context.allowsImplicitAnimation = false
+        _ = update()
+        noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
+      }
+      return
+    }
+
+    let clipView = scrollView.contentView
+    let rect = rect(ofRow: row)
+    let top = clipView.convert(NSPoint(x: rect.minX, y: rect.maxY), from: self)
+    anchoredResize = AnchoredResize(
+      row: row, rowIndexes: IndexSet(integer: row),
+      topOffset: top.y - clipView.bounds.minY,
+      startHeight: rect.height, targetHeight: rect.height, height: rect.height,
+      startTime: CACurrentMediaTime())
+
+    // Keep the old height while the closure configures the target presentation.
+    var targetHeight = rect.height
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0
+      context.allowsImplicitAnimation = false
+      targetHeight = update()
+    }
+    anchoredResize?.targetHeight = targetHeight
+    anchoredResize?.startTime = CACurrentMediaTime()
+
+    guard animated, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
+      targetHeight != rect.height, window != nil
+    else {
+      finishAnchoredResize()
+      return
+    }
+
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(willStartLiveScroll(_:)),
+      name: NSScrollView.willStartLiveScrollNotification,
+      object: scrollView
+    )
+    let displayLink = displayLink(target: self, selector: #selector(animateAnchoredResize(_:)))
+    resizeDisplayLink = displayLink
+    displayLink.add(to: .main, forMode: .common)
+  }
+
+  @objc private func animateAnchoredResize(_ displayLink: CADisplayLink) {
+    guard let resize = anchoredResize else { return }
+    let progress = CGFloat(min(max((displayLink.timestamp - resize.startTime) / 0.2, 0), 1))
+    if progress >= 1 {
+      finishAnchoredResize()
+      return
+    }
+    let eased = progress * progress * (3 - 2 * progress)
+    let height = resize.startHeight + (resize.targetHeight - resize.startHeight) * eased
+    if height != resize.height {
+      applyAnchoredHeight(height)
+    }
+  }
+
+  private func applyAnchoredHeight(_ height: CGFloat) {
+    guard let resize = anchoredResize else { return }
+    anchoredResize?.height = height
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0
+      context.allowsImplicitAnimation = false
+      noteHeightOfRows(withIndexesChanged: resize.rowIndexes)
+      layoutSubtreeIfNeeded()
+
+      // Read actual geometry after layout; scrolling has no separate animation.
+      if let scrollView = enclosingScrollView {
+        let clipView = scrollView.contentView
+        let rect = rect(ofRow: resize.row)
+        let top = clipView.convert(NSPoint(x: rect.minX, y: rect.maxY), from: self)
+        var bounds = clipView.bounds
+        bounds.origin.y = top.y - resize.topOffset
+        clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
+        scrollView.reflectScrolledClipView(clipView)
+      }
+    }
+    onLayout?()
+  }
+
+  func finishAnchoredResize() {
+    resizeDisplayLink?.invalidate()
+    resizeDisplayLink = nil
+    NotificationCenter.default.removeObserver(
+      self, name: NSScrollView.willStartLiveScrollNotification, object: nil)
+    guard let resize = anchoredResize else { return }
+    applyAnchoredHeight(resize.targetHeight)
+    anchoredResize = nil
+  }
+
+  @objc private func willStartLiveScroll(_ notification: Notification) {
+    finishAnchoredResize()
+  }
+
+  override func viewWillMove(toWindow newWindow: NSWindow?) {
+    finishAnchoredResize()
+    super.viewWillMove(toWindow: newWindow)
+  }
 
   override func keyDown(with event: NSEvent) {
     if let direction = TimelineSelectionDirection(event: event) {

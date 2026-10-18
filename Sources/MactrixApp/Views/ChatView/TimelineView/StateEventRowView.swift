@@ -24,6 +24,7 @@ final class StateEventRowView: NSView {
   private let expandButton = NSButton()
   private var lines: [EventLineView] = []
   private var lineHeights: [NSLayoutConstraint] = []
+  private var measuredTextWidth: CGFloat?
   private var stackTrailing: NSLayoutConstraint!
   private var onToggleExpanded: (() -> Void)?
   private var showsButton = false
@@ -38,6 +39,7 @@ final class StateEventRowView: NSView {
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
+    clipsToBounds = true
     stack.orientation = .vertical
     stack.alignment = .leading
     stack.spacing = Layout.detailSpacing
@@ -87,6 +89,7 @@ final class StateEventRowView: NSView {
     }
     lines = []
     lineHeights = []
+    measuredTextWidth = nil
     let descriptions = Self.descriptions(for: items, expanded: expanded)
     for (index, description) in descriptions.enumerated() {
       let event = items[expanded ? index : 0].event
@@ -117,6 +120,8 @@ final class StateEventRowView: NSView {
 
   private func updateLineHeights() {
     let textWidth = Self.textWidth(width: bounds.width, showsButton: showsButton)
+    guard measuredTextWidth != textWidth else { return }
+    measuredTextWidth = textWidth
     for (line, constraint) in zip(lines, lineHeights) {
       let height = Self.textHeight(line.descriptionField.attributedStringValue, width: textWidth)
       if constraint.constant != height { constraint.constant = height }
