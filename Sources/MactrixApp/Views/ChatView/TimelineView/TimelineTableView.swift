@@ -103,6 +103,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private var hoveredRowIndex: Int?
   private var messageEdit: MessageEditState?
   private var updatingTimelineItems = false
+  private var expandedStateRowIDs = Set<String>()
   private var previewURL: URL?
   private var previewEventIdentifier: String?
   // Keep SDK temporary media alive independently of the reusable row that loaded it.
@@ -192,7 +193,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         let view =
           tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
           as? StateEventRowView ?? StateEventRowView()
-        view.configure(items: items)
+        configureStateRow(view, items: items, id: item.id)
         view.identifier = item.reuseIdentifier
         return view
       case .message(_, let event, let content):
@@ -493,6 +494,33 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
   }
 
+  private func configureStateRow(
+    _ view: StateEventRowView, items: [TimelineItemRowInfo.StateEntry], id: String
+  ) {
+    view.configure(items: items, expanded: expandedStateRowIDs.contains(id)) { [weak self] in
+      self?.toggleStateRow(id: id)
+    }
+  }
+
+  private func toggleStateRow(id: String) {
+    guard
+      let row = timelineItems.firstIndex(where: { $0.id == id }),
+      case .state(let items) = timelineItems[row], items.count > 1
+    else { return }
+
+    if !expandedStateRowIDs.insert(id).inserted {
+      expandedStateRowIDs.remove(id)
+    }
+
+    guard
+      let view = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? StateEventRowView
+    else { return }
+
+    configureStateRow(view, items: items, id: id)
+    tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
+    positionHoverOverlay()
+  }
+
   @objc func handleTableResize(_ notification: Notification) {
     if oldWidth != tableView.frame.width {
       oldWidth = tableView.frame.width
@@ -755,7 +783,9 @@ extension TimelineViewController: NSTableViewDelegate {
     }
 
     if case .state(let items) = item {
-      return StateEventRowView.height(for: items, width: tableView.tableColumns[0].width)
+      return StateEventRowView.height(
+        for: items, width: tableView.tableColumns[0].width,
+        expanded: expandedStateRowIDs.contains(item.id))
     }
 
     if case .message(_, let event, let content) = item {

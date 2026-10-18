@@ -166,7 +166,8 @@ struct StateEventSummaryFormatterTests {
             membership("a", "Alice", target: "c", name: "Charlie", change: change),
           ]
         }, budget: 1000
-      ).text == targetedChanges.map { "Alice " + $0.1 + " Bob and Charlie" }
+      ).text
+        == targetedChanges.map { "Alice " + $0.1 + " Bob and Charlie" }
         .joined(separator: ", "))
   }
 
@@ -377,13 +378,11 @@ struct StateEventSummaryFormatterTests {
 
   @Test @MainActor func rowUsesSummaryForAttributedTextAndMeasurement() throws {
     let events = [joined("a", "Alice"), joined("c", "Charlie")]
-    let entries = events.map {
-      TimelineItemRowInfo.StateEntry(item: TimelineItem(noHandle: .init()), event: $0)
-    }
+    let entries = stateEntries(events)
     let row = StateEventRowView()
     row.configure(items: entries)
     let field = try #require(
-      row.subviews.compactMap { $0 as? NSTextField }.first {
+      descendants(of: row, as: NSTextField.self).first {
         $0.attributedStringValue.string == "Alice and Charlie joined"
       })
     let attributed = field.attributedStringValue
@@ -391,12 +390,238 @@ struct StateEventSummaryFormatterTests {
     #expect(NSFontManager.shared.traits(of: nameFont).contains(.boldFontMask))
     let bodyFont = try #require(attributed.attribute(.font, at: 5, effectiveRange: nil) as? NSFont)
     #expect(NSFontManager.shared.traits(of: bodyFont).contains(.italicFontMask))
-    let width: CGFloat = 200
-    let measured = attributed.boundingRect(
-      with: NSSize(width: width - 74, height: .greatestFiniteMagnitude),
+    let button = try #require(descendants(of: row, as: NSButton.self).first)
+    #expect(!button.isHiddenOrHasHiddenAncestor)
+    #expect(button.accessibilityValue() as? String == "Collapsed")
+    for width: CGFloat in [240, 700] {
+      assertMeasuredLayout(row, entries: entries, width: width)
+      let textFrame = row.convert(field.bounds, from: field)
+      let buttonFrame = row.convert(button.bounds, from: button)
+      #expect(textFrame.maxX <= buttonFrame.minX)
+    }
+    #expect(
+      StateEventRowView.height(for: entries, width: 240)
+        >= StateEventRowView.height(for: entries, width: 700))
+  }
+
+  @Test @MainActor func expansionButtonOnlyInvokesConfiguredCallback() throws {
+    _ = NSApplication.shared
+    let entries = stateEntries([joined("a", "Alice"), profile("b", "Bob")])
+    let row = StateEventRowView()
+    var firstCalls = 0
+    var replacementCalls = 0
+    row.configure(items: entries, onToggleExpanded: { firstCalls += 1 })
+    let button = try #require(descendants(of: row, as: NSButton.self).first)
+
+    button.performClick(nil)
+    button.performClick(nil)
+    #expect(firstCalls == 2)
+    #expect(button.accessibilityValue() as? String == "Collapsed")
+    #expect(!labelStrings(in: row).contains("Alice \(entries[0].event.content.userInterfaceText)"))
+
+    row.configure(items: entries, expanded: true, onToggleExpanded: { replacementCalls += 1 })
+    button.performClick(nil)
+    #expect(firstCalls == 2)
+    #expect(replacementCalls == 1)
+    #expect(button.accessibilityValue() as? String == "Expanded")
+    #expect(labelStrings(in: row).contains("Alice \(entries[0].event.content.userInterfaceText)"))
+
+    row.configure(items: entries)
+    button.performClick(nil)
+    #expect(firstCalls == 2)
+    #expect(replacementCalls == 1)
+    #expect(button.accessibilityValue() as? String == "Collapsed")
+  }
+
+  @Test @MainActor func expandedDetailsAreRemovedOnCollapseAndReuse() throws {
+    let events = [
+      event("a", "Alice", .state(stateKey: "", content: .roomTopic(topic: "Original topic"))),
+      profile("b", "Bob"),
+    ]
+    let entries = stateEntries(events)
+    let row = StateEventRowView()
+    row.configure(items: entries, expanded: true)
+    let details = try zip(events, ["Alice", "Bob"]).map { event, name in
+      try #require(
+        descendants(of: row, as: NSTextField.self).first {
+          $0.stringValue
+            == "\(name) \(event.content.userInterfaceText)"
+        })
+    }
+    #expect(descendants(of: row, as: NSStackView.self).count > 0)
+    row.configure(items: entries, expanded: true)
+    for detail in details {
+      #expect(labelStrings(in: row).filter { $0 == detail.stringValue }.count == 1)
+    }
+    let currentDetails = descendants(of: row, as: NSTextField.self).filter {
+      details.map(\.stringValue).contains($0.stringValue)
+    }
+
+    row.configure(items: entries, expanded: false)
+    #expect(labelStrings(in: row).contains(summary(events).text))
+    for detail in currentDetails {
+      #expect(!detail.isDescendant(of: row))
+      #expect(
+        !descendants(of: row, as: NSStackView.self).contains {
+          $0.arrangedSubviews.contains { detail === $0 || detail.isDescendant(of: $0) }
+        })
+      #expect(!labelStrings(in: row).contains(detail.stringValue))
+    }
+
+    let replacement = [joined("c", "Charlie"), joined("d", "Dave")]
+    row.configure(items: stateEntries(replacement), expanded: true)
+    #expect(labelStrings(in: row).contains("Charlie \(replacement[0].content.userInterfaceText)"))
+    #expect(labelStrings(in: row).contains("Dave \(replacement[1].content.userInterfaceText)"))
+    for detail in details {
+      #expect(!labelStrings(in: row).contains(detail.stringValue))
+    }
+    row.configure(items: stateEntries(replacement))
+    #expect(labelStrings(in: row).contains(summary(replacement).text))
+    #expect(!labelStrings(in: row).contains("Charlie \(replacement[0].content.userInterfaceText)"))
+  }
+
+  @Test @MainActor func singleEntryShowsFullDescriptionAndHidesExpansionButton() throws {
+    let topic = String(repeating: "A complete topic with details. ", count: 12)
+    let value = event("a", "Alice", .state(stateKey: "", content: .roomTopic(topic: topic)))
+    let entries = stateEntries([value])
+    let row = StateEventRowView()
+    // Start with expanded details to exercise reuse as a single-entry row.
+    row.configure(
+      items: stateEntries([joined("b", "Bob"), profile("c", "Charlie")]), expanded: true)
+    for expanded in [false, true] {
+      row.configure(items: entries, expanded: expanded)
+      let labels = labelStrings(in: row)
+      #expect(labels.contains("Alice \(value.content.userInterfaceText)"))
+      #expect(!labels.contains(summary([value]).text))
+      #expect(!labels.contains { $0.contains("Bob") || $0.contains("Charlie") })
+      #expect(descendants(of: row, as: NSButton.self).allSatisfy { $0.isHiddenOrHasHiddenAncestor })
+      #expect(
+        StateEventRowView.height(for: entries, width: 260, expanded: expanded)
+          == StateEventRowView.height(for: entries, width: 260))
+      assertMeasuredLayout(row, entries: entries, width: 260, expanded: expanded)
+    }
+    #expect(
+      StateEventRowView.height(for: entries, width: 260)
+        > StateEventRowView.height(for: entries, width: 800))
+  }
+
+  @Test @MainActor func expandedDetailsKeepSourceOrderTimestampsAndBoldSenders() throws {
+    let events = [
+      event(
+        "a", "Alice", .state(stateKey: "", content: .roomTopic(topic: "Full topic")),
+        timestamp: 7_200_000),
+      event(
+        "b", "Bob",
+        .profileChange(
+          displayName: "New", prevDisplayName: "Old",
+          avatarUrl: nil, prevAvatarUrl: nil), timestamp: 0),
+      event(
+        "c", "Charlie", .state(stateKey: "", content: .roomName(name: "Full room name")),
+        timestamp: 3_600_000),
+    ]
+    let row = StateEventRowView()
+    row.configure(items: stateEntries(events), expanded: true)
+    let fields = descendants(of: row, as: NSTextField.self)
+    let names = ["Alice", "Bob", "Charlie"]
+    let formatter = DateFormatter()
+    formatter.dateFormat = "HH:mm"
+    var previousIndex = -1
+    for (value, name) in zip(events, names) {
+      let text = "\(name) \(value.content.userInterfaceText)"
+      let index = try #require(fields.firstIndex { $0.stringValue == text })
+      #expect(index > previousIndex)
+      previousIndex = index
+      let field = fields[index]
+      let attributed = field.attributedStringValue
+      for offset in 0..<name.utf16.count {
+        let font = try #require(
+          attributed.attribute(.font, at: offset, effectiveRange: nil) as? NSFont)
+        #expect(NSFontManager.shared.traits(of: font).contains(.boldFontMask))
+      }
+      let detailRow = try #require(field.superview)
+      let expectedTime = formatter.string(
+        from: Date(timeIntervalSince1970: Double(value.timestamp) / 1000))
+      #expect(
+        descendants(of: detailRow, as: NSTextField.self).contains {
+          $0 !== field && $0.stringValue == expectedTime
+        })
+    }
+  }
+
+  @Test @MainActor func measuredHeightsFitWrappedCollapsedAndExpandedLayouts() {
+    let topic = String(repeating: "Full event content must wrap without clipping. ", count: 16)
+    let events = [
+      event("a", "Alice", .state(stateKey: "", content: .roomTopic(topic: topic))),
+      event("b", "Bob", .state(stateKey: "", content: .roomName(name: topic))),
+      profile("c", "Charlie"),
+    ]
+    let entries = stateEntries(events)
+    let row = StateEventRowView()
+    for expanded in [false, true] {
+      row.configure(items: entries, expanded: expanded)
+      for width: CGFloat in [260, 800] {
+        assertMeasuredLayout(row, entries: entries, width: width, expanded: expanded)
+      }
+      #expect(
+        StateEventRowView.height(for: entries, width: 260, expanded: expanded)
+          >= StateEventRowView.height(for: entries, width: 800, expanded: expanded))
+    }
+    for width: CGFloat in [260, 800] {
+      #expect(
+        StateEventRowView.height(for: entries, width: width, expanded: true)
+          > StateEventRowView.height(for: entries, width: width))
+    }
+    #expect(
+      StateEventRowView.height(for: entries, width: 260, expanded: true)
+        > StateEventRowView.height(for: entries, width: 800, expanded: true))
+  }
+}
+
+@MainActor
+private func descendants<T: NSView>(of view: NSView, as type: T.Type) -> [T] {
+  view.subviews.flatMap { child in
+    ((child as? T).map { [$0] } ?? [])
+      + descendants(of: child, as: type)
+  }
+}
+
+@MainActor
+private func labelStrings(in view: NSView) -> [String] {
+  descendants(of: view, as: NSTextField.self).map(\.stringValue)
+}
+
+private func stateEntries(_ events: [EventTimelineItem]) -> [TimelineItemRowInfo.StateEntry] {
+  events.map { TimelineItemRowInfo.StateEntry(item: TimelineItem(noHandle: .init()), event: $0) }
+}
+
+@MainActor
+private func assertMeasuredLayout(
+  _ row: StateEventRowView, entries: [TimelineItemRowInfo.StateEntry], width: CGFloat,
+  expanded: Bool = false, sourceLocation: SourceLocation = #_sourceLocation
+) {
+  let height = StateEventRowView.height(for: entries, width: width, expanded: expanded)
+  #expect(height.isFinite && height >= 28, sourceLocation: sourceLocation)
+  row.frame = NSRect(x: 0, y: 0, width: width, height: height)
+  row.layoutSubtreeIfNeeded()
+  let fields = descendants(of: row, as: NSTextField.self).filter {
+    !$0.isHiddenOrHasHiddenAncestor && !$0.stringValue.isEmpty
+  }
+  #expect(!fields.isEmpty, sourceLocation: sourceLocation)
+  for field in fields {
+    let frame = row.convert(field.bounds, from: field)
+    #expect(frame.width > 0 && frame.height > 0, sourceLocation: sourceLocation)
+    // Auto Layout positions alignment rectangles; NSTextField frames include
+    // AppKit's extra drawing margins outside those rectangles.
+    let alignmentFrame = row.convert(
+      field.alignmentRect(forFrame: field.frame), from: field.superview)
+    #expect(
+      row.bounds.insetBy(dx: -1, dy: -1).contains(alignmentFrame),
+      sourceLocation: sourceLocation)
+    let textHeight = field.attributedStringValue.boundingRect(
+      with: NSSize(width: max(field.bounds.width, 1), height: .greatestFiniteMagnitude),
       options: [.usesLineFragmentOrigin, .usesFontLeading]
     ).height
-    #expect(StateEventRowView.height(for: entries, width: width) == max(ceil(measured), 28))
+    #expect(ceil(textHeight) <= field.bounds.height + 2, sourceLocation: sourceLocation)
   }
 }
 
@@ -427,7 +652,9 @@ private func membership(
       userDisplayName: name, change: change, reason: reason))
 }
 
-private func event(_ id: String, _ name: String?, _ content: TimelineItemContent)
+private func event(
+  _ id: String, _ name: String?, _ content: TimelineItemContent, timestamp: UInt64 = 1
+)
   -> EventTimelineItem
 {
   EventTimelineItem(
@@ -436,7 +663,7 @@ private func event(_ id: String, _ name: String?, _ content: TimelineItemContent
       displayName: name, displayNameAmbiguous: false, avatarUrl: nil,
       status: nil, call: nil),
     forwarder: nil, forwarderProfile: nil, isOwn: false, isEditable: false,
-    content: content, reactions: [], eventTypeRaw: nil, timestamp: 1,
+    content: content, reactions: [], eventTypeRaw: nil, timestamp: timestamp,
     localSendState: nil, editSendState: nil, redactionSendState: nil, localCreatedAt: nil,
     readReceipts: [:], origin: nil, canBeRepliedTo: false,
     lazyProvider: LazyTimelineItemProvider(noHandle: .init()))
