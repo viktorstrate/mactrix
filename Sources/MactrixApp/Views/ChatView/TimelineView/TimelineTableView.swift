@@ -3,7 +3,6 @@ import MatrixIntegration
 import MatrixProtocols
 import MatrixRustSDK
 import OSLog
-import QuartzCore
 import QuickLookUI
 
 enum TimelineSelectionDirection {
@@ -22,7 +21,7 @@ enum TimelineSelectionDirection {
   }
 
   var rowStep: Int {
-    self == .up ? 1 : -1
+    self == .up ? -1 : 1
   }
 }
 
@@ -97,13 +96,21 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private var dataSource: NSTableViewDiffableDataSource<TimelineSection, TimelineUniqueId>?
 
   let scrollView = NSScrollView()
-  let tableView = BottomStickyTableView()
+  let tableView = TimelineTableView()
+  private var positionedInitially = false
   private let hoverOverlay = MessageHoverOverlayView()
   private weak var hoveredMessageView: MessageRowView?
   private var hoveredMessageId: String?
   private var hoveredRowIndex: Int?
   private var messageEdit: MessageEditState?
   private var updatingTimelineItems = false
+
+  private struct ReadingAnchor {
+    let id: String
+    let offset: CGFloat
+    let stateEventIDs: [String]?
+  }
+
   private var expandedStateRowIDs = Set<String>()
   private var previewURL: URL?
   private var previewEventIdentifier: String?
@@ -252,6 +259,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
     tableView.delegate = self
 
+    scrollView.contentView = BottomAlignedClipView()
     scrollView.documentView = tableView
     hoverOverlay.isHidden = true
     hoverOverlay.onMouseExited = { [weak self] event in
@@ -292,6 +300,14 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     listenForReplyDetails()
   }
 
+  override func viewDidLayout() {
+    super.viewDidLayout()
+    guard !positionedInitially, scrollView.contentView.bounds.height > 0 else { return }
+    positionedInitially = true
+    tableView.layoutSubtreeIfNeeded()
+    tableView.scrollToBottom()
+  }
+
   private func replyDetails(for content: MatrixRustSDK.MsgLikeContent) -> MatrixRustSDK
     .EmbeddedEventDetails?
   {
@@ -319,7 +335,6 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func refreshVisibleReplyRows() {
-    tableView.finishAnchoredResize()
     let visibleRows = tableView.rows(in: tableView.visibleRect)
     var changedRows = IndexSet()
     for row in visibleRows.lowerBound..<visibleRows.upperBound {
@@ -333,7 +348,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       changedRows.insert(row)
     }
     if !changedRows.isEmpty {
-      tableView.noteHeightOfRows(withIndexesChanged: changedRows)
+      tableView.withBottomFollowing {
+        tableView.noteHeightOfRows(withIndexesChanged: changedRows)
+      }
     }
   }
 
@@ -396,8 +413,10 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
     rowView.setHoverHighlight(true)
 
-    let rowRect = tableView.convert(tableView.rect(ofRow: row), to: scrollView.contentView)
-    let origin = NSPoint(x: rowRect.maxX - hoverOverlay.frame.width - 20, y: rowRect.maxY)
+    let clipView = scrollView.contentView
+    let rowRect = tableView.convert(tableView.rect(ofRow: row), to: clipView)
+    let top = clipView.isFlipped ? rowRect.minY - hoverOverlay.frame.height : rowRect.maxY
+    let origin = NSPoint(x: rowRect.maxX - hoverOverlay.frame.width - 20, y: top)
     if hoverOverlay.frame.origin != origin {
       hoverOverlay.setFrameOrigin(origin)
     }
@@ -488,7 +507,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         guard let self else { return }
         self.listenForTypingUsers()
         guard self.tableView.numberOfRows > 0,
-          let view = self.tableView.view(atColumn: 0, row: 0, makeIfNecessary: false)
+          let view = self.tableView.view(
+            atColumn: 0, row: self.tableView.numberOfRows - 1, makeIfNecessary: false)
             as? TypingIndicatorRowView
         else { return }
         view.configure(names: self.typingNames)
@@ -510,34 +530,26 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       case .state(let items) = timelineItems[row], items.count > 1
     else { return }
 
-    tableView.withTopAnchor(ofRow: row, animated: true) {
-      if !expandedStateRowIDs.insert(id).inserted {
-        expandedStateRowIDs.remove(id)
-      }
-
-      if let view = tableView.view(atColumn: 0, row: row, makeIfNecessary: false)
-        as? StateEventRowView
-      {
-        configureStateRow(view, items: items, id: id)
-      }
-      return StateEventRowView.height(
-        for: items, width: tableView.tableColumns[0].width,
-        expanded: expandedStateRowIDs.contains(id))
+    if !expandedStateRowIDs.insert(id).inserted {
+      expandedStateRowIDs.remove(id)
     }
+
+    if let view = tableView.view(atColumn: 0, row: row, makeIfNecessary: false)
+      as? StateEventRowView
+    {
+      configureStateRow(view, items: items, id: id)
+    }
+
+    tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
     positionHoverOverlay()
   }
 
   @objc func handleTableResize(_ notification: Notification) {
     if oldWidth != tableView.frame.width {
-      tableView.finishAnchoredResize()
       oldWidth = tableView.frame.width
 
-      NSAnimationContext.runAnimationGroup { context in
-        context.duration = 0
-        context.allowsImplicitAnimation = false
-
-        let visibleRect = tableView.visibleRect
-        let visibleRows = tableView.rows(in: visibleRect)
+      tableView.withBottomFollowing {
+        let visibleRows = tableView.rows(in: tableView.visibleRect)
         tableView.noteHeightOfRows(
           withIndexesChanged: IndexSet(integersIn: visibleRows.lowerBound..<visibleRows.upperBound))
       }
@@ -547,11 +559,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   var timelineFetchTask: Task<Void, Never>?
 
   @objc func viewDidScroll(_ notification: Notification) {
-    let currentOffset = scrollView.contentView.bounds.origin.y
-    let timelineHeight = scrollView.contentView.documentRect.height
-    let viewHeight = scrollView.contentView.documentVisibleRect.height
-
-    let distanceFromTop = timelineHeight - viewHeight - currentOffset
+    guard positionedInitially, !updatingTimelineItems else { return }
+    let distanceFromTop = tableView.visibleRect.minY - tableView.bounds.minY
     let threshold: CGFloat = 200.0  // Pixels from the top to trigger load
 
     if distanceFromTop <= threshold, timelineFetchTask == nil {
@@ -606,7 +615,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     let visibleRows = tableView.rows(in: tableView.visibleRect)
     var row = tableView.selectedRow
     if row < 0 {
-      row = direction == .up ? visibleRows.lowerBound - 1 : visibleRows.upperBound
+      row = direction == .up ? visibleRows.upperBound : visibleRows.lowerBound - 1
     }
 
     row += step
@@ -632,33 +641,113 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     // case typingIndicator
   }
 
+  private func readingAnchorCandidates() -> [ReadingAnchor] {
+    let clipView = scrollView.contentView
+    guard (clipView as? BottomAlignedClipView)?.isAtBottom == false else { return [] }
+    let visibleRows = tableView.rows(in: tableView.visibleRect)
+    guard visibleRows.location != NSNotFound, visibleRows.length > 0 else { return [] }
+
+    var messages: [ReadingAnchor] = []
+    var states: [ReadingAnchor] = []
+    for row in visibleRows.location..<min(NSMaxRange(visibleRows), timelineItems.count) {
+      let item = timelineItems[row]
+      let stateEventIDs: [String]?
+      switch item {
+      case .message:
+        stateEventIDs = nil
+      case .state(let items):
+        stateEventIDs = items.map { $0.event.eventOrTransactionId.id }
+      case .profile, .virtual, .typingIndicator:
+        continue
+      }
+      let rect = tableView.rect(ofRow: row)
+      let top = clipView.convert(NSPoint(x: rect.minX, y: rect.minY), from: tableView)
+      let anchor = ReadingAnchor(
+        id: item.id, offset: top.y - clipView.bounds.minY,
+        stateEventIDs: stateEventIDs)
+      if stateEventIDs == nil {
+        messages.append(anchor)
+      } else {
+        states.append(anchor)
+      }
+    }
+    // Structural rows can stay at the top while the messages below them move.
+    // Prefer message content, with unchanged state groups as a fallback.
+    return messages + states
+  }
+
+  private func survivingReadingAnchor(from candidates: [ReadingAnchor])
+    -> (anchor: ReadingAnchor, row: Int)?
+  {
+    guard !candidates.isEmpty else { return nil }
+    let candidateIDs = Set(candidates.map(\.id))
+    var rowsByID: [String: Int] = [:]
+    for (row, item) in timelineItems.enumerated() where candidateIDs.contains(item.id) {
+      rowsByID[item.id] = row
+    }
+    for candidate in candidates {
+      guard let row = rowsByID[candidate.id] else { continue }
+      if let expectedIDs = candidate.stateEventIDs {
+        guard case .state(let items) = timelineItems[row],
+          items.map({ $0.event.eventOrTransactionId.id }) == expectedIDs
+        else { continue }
+      }
+      return (candidate, row)
+    }
+    return nil
+  }
+
   func timelineDidApply(diffs: [TimelineDiff]) {
-    tableView.finishAnchoredResize()
-    let change = projection.apply(diffs)
-    assert(
-      projection.sourceItems.map { $0.uniqueId().id }
-        == timeline.timelineItems.map { $0.uniqueId().id })
-    applyProjectedRows(oldIDs: change.oldIDs, changedIDs: change.changedIDs)
+    let clipView = scrollView.contentView
+    let candidates = readingAnchorCandidates()
+
+    // Layout and scroll restoration may send bounds notifications. Do not fetch
+    // more history based on an intermediate viewport position.
+    updatingTimelineItems = true
+    defer { updatingTimelineItems = false }
+    tableView.withBottomFollowing {
+      let change = projection.apply(diffs)
+
+      assert(
+        projection.sourceItems.map { $0.uniqueId().id }
+          == timeline.timelineItems.map { $0.uniqueId().id }
+      )
+
+      applyProjectedRows(oldIDs: change.oldIDs, changedIDs: change.changedIDs)
+
+      if let (anchor, row) = survivingReadingAnchor(from: candidates) {
+        tableView.layoutSubtreeIfNeeded()
+        let rect = tableView.rect(ofRow: row)
+        let top = clipView.convert(NSPoint(x: rect.minX, y: rect.minY), from: tableView)
+        var bounds = clipView.bounds
+        bounds.origin.y = top.y - anchor.offset
+        clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
+        scrollView.reflectScrolledClipView(clipView)
+      }
+    }
+    positionHoverOverlay()
   }
 
   private func applyProjectedRows(oldIDs: [String], changedIDs: Set<String>) {
+    let wasUpdating = updatingTimelineItems
+    updatingTimelineItems = true
+    defer { updatingTimelineItems = wasUpdating }
     let selectedId =
       oldIDs.indices.contains(tableView.selectedRow) ? oldIDs[tableView.selectedRow] : nil
     let newIDs = timelineItems.map(\.id)
+    expandedStateRowIDs.formIntersection(newIDs)
     let structureChanged = oldIDs != newIDs
 
     if structureChanged {
       var snapshot = NSDiffableDataSourceSnapshot<TimelineSection, TimelineUniqueId>()
       snapshot.appendSections([.main])
       snapshot.appendItems(newIDs.map { TimelineUniqueId(id: $0) }, toSection: .main)
-      updatingTimelineItems = true
       dataSource?.apply(snapshot, animatingDifferences: false)
       if let selectedId, let row = newIDs.firstIndex(of: selectedId) {
         tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
       } else {
         tableView.deselectAll(nil)
       }
-      updatingTimelineItems = false
     }
 
     let oldIDSet = Set(oldIDs)
@@ -776,9 +865,6 @@ extension TimelineViewController: NSTableViewDelegate {
   }
 
   func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {
-    if let height = self.tableView.animatedHeight(forRow: row) {
-      return height
-    }
     let item = timelineItems[row]
 
     if case .profile = item {
@@ -849,10 +935,7 @@ extension TimelineViewController {
       guard let self, let state, self.messageEdit === state,
         let row = self.rowForEventId(id: state.id)
       else { return }
-      self.tableView.finishAnchoredResize()
-      NSAnimationContext.runAnimationGroup { context in
-        context.duration = 0
-        context.allowsImplicitAnimation = false
+      self.tableView.withBottomFollowing {
         self.tableView.noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
       }
     }
@@ -872,7 +955,6 @@ extension TimelineViewController {
   }
 
   private func refreshEditingRows(events: Set<MatrixRustSDK.EventOrTransactionId>) {
-    tableView.finishAnchoredResize()
     var rows = IndexSet()
     for eventId in events {
       guard
@@ -884,7 +966,9 @@ extension TimelineViewController {
       view.configureEditing(messageEdit?.id == eventId ? messageEdit : nil)
       rows.insert(row)
     }
-    tableView.noteHeightOfRows(withIndexesChanged: rows)
+    tableView.withBottomFollowing {
+      tableView.noteHeightOfRows(withIndexesChanged: rows)
+    }
   }
 
   private func saveEdit(_ state: MessageEditState, event: MatrixRustSDK.EventTimelineItem) {
@@ -937,137 +1021,35 @@ extension TimelineViewController {
   }
 }
 
-class BottomStickyTableView: NSTableView {
+/// A conventional top-down table. Only passive updates opt into bottom-following;
+/// user-driven row expansion deliberately leaves the scroll offset alone.
+class TimelineTableView: NSTableView {
   var onLayout: (() -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?
 
-  private struct AnchoredResize {
-    let row: Int
-    let rowIndexes: IndexSet
-    let topOffset: CGFloat
-    let startHeight: CGFloat
-    var targetHeight: CGFloat
-    var height: CGFloat
-    var startTime: CFTimeInterval
-  }
-
-  private var anchoredResize: AnchoredResize?
-  private var resizeDisplayLink: CADisplayLink?
-
-  /// The height delegate must return this override when it is non-nil.
-  func animatedHeight(forRow row: Int) -> CGFloat? {
-    guard let resize = anchoredResize, resize.row == row else { return nil }
-    return resize.height
-  }
-
-  /// Keeps the row's top at the same viewport position, subject to scroll bounds.
-  /// The synchronous update returns the target height and must not change row order
-  /// or count. Call finishAnchoredResize() before other model or height changes.
-  func withTopAnchor(ofRow row: Int, animated: Bool, _ update: () -> CGFloat) {
-    finishAnchoredResize()
-    layoutSubtreeIfNeeded()
-    precondition((0..<numberOfRows).contains(row))
-    guard let scrollView = enclosingScrollView else {
-      NSAnimationContext.runAnimationGroup { context in
-        context.duration = 0
-        context.allowsImplicitAnimation = false
-        _ = update()
-        noteHeightOfRows(withIndexesChanged: IndexSet(integer: row))
-      }
-      return
-    }
-
-    let clipView = scrollView.contentView
-    let rect = rect(ofRow: row)
-    let top = clipView.convert(NSPoint(x: rect.minX, y: rect.maxY), from: self)
-    anchoredResize = AnchoredResize(
-      row: row, rowIndexes: IndexSet(integer: row),
-      topOffset: top.y - clipView.bounds.minY,
-      startHeight: rect.height, targetHeight: rect.height, height: rect.height,
-      startTime: CACurrentMediaTime())
-
-    // Keep the old height while the closure configures the target presentation.
-    var targetHeight = rect.height
+  func withBottomFollowing(_ update: () -> Void) {
+    let followBottom =
+      (enclosingScrollView?.contentView as? BottomAlignedClipView)?.isAtBottom ?? false
     NSAnimationContext.runAnimationGroup { context in
       context.duration = 0
       context.allowsImplicitAnimation = false
-      targetHeight = update()
-    }
-    anchoredResize?.targetHeight = targetHeight
-    anchoredResize?.startTime = CACurrentMediaTime()
-
-    guard animated, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
-      targetHeight != rect.height, window != nil
-    else {
-      finishAnchoredResize()
-      return
-    }
-
-    NotificationCenter.default.addObserver(
-      self,
-      selector: #selector(willStartLiveScroll(_:)),
-      name: NSScrollView.willStartLiveScrollNotification,
-      object: scrollView
-    )
-    let displayLink = displayLink(target: self, selector: #selector(animateAnchoredResize(_:)))
-    resizeDisplayLink = displayLink
-    displayLink.add(to: .main, forMode: .common)
-  }
-
-  @objc private func animateAnchoredResize(_ displayLink: CADisplayLink) {
-    guard let resize = anchoredResize else { return }
-    let progress = CGFloat(min(max((displayLink.timestamp - resize.startTime) / 0.2, 0), 1))
-    if progress >= 1 {
-      finishAnchoredResize()
-      return
-    }
-    let eased = progress * progress * (3 - 2 * progress)
-    let height = resize.startHeight + (resize.targetHeight - resize.startHeight) * eased
-    if height != resize.height {
-      applyAnchoredHeight(height)
-    }
-  }
-
-  private func applyAnchoredHeight(_ height: CGFloat) {
-    guard let resize = anchoredResize else { return }
-    anchoredResize?.height = height
-    NSAnimationContext.runAnimationGroup { context in
-      context.duration = 0
-      context.allowsImplicitAnimation = false
-      noteHeightOfRows(withIndexesChanged: resize.rowIndexes)
+      update()
       layoutSubtreeIfNeeded()
-
-      // Read actual geometry after layout; scrolling has no separate animation.
-      if let scrollView = enclosingScrollView {
-        let clipView = scrollView.contentView
-        let rect = rect(ofRow: resize.row)
-        let top = clipView.convert(NSPoint(x: rect.minX, y: rect.maxY), from: self)
-        var bounds = clipView.bounds
-        bounds.origin.y = top.y - resize.topOffset
-        clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
-        scrollView.reflectScrolledClipView(clipView)
+      if followBottom {
+        scrollToBottom()
+      } else if let clipView = enclosingScrollView?.contentView {
+        clipView.scroll(to: clipView.constrainBoundsRect(clipView.bounds).origin)
       }
     }
-    onLayout?()
   }
 
-  func finishAnchoredResize() {
-    resizeDisplayLink?.invalidate()
-    resizeDisplayLink = nil
-    NotificationCenter.default.removeObserver(
-      self, name: NSScrollView.willStartLiveScrollNotification, object: nil)
-    guard let resize = anchoredResize else { return }
-    applyAnchoredHeight(resize.targetHeight)
-    anchoredResize = nil
-  }
-
-  @objc private func willStartLiveScroll(_ notification: Notification) {
-    finishAnchoredResize()
-  }
-
-  override func viewWillMove(toWindow newWindow: NSWindow?) {
-    finishAnchoredResize()
-    super.viewWillMove(toWindow: newWindow)
+  func scrollToBottom() {
+    guard let scrollView = enclosingScrollView else { return }
+    let clipView = scrollView.contentView
+    var bounds = clipView.bounds
+    bounds.origin.y = frame.maxY - bounds.height
+    clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
+    scrollView.reflectScrolledClipView(clipView)
   }
 
   override func keyDown(with event: NSEvent) {
@@ -1087,9 +1069,31 @@ class BottomStickyTableView: NSTableView {
     super.layout()
     onLayout?()
   }
+}
 
-  // By returning false, the table starts drawing from the bottom up
-  override var isFlipped: Bool {
-    return false
+/// Allows empty space above a short document instead of below it.
+final class BottomAlignedClipView: NSClipView {
+  var isAtBottom: Bool {
+    guard let documentView else { return true }
+    return documentView.frame.maxY - bounds.maxY <= 2
+  }
+
+  override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
+    var result = super.constrainBoundsRect(proposedBounds)
+    if let documentView, documentView.frame.height < result.height {
+      result.origin.y = documentView.frame.maxY - result.height
+    }
+    return result
+  }
+
+  override func setFrameSize(_ newSize: NSSize) {
+    let followBottom = isAtBottom
+    super.setFrameSize(newSize)
+    var proposedBounds = bounds
+    if followBottom, let documentView {
+      proposedBounds.origin.y = documentView.frame.maxY - bounds.height
+    }
+    scroll(to: constrainBoundsRect(proposedBounds).origin)
+    enclosingScrollView?.reflectScrolledClipView(self)
   }
 }

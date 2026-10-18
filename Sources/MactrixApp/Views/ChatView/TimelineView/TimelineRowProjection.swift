@@ -163,7 +163,6 @@ struct TimelineRowProjection {
   private static func flatten(_ segments: [Segment]) -> [TimelineItemRowInfo] {
     var result = segments.flatMap(\.rows)
     result.append(.typingIndicator)
-    result.reverse()
     return result
   }
 }
