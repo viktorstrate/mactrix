@@ -93,26 +93,15 @@ final class StateEventRowView: NSView {
     let size = NSFont.systemFontSize
     let result = NSMutableAttributedString()
 
-    for (i, item) in items.enumerated() {
+    let summary = StateEventSummaryFormatter.summary(for: items.map(\.event))
+    let bodyFont = NSFontManager.shared.convert(
+      NSFont.systemFont(ofSize: size), toHaveTrait: .italicFontMask)
+    for segment in summary.segments {
       result.append(
         NSAttributedString(
-          string: item.event.sender,
+          string: segment.text,
           attributes: [
-            .font: NSFont.boldSystemFont(ofSize: size),
-            .foregroundColor: color,
-          ]))
-
-      var message = " " + item.event.content.userInterfaceText
-      if i < items.count - 1 {
-        message += ", "
-      }
-
-      result.append(
-        NSAttributedString(
-          string: message,
-          attributes: [
-            .font: NSFontManager.shared.convert(
-              NSFont.systemFont(ofSize: size), toHaveTrait: .italicFontMask),
+            .font: segment.isName ? NSFont.boldSystemFont(ofSize: size) : bodyFont,
             .foregroundColor: color,
           ]))
     }
