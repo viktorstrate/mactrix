@@ -699,13 +699,18 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   func timelineDidApply(diffs: [TimelineDiff]) {
     let clipView = scrollView.contentView
+    let followBottom = (clipView as? BottomAlignedClipView)?.isAtBottom ?? false
+    let oldOrigin = clipView.bounds.origin
     let candidates = readingAnchorCandidates()
 
     // Layout and scroll restoration may send bounds notifications. Do not fetch
     // more history based on an intermediate viewport position.
     updatingTimelineItems = true
     defer { updatingTimelineItems = false }
-    tableView.withBottomFollowing {
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0
+      context.allowsImplicitAnimation = false
+
       let change = projection.apply(diffs)
 
       assert(
@@ -715,15 +720,21 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
       applyProjectedRows(oldIDs: change.oldIDs, changedIDs: change.changedIDs)
 
-      if let (anchor, row) = survivingReadingAnchor(from: candidates) {
-        tableView.layoutSubtreeIfNeeded()
+      // Settle the entire scroll-view hierarchy before measuring the anchor and
+      // restoring the viewport. No further layout or scroll adjustment follows.
+      scrollView.layoutSubtreeIfNeeded()
+
+      var bounds = clipView.bounds
+      bounds.origin = oldOrigin
+      if followBottom {
+        bounds.origin.y = tableView.frame.maxY - bounds.height
+      } else if let (anchor, row) = survivingReadingAnchor(from: candidates) {
         let rect = tableView.rect(ofRow: row)
         let top = clipView.convert(NSPoint(x: rect.minX, y: rect.minY), from: tableView)
-        var bounds = clipView.bounds
         bounds.origin.y = top.y - anchor.offset
-        clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
-        scrollView.reflectScrolledClipView(clipView)
       }
+      clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
+      scrollView.reflectScrolledClipView(clipView)
     }
     positionHoverOverlay()
   }
