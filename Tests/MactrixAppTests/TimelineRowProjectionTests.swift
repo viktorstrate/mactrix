@@ -29,8 +29,8 @@ struct TimelineRowProjectionTests {
       event("s\(index)", sender: "@user\(index):example.org", content: content)
     }
     let projection = TimelineRowProjection(items: items)
-    #expect(projection.rows.map(\.id) == ["typing-indicator", "state:s0"])
-    let row = try #require(projection.rows.last)
+    #expect(projection.rows.map(\.id) == ["state:s0", "typing-indicator"])
+    let row = try #require(projection.rows.first)
     guard case .state(let entries) = row else {
       Issue.record("Expected a grouped state row")
       return
@@ -44,16 +44,16 @@ struct TimelineRowProjectionTests {
     expectEquivalent(projection, to: items)
   }
 
-  @Test func messagesAndVirtualItemsBreakRunsWithoutReversingGroupContents() {
+  @Test func messagesAndVirtualItemsBreakRunsInSourceOrder() {
     let items = [
       state("a"), state("b"), message("m"), state("c"), marker("v"), state("d"), state("e"),
     ]
     let projection = TimelineRowProjection(items: items)
     #expect(
       projection.rows.map(\.id) == [
-        "typing-indicator", "state:d", "virtual:v", "state:c", "message:m", "profile:m", "state:a",
+        "state:a", "profile:m", "message:m", "state:c", "virtual:v", "state:d", "typing-indicator",
       ])
-    #expect(stateGroups(projection) == [["d", "e"], ["c"], ["a", "b"]])
+    #expect(stateGroups(projection) == [["a", "b"], ["c"], ["d", "e"]])
     expectEquivalent(projection, to: items)
   }
 
@@ -61,19 +61,19 @@ struct TimelineRowProjectionTests {
     let first = state("a")
     var projection = TimelineRowProjection(items: [first, state("b")])
     #expect(first.uniqueId().id == "sdk:a")
-    #expect(projection.rows.map(\.id) == ["typing-indicator", "state:a"])
+    #expect(projection.rows.map(\.id) == ["state:a", "typing-indicator"])
 
     let append = projection.apply([.pushBack(value: state("c"))])
-    #expect(append.oldIDs == ["typing-indicator", "state:a"])
+    #expect(append.oldIDs == ["state:a", "typing-indicator"])
     #expect(append.changedIDs == ["state:a"])
     #expect(stateGroups(projection) == [["a", "b", "c"]])
 
     let prepend = projection.apply([.pushFront(value: state("z"))])
     #expect(prepend.changedIDs == ["state:a", "state:z"])
-    #expect(projection.rows.map(\.id) == ["typing-indicator", "state:z"])
+    #expect(projection.rows.map(\.id) == ["state:z", "typing-indicator"])
     let remove = projection.apply([.popFront])
     #expect(remove.changedIDs == ["state:z", "state:a"])
-    #expect(projection.rows.map(\.id) == ["typing-indicator", "state:a"])
+    #expect(projection.rows.map(\.id) == ["state:a", "typing-indicator"])
   }
 
   @Test func profilesFollowSenderAndResetAfterStateOrVirtualRows() {
@@ -86,9 +86,9 @@ struct TimelineRowProjectionTests {
     let projection = TimelineRowProjection(items: items)
     #expect(
       projection.rows.map(\.id) == [
-        "typing-indicator", "message:f", "message:e", "profile:e", "virtual:v",
-        "message:d", "profile:d", "state:s1", "message:c", "profile:c",
-        "message:b", "message:a", "profile:a",
+        "profile:a", "message:a", "message:b", "profile:c", "message:c",
+        "state:s1", "profile:d", "message:d", "virtual:v", "profile:e",
+        "message:e", "message:f", "typing-indicator",
       ])
     expectEquivalent(projection, to: items)
   }
@@ -118,8 +118,8 @@ struct TimelineRowProjectionTests {
     let change = projection.apply([.set(index: 1, value: replacement)])
     #expect(
       projection.rows.map(\.id) == [
-        "typing-indicator", "message:c", "profile:c", "message:b", "profile:b", "message:a",
-        "profile:a",
+        "profile:a", "message:a", "profile:b", "message:b", "profile:c", "message:c",
+        "typing-indicator",
       ])
     #expect(change.changedIDs.isSuperset(of: ["message:b", "profile:b", "profile:c"]))
     expectEquivalent(projection, to: [a, replacement, c])
@@ -360,8 +360,9 @@ private func expectEquivalent(_ projection: TimelineRowProjection, to expected: 
   #expect(projection.sourceItems.map { $0.uniqueId().id } == expected.map { $0.uniqueId().id })
   #expect(snapshots(projection) == snapshots(TimelineRowProjection(items: expected)))
   #expect(Set(projection.rows.map(\.id)).count == projection.rows.count)
-  // UI rows are reversed, but entries within each state row remain in source order.
-  let projectedItems = projection.rows.reversed().flatMap { row -> [TimelineItem] in
+  // Both rows and entries within state rows preserve SDK source order.
+  #expect(projection.rows.last?.id == "typing-indicator")
+  let projectedItems = projection.rows.flatMap { row -> [TimelineItem] in
     switch row {
     case .state(let entries): entries.map(\.item)
     case .message(let item, _, _), .virtual(let item, _): [item]

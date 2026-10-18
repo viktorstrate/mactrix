@@ -1,4 +1,6 @@
 import MatrixRustSDK
+import OSLog
+import os.signpost
 
 /// Maps contiguous SDK item ranges to ordered table rows, collapsing consecutive
 /// state events into a single segment and row.
@@ -17,6 +19,8 @@ struct TimelineRowProjection {
   private var segments: [Segment]
   private(set) var rows: [TimelineItemRowInfo]
 
+  let signposter = OSSignposter(logger: Logger.timelineTableView)
+
   init(items: [TimelineItem]) {
     sourceItems = items
     segments = Self.makeSegments(items, previous: nil)
@@ -24,6 +28,10 @@ struct TimelineRowProjection {
   }
 
   mutating func apply(_ diffs: [TimelineDiff]) -> Change {
+    let signpostID = signposter.makeSignpostID()
+    let signpostInterval = signposter.beginInterval("TimelineRowProjection.apply", id: signpostID)
+    defer { signposter.endInterval("TimelineRowProjection.apply", signpostInterval) }
+
     let oldIDs = rows.map(\.id)
     var changedIDs = Set<String>()
 
@@ -55,6 +63,8 @@ struct TimelineRowProjection {
         reset(to: values, changedIDs: &changedIDs)
       }
     }
+
+    signposter.emitEvent("Apply diff complete", id: signpostID)
 
     rows = Self.flatten(segments)
     return Change(oldIDs: oldIDs, changedIDs: changedIDs)

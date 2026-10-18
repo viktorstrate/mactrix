@@ -392,7 +392,8 @@ struct StateEventSummaryFormatterTests {
     #expect(NSFontManager.shared.traits(of: bodyFont).contains(.italicFontMask))
     let button = try #require(descendants(of: row, as: NSButton.self).first)
     #expect(!button.isHiddenOrHasHiddenAncestor)
-    #expect(button.accessibilityValue() as? String == "Collapsed")
+    #expect(button.accessibilityLabel() == "Expand state changes")
+    #expect(!button.isAccessibilityExpanded())
     for width: CGFloat in [240, 700] {
       assertMeasuredLayout(row, entries: entries, width: width)
       let textFrame = row.convert(field.bounds, from: field)
@@ -416,21 +417,23 @@ struct StateEventSummaryFormatterTests {
     button.performClick(nil)
     button.performClick(nil)
     #expect(firstCalls == 2)
-    #expect(button.accessibilityValue() as? String == "Collapsed")
+    #expect(!button.isAccessibilityExpanded())
     #expect(!labelStrings(in: row).contains("Alice \(entries[0].event.content.userInterfaceText)"))
 
     row.configure(items: entries, expanded: true, onToggleExpanded: { replacementCalls += 1 })
     button.performClick(nil)
     #expect(firstCalls == 2)
     #expect(replacementCalls == 1)
-    #expect(button.accessibilityValue() as? String == "Expanded")
+    #expect(button.accessibilityLabel() == "Collapse state changes")
+    #expect(button.isAccessibilityExpanded())
     #expect(labelStrings(in: row).contains("Alice \(entries[0].event.content.userInterfaceText)"))
 
     row.configure(items: entries)
     button.performClick(nil)
     #expect(firstCalls == 2)
     #expect(replacementCalls == 1)
-    #expect(button.accessibilityValue() as? String == "Collapsed")
+    #expect(button.accessibilityLabel() == "Expand state changes")
+    #expect(!button.isAccessibilityExpanded())
   }
 
   @Test @MainActor func expandedDetailsAreRemovedOnCollapseAndReuse() throws {
