@@ -26,11 +26,17 @@ enum TimelineSelectionDirection {
 }
 
 enum TimelineItemRowInfo {
+  struct StateEntry {
+    let item: TimelineItem
+    let event: MatrixRustSDK.EventTimelineItem
+  }
+
   case profile(item: TimelineItem, event: MatrixRustSDK.EventTimelineItem)
   case message(
     item: TimelineItem, event: MatrixRustSDK.EventTimelineItem,
     content: MatrixRustSDK.MsgLikeContent)
-  case state(item: TimelineItem, event: MatrixRustSDK.EventTimelineItem)
+  /// Entries are nonempty and ordered oldest to newest.
+  case state(items: [StateEntry])
   case virtual(item: TimelineItem, virtual: MatrixRustSDK.VirtualTimelineItem)
   case typingIndicator
 
@@ -56,8 +62,8 @@ enum TimelineItemRowInfo {
       item
     case .profile(let item, _):
       item
-    case .state(let item, _):
-      item
+    case .state(let items):
+      items.first?.item
     case .virtual(let item, _):
       item
     case .typingIndicator:
@@ -73,8 +79,8 @@ extension TimelineItemRowInfo: Identifiable {
       "profile:\(event.eventOrTransactionId.id)"
     case .message(_, let event, _):
       "message:\(event.eventOrTransactionId.id)"
-    case .state(_, let event):
-      "state:\(event.eventOrTransactionId.id)"
+    case .state(let items):
+      "state:\(items[0].event.eventOrTransactionId.id)"
     case .virtual(let item, _):
       "virtual:\(item.uniqueId().id)"
     case .typingIndicator:
@@ -182,11 +188,11 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         view.configure(item: virtual)
         view.identifier = item.reuseIdentifier
         return view
-      case .state(_, let event):
+      case .state(let items):
         let view =
           tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
           as? StateEventRowView ?? StateEventRowView()
-        view.configure(event: event)
+        view.configure(items: items)
         view.identifier = item.reuseIdentifier
         return view
       case .message(_, let event, let content):
@@ -255,7 +261,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     scrollView.contentView.addSubview(hoverOverlay, positioned: .above, relativeTo: tableView)
     scrollView.hasVerticalScroller = true
 
-    scrollView.automaticallyAdjustsContentInsets = false
+    scrollView.automaticallyAdjustsContentInsets = true
 
     scrollView.drawsBackground = false
     tableView.backgroundColor = .clear
@@ -748,8 +754,8 @@ extension TimelineViewController: NSTableViewDelegate {
       return VirtualItemRowView.rowHeight
     }
 
-    if case .state(_, let event) = item {
-      return StateEventRowView.height(for: event, width: tableView.tableColumns[0].width)
+    if case .state(let items) = item {
+      return StateEventRowView.height(for: items, width: tableView.tableColumns[0].width)
     }
 
     if case .message(_, let event, let content) = item {

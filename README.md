@@ -49,17 +49,16 @@ Then open the project in Xcode and build using `Cmd+B`.
     - [x] Send attachments
     - [x] Markdown formatting
   - [ ] Message actions
-    - [x] Add reactions
-    - [x] Reply to
-    - [x] Pin
-    - [ ] Edit
+    - [x] Add reactions, Reply to, Pin, Edit
+    - [ ] Delete
+    - [ ] Download to file
+    - [ ] View source
   - [x] Show reactions
-  - [ ] Group timeline virtual items:
-    - Removed messages, user join / leave, username change, profile picture change
+  - [x] Group timeline state items
   - [x] Show read receipts
   - [ ] Attachments
-    - [ ] Support all formats (video, audio, files)
-    - [ ] Download attachment to file
+    - [x] Support file, image, video, gallery
+    - [ ] Support audio playback
     - [x] Preview attachments
 - [ ] Rooms
   - [x] New room,

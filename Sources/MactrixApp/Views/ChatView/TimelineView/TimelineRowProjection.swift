@@ -1,7 +1,7 @@
 import MatrixRustSDK
 
-/// Maps contiguous SDK item ranges to ordered table rows. The current rules emit
-/// one segment per item; a rule may later consume a run and emit a single row.
+/// Maps contiguous SDK item ranges to ordered table rows, collapsing consecutive
+/// state events into a single segment and row.
 struct TimelineRowProjection {
   struct Segment {
     let sourceItems: [TimelineItem]
@@ -72,8 +72,9 @@ struct TimelineRowProjection {
   ) {
     guard count > 0 || !items.isEmpty else { return }
 
-    // The predecessor determines whether the first changed message needs a
-    // profile. The successor may gain or lose its own profile after the edit.
+    // Include both neighbors so state runs can merge or split, and messages
+    // following the edit can gain or lose their profile. Whole-segment expansion
+    // includes every state in either neighboring run.
     let requestedStart = max(index - 1, 0)
     let requestedEnd = min(index + count + 1, sourceItems.count)
     let (segmentRange, sourceRange) = segmentWindow(containing: requestedStart..<requestedEnd)
@@ -89,8 +90,8 @@ struct TimelineRowProjection {
     segments.replaceSubrange(segmentRange, with: replacement)
   }
 
-  /// Expands a source edit to whole segments. Future run based rules can
-  /// extend this window to the nearest unchanged grouping boundaries.
+  /// Expands a source edit and its neighbors to whole segments, keeping state
+  /// runs intact at the boundaries of the replacement window.
   private func segmentWindow(containing requested: Range<Int>) -> (Range<Int>, Range<Int>) {
     var sourceOffset = 0
     var first: Int?
@@ -115,26 +116,43 @@ struct TimelineRowProjection {
 
   private static func makeSegments(_ items: [TimelineItem], previous: TimelineItem?) -> [Segment] {
     var previousSender = sender(of: previous)
-    return items.map { item in
+    var segments: [Segment] = []
+    var stateItems: [TimelineItemRowInfo.StateEntry] = []
+
+    func flushStateRun() {
+      guard !stateItems.isEmpty else { return }
+      segments.append(
+        Segment(sourceItems: stateItems.map(\.item), rows: [.state(items: stateItems)]))
+      stateItems.removeAll(keepingCapacity: true)
+    }
+
+    for item in items {
       var projectedRows: [TimelineItemRowInfo] = []
       if let event = item.asEvent() {
         switch event.content {
         case .msgLike(let content):
+          flushStateRun()
           if previousSender != event.sender {
             projectedRows.append(.profile(item: item, event: event))
           }
           projectedRows.append(.message(item: item, event: event, content: content))
           previousSender = event.sender
         default:
-          projectedRows.append(.state(item: item, event: event))
+          stateItems.append(.init(item: item, event: event))
+          previousSender = nil
+          continue
+        }
+      } else {
+        flushStateRun()
+        if let virtual = item.asVirtual() {
+          projectedRows.append(.virtual(item: item, virtual: virtual))
           previousSender = nil
         }
-      } else if let virtual = item.asVirtual() {
-        projectedRows.append(.virtual(item: item, virtual: virtual))
-        previousSender = nil
       }
-      return Segment(sourceItems: [item], rows: projectedRows)
+      segments.append(Segment(sourceItems: [item], rows: projectedRows))
     }
+    flushStateRun()
+    return segments
   }
 
   private static func sender(of item: TimelineItem?) -> String? {

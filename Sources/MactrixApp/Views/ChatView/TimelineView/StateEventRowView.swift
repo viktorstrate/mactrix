@@ -4,6 +4,10 @@ import MatrixRustSDK
 final class StateEventRowView: NSView {
   private let timestamp = NSTextField(labelWithString: "")
   private let descriptionField = NSTextField(labelWithString: "")
+  private let expandButton = NSButton()
+
+  private var expanded = false
+  private var items: [TimelineItemRowInfo.StateEntry] = []
 
   private static let timeFormatter: DateFormatter = {
     let formatter = DateFormatter()
@@ -13,6 +17,13 @@ final class StateEventRowView: NSView {
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
+
+    expandButton.target = self
+    expandButton.action = #selector(toggleExpand)
+    expandButton.isBordered = false
+    expandButton.contentTintColor = .linkColor
+    expandButton.translatesAutoresizingMaskIntoConstraints = false
+    updateExpandButtonTitle()
 
     timestamp.font = .systemFont(ofSize: NSFont.labelFontSize)
     timestamp.textColor = .secondaryLabelColor
@@ -28,57 +39,84 @@ final class StateEventRowView: NSView {
 
     addSubview(timestamp)
     addSubview(descriptionField)
+    addSubview(expandButton)
+
     NSLayoutConstraint.activate([
       timestamp.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 0),
       timestamp.topAnchor.constraint(equalTo: topAnchor, constant: 2),
       timestamp.widthAnchor.constraint(equalToConstant: 32 + 16),
 
       descriptionField.leadingAnchor.constraint(equalTo: timestamp.trailingAnchor, constant: 16),
-      descriptionField.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+      descriptionField.trailingAnchor.constraint(
+        equalTo: expandButton.leadingAnchor, constant: -10),
       descriptionField.topAnchor.constraint(equalTo: topAnchor, constant: 0),
       descriptionField.bottomAnchor.constraint(equalTo: bottomAnchor, constant: 0),
+
+      expandButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
+      expandButton.topAnchor.constraint(equalTo: topAnchor, constant: 0),
     ])
+
+    expandButton.setContentHuggingPriority(.required, for: .horizontal)
+    expandButton.setContentCompressionResistancePriority(.required, for: .horizontal)
   }
 
-  func configure(event: EventTimelineItem) {
-    let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
+  func configure(items: [TimelineItemRowInfo.StateEntry]) {
+    precondition(!items.isEmpty)
+    self.items = items
+    let date = Date(timeIntervalSince1970: Double(items[0].event.timestamp) / 1000)
     timestamp.stringValue = Self.timeFormatter.string(from: date)
-    descriptionField.attributedStringValue = Self.attributedDescription(for: event)
+    descriptionField.attributedStringValue = Self.attributedDescription(for: items)
   }
 
-  static func height(for event: EventTimelineItem, width: CGFloat) -> CGFloat {
+  @objc func toggleExpand() {
+    expanded.toggle()
+    updateExpandButtonTitle()
+  }
+
+  private func updateExpandButtonTitle() {
+    expandButton.title = expanded ? "Collapse" : "Expand"
+  }
+
+  static func height(for items: [TimelineItemRowInfo.StateEntry], width: CGFloat) -> CGFloat {
     let textWidth = max(width - 74, 1)
-    let textHeight = attributedDescription(for: event).boundingRect(
+    let textHeight = attributedDescription(for: items).boundingRect(
       with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
       options: [.usesLineFragmentOrigin, .usesFontLeading]
     ).height
     return max(ceil(textHeight), 28)
   }
 
-  private static func attributedDescription(for event: EventTimelineItem) -> NSAttributedString {
+  private static func attributedDescription(for items: [TimelineItemRowInfo.StateEntry])
+    -> NSAttributedString
+  {
     let color = NSColor.secondaryLabelColor
     let size = NSFont.systemFontSize
-    let result = NSMutableAttributedString(
-      string: event.sender,
-      attributes: [
-        .font: NSFont.boldSystemFont(ofSize: size),
-        .foregroundColor: color,
-      ])
-    result.append(
-      NSAttributedString(
-        string: ": ",
-        attributes: [
-          .font: NSFont.systemFont(ofSize: size),
-          .foregroundColor: color,
-        ]))
-    result.append(
-      NSAttributedString(
-        string: event.content.userInterfaceText,
-        attributes: [
-          .font: NSFontManager.shared.convert(
-            NSFont.systemFont(ofSize: size), toHaveTrait: .italicFontMask),
-          .foregroundColor: color,
-        ]))
+    let result = NSMutableAttributedString()
+
+    for (i, item) in items.enumerated() {
+      result.append(
+        NSAttributedString(
+          string: item.event.sender,
+          attributes: [
+            .font: NSFont.boldSystemFont(ofSize: size),
+            .foregroundColor: color,
+          ]))
+
+      var message = " " + item.event.content.userInterfaceText
+      if i < items.count - 1 {
+        message += ", "
+      }
+
+      result.append(
+        NSAttributedString(
+          string: message,
+          attributes: [
+            .font: NSFontManager.shared.convert(
+              NSFont.systemFont(ofSize: size), toHaveTrait: .italicFontMask),
+            .foregroundColor: color,
+          ]))
+    }
+
     return result
   }
 
