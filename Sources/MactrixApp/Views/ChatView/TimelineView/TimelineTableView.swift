@@ -97,6 +97,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   let scrollView = NSScrollView()
   let tableView = TimelineTableView()
+  private lazy var documentView = TimelineDocumentView(tableView: tableView)
   private var positionedInitially = false
   private let hoverOverlay = MessageHoverOverlayView()
   private weak var hoveredMessageView: MessageRowView?
@@ -259,8 +260,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
     tableView.delegate = self
 
-    scrollView.contentView = BottomAlignedClipView()
-    scrollView.documentView = tableView
+    scrollView.documentView = documentView
+    scrollView.verticalScrollElasticity = .allowed
     hoverOverlay.isHidden = true
     hoverOverlay.onMouseExited = { [weak self] event in
       self?.hoverOverlayDidExit(with: event)
@@ -268,7 +269,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     hoverOverlay.onAction = { [weak self] action in
       self?.performHoverAction(action)
     }
-    scrollView.contentView.addSubview(hoverOverlay, positioned: .above, relativeTo: tableView)
+    scrollView.contentView.addSubview(hoverOverlay, positioned: .above, relativeTo: documentView)
     scrollView.hasVerticalScroller = true
 
     scrollView.automaticallyAdjustsContentInsets = true
@@ -279,6 +280,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
     // Subscribe to view resize notifications
     scrollView.contentView.postsBoundsChangedNotifications = true
+    scrollView.contentView.postsFrameChangedNotifications = true
     NotificationCenter.default.addObserver(
       self,
       selector: #selector(handleTableResize),
@@ -302,6 +304,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   override func viewDidLayout() {
     super.viewDidLayout()
+    documentView.updateGeometry()
     guard !positionedInitially, scrollView.contentView.bounds.height > 0 else { return }
     positionedInitially = true
     tableView.layoutSubtreeIfNeeded()
@@ -548,6 +551,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     if oldWidth != tableView.frame.width {
       oldWidth = tableView.frame.width
 
+      documentView.updateGeometry()
+
       tableView.withBottomFollowing {
         let visibleRows = tableView.rows(in: tableView.visibleRect)
         tableView.noteHeightOfRows(
@@ -643,7 +648,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   private func readingAnchorCandidates() -> [ReadingAnchor] {
     let clipView = scrollView.contentView
-    guard (clipView as? BottomAlignedClipView)?.isAtBottom == false else { return [] }
+    guard !documentView.isAtBottom else { return [] }
     let visibleRows = tableView.rows(in: tableView.visibleRect)
     guard visibleRows.location != NSNotFound, visibleRows.length > 0 else { return [] }
 
@@ -699,7 +704,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   func timelineDidApply(diffs: [TimelineDiff]) {
     let clipView = scrollView.contentView
-    let followBottom = (clipView as? BottomAlignedClipView)?.isAtBottom ?? false
+    let followBottom = documentView.isAtBottom
     let oldOrigin = clipView.bounds.origin
     let candidates = readingAnchorCandidates()
 
@@ -723,11 +728,12 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       // Settle the entire scroll-view hierarchy before measuring the anchor and
       // restoring the viewport. No further layout or scroll adjustment follows.
       scrollView.layoutSubtreeIfNeeded()
+      documentView.updateGeometry()
 
       var bounds = clipView.bounds
       bounds.origin = oldOrigin
       if followBottom {
-        bounds.origin.y = tableView.frame.maxY - bounds.height
+        bounds.origin.y = documentView.bottomAlignedOriginY
       } else if let (anchor, row) = survivingReadingAnchor(from: candidates) {
         let rect = tableView.rect(ofRow: row)
         let top = clipView.convert(NSPoint(x: rect.minX, y: rect.minY), from: tableView)
@@ -1040,12 +1046,13 @@ class TimelineTableView: NSTableView {
 
   func withBottomFollowing(_ update: () -> Void) {
     let followBottom =
-      (enclosingScrollView?.contentView as? BottomAlignedClipView)?.isAtBottom ?? false
+      (superview as? TimelineDocumentView)?.isAtBottom ?? false
     NSAnimationContext.runAnimationGroup { context in
       context.duration = 0
       context.allowsImplicitAnimation = false
       update()
       layoutSubtreeIfNeeded()
+      (superview as? TimelineDocumentView)?.updateGeometry()
       if followBottom {
         scrollToBottom()
       } else if let clipView = enclosingScrollView?.contentView {
@@ -1057,8 +1064,10 @@ class TimelineTableView: NSTableView {
   func scrollToBottom() {
     guard let scrollView = enclosingScrollView else { return }
     let clipView = scrollView.contentView
+    let documentView = superview as? TimelineDocumentView
+    documentView?.updateGeometry()
     var bounds = clipView.bounds
-    bounds.origin.y = frame.maxY - bounds.height
+    bounds.origin.y = documentView?.bottomAlignedOriginY ?? (frame.maxY - bounds.height)
     clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
     scrollView.reflectScrolledClipView(clipView)
   }
@@ -1078,33 +1087,77 @@ class TimelineTableView: NSTableView {
 
   override func layout() {
     super.layout()
+    (superview as? TimelineDocumentView)?.updateGeometry()
     onLayout?()
   }
 }
 
-/// Allows empty space above a short document instead of below it.
-final class BottomAlignedClipView: NSClipView {
+/// Keeps unused space above the table while leaving scrolling geometry to AppKit.
+final class TimelineDocumentView: NSView {
+  private let tableView: TimelineTableView
+  private var updatingGeometry = false
+  private var previousViewportHeight: CGFloat?
+
+  override var isFlipped: Bool { true }
+
+  init(tableView: TimelineTableView) {
+    self.tableView = tableView
+    super.init(frame: .zero)
+    addSubview(tableView)
+  }
+
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+
+  var bottomAlignedOriginY: CGFloat {
+    guard let clipView = enclosingScrollView?.contentView else { return 0 }
+    return frame.maxY - clipView.bounds.height + clipView.contentInsets.bottom
+  }
+
   var isAtBottom: Bool {
-    guard let documentView else { return true }
-    return documentView.frame.maxY - bounds.maxY <= 2
+    guard let clipView = enclosingScrollView?.contentView else { return true }
+    return bottomAlignedOriginY - clipView.bounds.minY <= 2
   }
 
-  override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect {
-    var result = super.constrainBoundsRect(proposedBounds)
-    if let documentView, documentView.frame.height < result.height {
-      result.origin.y = documentView.frame.maxY - result.height
-    }
-    return result
-  }
+  func updateGeometry() {
+    guard !updatingGeometry, let scrollView = enclosingScrollView else { return }
+    updatingGeometry = true
+    defer { updatingGeometry = false }
 
-  override func setFrameSize(_ newSize: NSSize) {
-    let followBottom = isAtBottom
-    super.setFrameSize(newSize)
-    var proposedBounds = bounds
-    if followBottom, let documentView {
-      proposedBounds.origin.y = documentView.frame.maxY - bounds.height
+    let clipView = scrollView.contentView
+    let viewportHeight = clipView.bounds.height
+    let insets = clipView.contentInsets
+    let resized = previousViewportHeight != nil && previousViewportHeight != viewportHeight
+    let followBottom =
+      resized
+      && frame.maxY - (previousViewportHeight ?? viewportHeight) + insets.bottom
+        - clipView.bounds.minY <= 2
+    previousViewportHeight = viewportHeight
+
+    let width = max(0, clipView.bounds.width - insets.left - insets.right)
+    if tableView.frame.width != width {
+      tableView.setFrameSize(NSSize(width: width, height: tableView.frame.height))
     }
-    scroll(to: constrainBoundsRect(proposedBounds).origin)
-    enclosingScrollView?.reflectScrolledClipView(self)
+    tableView.layoutSubtreeIfNeeded()
+    let rowsHeight =
+      tableView.numberOfRows > 0
+      ? tableView.rect(ofRow: tableView.numberOfRows - 1).maxY : 0
+    let height = max(rowsHeight, max(0, viewportHeight - insets.top - insets.bottom))
+    let size = NSSize(width: width, height: height)
+    if frame.size != size {
+      setFrameSize(size)
+    }
+    let tableFrame = NSRect(x: 0, y: height - rowsHeight, width: width, height: rowsHeight)
+    if tableView.frame != tableFrame {
+      tableView.frame = tableFrame
+    }
+
+    if followBottom {
+      var bounds = clipView.bounds
+      bounds.origin.y = bottomAlignedOriginY
+      clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
+    }
+    scrollView.reflectScrolledClipView(clipView)
   }
 }
