@@ -5,6 +5,7 @@ import SwiftUI
 
 struct RoomContextMenu: View {
   @Environment(WindowState.self) var windowState
+  @Environment(\.undoManager) private var undoManager
 
   let room: SidebarRoom
 
@@ -28,10 +29,20 @@ struct RoomContextMenu: View {
       }
 
       Button {
-        Task {
+        let previousValue = roomInfo.isFavourite
+
+        Task { @MainActor in
           do {
-            Logger.viewCycle.info("mark room favourite: \(!roomInfo.isFavourite)")
-            try await room.room.setIsFavourite(isFavourite: !roomInfo.isFavourite, tagOrder: nil)
+            Logger.viewCycle.info("mark room favourite: \(!previousValue)")
+            try await room.room.setIsFavourite(isFavourite: !previousValue, tagOrder: nil)
+
+            if let undoManager {
+              Self.registerFavoriteUndo(
+                for: room,
+                restoring: previousValue,
+                undoManager: undoManager
+              )
+            }
           } catch {
             Logger.viewCycle.error("failed to mark room favourite: \(error)")
           }
@@ -79,5 +90,33 @@ struct RoomContextMenu: View {
     } label: {
       Label("Leave Room", systemImage: "minus.circle")
     }
+  }
+
+  @MainActor
+  private static func registerFavoriteUndo(
+    for room: SidebarRoom,
+    restoring value: Bool,
+    undoManager: UndoManager
+  ) {
+    undoManager.registerUndo(withTarget: room) { [weak undoManager] room in
+      guard let undoManager else { return }
+
+      // Register synchronously so UndoManager puts the inverse on the redo stack.
+      Self.registerFavoriteUndo(
+        for: room,
+        restoring: !value,
+        undoManager: undoManager
+      )
+
+      Task { @MainActor in
+        do {
+          try await room.room.setIsFavourite(isFavourite: value, tagOrder: nil)
+        } catch {
+          Logger.viewCycle.error("failed to undo/redo room favourite change: \(error)")
+        }
+      }
+    }
+
+    undoManager.setActionName("Favorite")
   }
 }

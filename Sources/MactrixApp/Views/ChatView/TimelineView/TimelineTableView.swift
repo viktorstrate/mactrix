@@ -146,6 +146,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     tableView.allowsMultipleSelection = false
     tableView.allowsEmptySelection = true
     tableView.selectionHighlightStyle = .none
+    tableView.focusRingType = .none
 
     // Every row is sized by tableView(_:heightOfRow:). Automatic heights can
     // collapse NSTextView rows because the view has no intrinsic height.

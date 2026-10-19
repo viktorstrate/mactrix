@@ -19,6 +19,7 @@ struct ChatTextView: NSViewRepresentable {
   func makeNSView(context: Context) -> DynamicTextView {
     let textView = DynamicTextView()
 
+    textView.allowsUndo = true
     textView.onSubmit = onSubmit
     textView.onCanPasteAttachments = onCanPasteAttachments
     textView.onAttachmentPaste = onAttachmentPaste
