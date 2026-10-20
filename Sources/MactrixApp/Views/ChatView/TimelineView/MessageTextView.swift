@@ -42,10 +42,12 @@ class MessageTextView: NSTextView, NSTextViewDelegate {
 
   func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
     guard let url = link as? URL,
-      let uri = try? MatrixUriScheme(parseUrl: url.absoluteString),
+      let uri = (try? MatrixUriScheme(parseUrl: url.absoluteString))
+        ?? (try? MatrixUriScheme(parseMatrixToUrl: url.absoluteString)),
       case .user(let userId) = uri.kind, uri.action == nil,
       let onFocusUser
     else { return false }
+
     onFocusUser(userId)
     return true
   }

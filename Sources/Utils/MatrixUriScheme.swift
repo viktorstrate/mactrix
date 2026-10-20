@@ -27,6 +27,34 @@ public struct MatrixUriScheme: Hashable, Codable {
     case join, chat
   }
 
+  public init(parseMatrixToUrl matrixToUrl: String) throws(MatrixUriError) {
+    // https://matrix.to/#/@viktorstrate:qpqp.dk
+
+    let matrixToPrefix = "https://matrix.to/#/"
+
+    var result = matrixToUrl
+    if result.starts(with: matrixToPrefix) {
+      result = String(result.dropFirst(matrixToPrefix.count))
+      result = result.removingPercentEncoding ?? result
+    } else {
+      throw MatrixUriError.parserError(reason: "invalid matrix.to url")
+    }
+
+    if result.starts(with: "@") {
+      self.kind = .user(result)
+    } else if result.starts(with: "#") {
+      self.kind = .roomAlias(result)
+    } else if result.starts(with: "!") {
+      self.kind = .roomId(result)
+    } else {
+      throw MatrixUriError.parserError(reason: "invalid matrix.to url")
+    }
+
+    routingVia = []
+    action = nil
+    event = nil
+  }
+
   public init(parseUrl url: String) throws(MatrixUriError) {
     let urlRegex = /matrix:(?:\/\/[^\/])?(roomid|u|r)\/([^\/\?]+)(\/e\/[^\/\?]+)?(?:\?(.*))?/
 

@@ -1,6 +1,7 @@
 import MatrixRustSDK
 import OSLog
 import SwiftUI
+import Utils
 
 struct SearchViewModifier: ViewModifier {
   @Environment(AppState.self) var appState
@@ -114,16 +115,14 @@ struct SearchViewModifier: ViewModifier {
 
   func calculateDirectSearchResults() async {
     let query: String = {
-      var result = windowState.searchQuery.trimmingCharacters(in: .whitespaces)
+      let result = windowState.searchQuery.trimmingCharacters(in: .whitespaces)
 
-      let matrixToPrefix = "https://matrix.to/#/"
-      if result.starts(with: matrixToPrefix) {
-        result = String(result.dropFirst(matrixToPrefix.count))
-        result = result.removingPercentEncoding ?? result
-      }
-
-      if result.starts(with: "@") {
-        result = result.lowercased()
+      if let matrixUri = try? MatrixUriScheme(parseMatrixToUrl: result) {
+        switch matrixUri.kind {
+        case .roomAlias(let roomAlias): return roomAlias
+        case .roomId(let roomId): return roomId
+        case .user(let userId): return userId
+        }
       }
 
       return result
