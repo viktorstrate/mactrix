@@ -1,6 +1,5 @@
 import AppKit
 import MatrixRustSDK
-import Utils
 
 final class StateEventRowView: NSView {
   @MainActor private enum Layout {
@@ -103,8 +102,8 @@ final class StateEventRowView: NSView {
       let line = EventLineView()
       let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
       line.timestamp.stringValue = Self.timeFormatter.string(from: date)
-      line.descriptionField.attributedStringValue = description
-      line.descriptionField.onFocusUser = onFocusUser
+      line.descriptionView.textStorage?.setAttributedString(description)
+      line.descriptionView.onFocusUser = onFocusUser
       stack.addArrangedSubview(line)
       let height = line.heightAnchor.constraint(equalToConstant: Layout.minimumLineHeight)
       NSLayoutConstraint.activate([
@@ -131,7 +130,7 @@ final class StateEventRowView: NSView {
     guard measuredTextWidth != textWidth else { return }
     measuredTextWidth = textWidth
     for (line, constraint) in zip(lines, lineHeights) {
-      let height = Self.textHeight(line.descriptionField.attributedStringValue, width: textWidth)
+      let height = Self.textHeight(line.descriptionView.attributedString(), width: textWidth)
       if constraint.constant != height { constraint.constant = height }
     }
   }
@@ -157,23 +156,25 @@ final class StateEventRowView: NSView {
       1)
   }
 
-  private static let measuringField = makeDescriptionField()
+  private static let measuringView = makeDescriptionView()
 
   private static func textHeight(_ text: NSAttributedString, width: CGFloat) -> CGFloat {
-    measuringField.attributedStringValue = text
-    let size = measuringField.cell!.cellSize(
-      forBounds: NSRect(x: 0, y: 0, width: width, height: .greatestFiniteMagnitude))
-    return max(ceil(size.height), Layout.minimumLineHeight)
+    guard let container = measuringView.textContainer,
+      let layoutManager = measuringView.layoutManager
+    else { return Layout.minimumLineHeight }
+    container.widthTracksTextView = false
+    container.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
+    measuringView.textStorage?.setAttributedString(text)
+    layoutManager.ensureLayout(for: container)
+    return max(ceil(layoutManager.usedRect(for: container).height), Layout.minimumLineHeight)
   }
 
-  private static func makeDescriptionField() -> MessageTextField {
-    let field = MessageTextField(wrappingLabelWithString: "")
-    field.isSelectable = true
-    field.maximumNumberOfLines = 0
-    field.allowsEditingTextAttributes = true
-    field.translatesAutoresizingMaskIntoConstraints = false
-    field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-    return field
+  private static func makeDescriptionView() -> MessageTextView {
+    let view = MessageTextView(frame: .zero)
+    view.translatesAutoresizingMaskIntoConstraints = false
+    view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+    view.linkTextAttributes = [:]
+    return view
   }
 
   private static func descriptions(
@@ -217,13 +218,14 @@ final class StateEventRowView: NSView {
       let url = URL(string: "matrix:u/" + identifier)
     {
       attributes[.link] = url
+      attributes[.cursor] = NSCursor.arrow
     }
     return NSAttributedString(string: text, attributes: attributes)
   }
 
   private final class EventLineView: NSView {
     let timestamp = NSTextField(labelWithString: "")
-    let descriptionField = StateEventRowView.makeDescriptionField()
+    let descriptionView = StateEventRowView.makeDescriptionView()
 
     override init(frame frameRect: NSRect) {
       super.init(frame: frameRect)
@@ -233,16 +235,16 @@ final class StateEventRowView: NSView {
       timestamp.alignment = .right
       timestamp.translatesAutoresizingMaskIntoConstraints = false
       addSubview(timestamp)
-      addSubview(descriptionField)
+      addSubview(descriptionView)
       NSLayoutConstraint.activate([
         timestamp.leadingAnchor.constraint(equalTo: leadingAnchor),
         timestamp.topAnchor.constraint(equalTo: topAnchor, constant: 2),
         timestamp.widthAnchor.constraint(equalToConstant: Layout.timestampWidth),
-        descriptionField.leadingAnchor.constraint(
+        descriptionView.leadingAnchor.constraint(
           equalTo: timestamp.trailingAnchor, constant: Layout.timestampGap),
-        descriptionField.trailingAnchor.constraint(equalTo: trailingAnchor),
-        descriptionField.topAnchor.constraint(equalTo: topAnchor),
-        descriptionField.bottomAnchor.constraint(equalTo: bottomAnchor),
+        descriptionView.trailingAnchor.constraint(equalTo: trailingAnchor),
+        descriptionView.topAnchor.constraint(equalTo: topAnchor),
+        descriptionView.bottomAnchor.constraint(equalTo: bottomAnchor),
       ])
     }
 
@@ -253,20 +255,5 @@ final class StateEventRowView: NSView {
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
-  }
-}
-
-// NSTextField is the delegate of its field editor; handle links before AppKit opens them externally.
-final class MessageTextField: NSTextField, NSTextViewDelegate {
-  var onFocusUser: ((String) -> Void)?
-
-  func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
-    guard let url = link as? URL,
-      let uri = try? MatrixUriScheme(parseUrl: url.absoluteString),
-      case .user(let userId) = uri.kind, uri.action == nil,
-      let onFocusUser
-    else { return false }
-    onFocusUser(userId)
-    return true
   }
 }

@@ -5,6 +5,43 @@ import Testing
 @testable import MactrixApp
 
 struct StateEventSummaryFormatterTests {
+  @Test @MainActor func stateTextPreservesLinkColorsAndHandlesClicksLocally() throws {
+    let row = StateEventRowView()
+    var focusedUsers: [String] = []
+    row.configure(
+      items: stateEntries([joined("a", "Alice")]),
+      onFocusUser: {
+        focusedUsers.append($0)
+      })
+    let view = try #require(descendants(of: row, as: MessageTextView.self).first)
+    #expect(!view.isEditable && view.isSelectable)
+    #expect(view.delegate === view)
+    #expect(view.linkTextAttributes?.isEmpty == true)
+    let text = view.attributedString()
+    #expect(
+      text.attribute(.foregroundColor, at: 0, effectiveRange: nil) as? NSColor
+        == .secondaryLabelColor)
+    let link = try #require(text.attribute(.link, at: 0, effectiveRange: nil))
+    view.clicked(onLink: link, at: 0)
+    #expect(focusedUsers == ["@a:example.org"])
+    let chatLink = try #require(URL(string: "matrix:u/a:example.org?action=chat"))
+    #expect(!view.textView(view, clickedOnLink: chatLink, at: 0))
+    #expect(focusedUsers == ["@a:example.org"])
+
+    row.configure(
+      items: stateEntries([joined("b", "Bob")]),
+      onFocusUser: {
+        focusedUsers.append($0)
+      })
+    let reusedView = try #require(descendants(of: row, as: MessageTextView.self).first)
+    let reusedLink = try #require(
+      reusedView.attributedString().attribute(.link, at: 0, effectiveRange: nil))
+    reusedView.clicked(onLink: reusedLink, at: 0)
+    #expect(focusedUsers == ["@a:example.org", "@b:example.org"])
+
+    let messageView = MessageTextView(frame: .zero)
+    #expect(messageView.linkTextAttributes?[.foregroundColor] as? NSColor != .secondaryLabelColor)
+  }
   @Test func nonconsecutiveActionsGroupInFirstOccurrenceOrder() {
     let result = summary([
       joined("alice", "Alice"), profile("bob", "Bob"), joined("charlie", "Charlie"),
@@ -387,10 +424,10 @@ struct StateEventSummaryFormatterTests {
     let row = StateEventRowView()
     row.configure(items: entries)
     let field = try #require(
-      descendants(of: row, as: NSTextField.self).first {
-        $0.attributedStringValue.string == "Alice and Charlie joined"
+      descendants(of: row, as: NSTextView.self).first {
+        $0.attributedString().string == "Alice and Charlie joined"
       })
-    let attributed = field.attributedStringValue
+    let attributed = field.attributedString()
     let nameFont = try #require(attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)
     #expect(NSFontManager.shared.traits(of: nameFont).contains(.boldFontMask))
     #expect(
@@ -458,18 +495,18 @@ struct StateEventSummaryFormatterTests {
     row.configure(items: entries, expanded: true)
     let details = try zip(events, ["Alice", "Bob"]).map { event, name in
       try #require(
-        descendants(of: row, as: NSTextField.self).first {
-          $0.stringValue
+        descendants(of: row, as: NSTextView.self).first {
+          $0.string
             == "\(name) \(event.content.userInterfaceText)"
         })
     }
     #expect(descendants(of: row, as: NSStackView.self).count > 0)
     row.configure(items: entries, expanded: true)
     for detail in details {
-      #expect(labelStrings(in: row).filter { $0 == detail.stringValue }.count == 1)
+      #expect(labelStrings(in: row).filter { $0 == detail.string }.count == 1)
     }
-    let currentDetails = descendants(of: row, as: NSTextField.self).filter {
-      details.map(\.stringValue).contains($0.stringValue)
+    let currentDetails = descendants(of: row, as: NSTextView.self).filter {
+      details.map(\.string).contains($0.string)
     }
 
     row.configure(items: entries, expanded: false)
@@ -480,7 +517,7 @@ struct StateEventSummaryFormatterTests {
         !descendants(of: row, as: NSStackView.self).contains {
           $0.arrangedSubviews.contains { detail === $0 || detail.isDescendant(of: $0) }
         })
-      #expect(!labelStrings(in: row).contains(detail.stringValue))
+      #expect(!labelStrings(in: row).contains(detail.string))
     }
 
     let replacement = [joined("c", "Charlie"), joined("d", "Dave")]
@@ -488,7 +525,7 @@ struct StateEventSummaryFormatterTests {
     #expect(labelStrings(in: row).contains("Charlie \(replacement[0].content.userInterfaceText)"))
     #expect(labelStrings(in: row).contains("Dave \(replacement[1].content.userInterfaceText)"))
     for detail in details {
-      #expect(!labelStrings(in: row).contains(detail.stringValue))
+      #expect(!labelStrings(in: row).contains(detail.string))
     }
     row.configure(items: stateEntries(replacement))
     #expect(labelStrings(in: row).contains(summary(replacement).text))
@@ -536,18 +573,18 @@ struct StateEventSummaryFormatterTests {
     ]
     let row = StateEventRowView()
     row.configure(items: stateEntries(events), expanded: true)
-    let fields = descendants(of: row, as: NSTextField.self)
+    let fields = descendants(of: row, as: NSTextView.self)
     let names = ["Alice", "Bob", "Charlie"]
     let formatter = DateFormatter()
     formatter.dateFormat = "HH:mm"
     var previousIndex = -1
     for (value, name) in zip(events, names) {
       let text = "\(name) \(value.content.userInterfaceText)"
-      let index = try #require(fields.firstIndex { $0.stringValue == text })
+      let index = try #require(fields.firstIndex { $0.string == text })
       #expect(index > previousIndex)
       previousIndex = index
       let field = fields[index]
-      let attributed = field.attributedStringValue
+      let attributed = field.attributedString()
       for offset in 0..<name.utf16.count {
         let font = try #require(
           attributed.attribute(.font, at: offset, effectiveRange: nil) as? NSFont)
@@ -562,7 +599,7 @@ struct StateEventSummaryFormatterTests {
         from: Date(timeIntervalSince1970: Double(value.timestamp) / 1000))
       #expect(
         descendants(of: detailRow, as: NSTextField.self).contains {
-          $0 !== field && $0.stringValue == expectedTime
+          $0.stringValue == expectedTime
         })
     }
   }
@@ -606,7 +643,8 @@ private func descendants<T: NSView>(of view: NSView, as type: T.Type) -> [T] {
 
 @MainActor
 private func labelStrings(in view: NSView) -> [String] {
-  descendants(of: view, as: NSTextField.self).map(\.stringValue)
+  descendants(of: view, as: NSTextView.self).map(\.string)
+    + descendants(of: view, as: NSTextField.self).map(\.stringValue)
 }
 
 private func stateEntries(_ events: [EventTimelineItem]) -> [TimelineItemRowInfo.StateEntry] {
@@ -622,21 +660,19 @@ private func assertMeasuredLayout(
   #expect(height.isFinite && height >= 28, sourceLocation: sourceLocation)
   row.frame = NSRect(x: 0, y: 0, width: width, height: height)
   row.layoutSubtreeIfNeeded()
-  let fields = descendants(of: row, as: NSTextField.self).filter {
-    !$0.isHiddenOrHasHiddenAncestor && !$0.stringValue.isEmpty
+  let fields = descendants(of: row, as: NSTextView.self).filter {
+    !$0.isHiddenOrHasHiddenAncestor && !$0.string.isEmpty
   }
   #expect(!fields.isEmpty, sourceLocation: sourceLocation)
   for field in fields {
     let frame = row.convert(field.bounds, from: field)
     #expect(frame.width > 0 && frame.height > 0, sourceLocation: sourceLocation)
-    // Auto Layout positions alignment rectangles; NSTextField frames include
-    // AppKit's extra drawing margins outside those rectangles.
     let alignmentFrame = row.convert(
       field.alignmentRect(forFrame: field.frame), from: field.superview)
     #expect(
       row.bounds.insetBy(dx: -1, dy: -1).contains(alignmentFrame),
       sourceLocation: sourceLocation)
-    let textHeight = field.attributedStringValue.boundingRect(
+    let textHeight = field.attributedString().boundingRect(
       with: NSSize(width: max(field.bounds.width, 1), height: .greatestFiniteMagnitude),
       options: [.usesLineFragmentOrigin, .usesFontLeading]
     ).height
