@@ -105,6 +105,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private var hoveredRowIndex: Int?
   private var messageEdit: MessageEditState?
   private var updatingTimelineItems = false
+  private var appliedFontSize = TimelineTypography.fontSize
 
   private struct ReadingAnchor {
     let id: String
@@ -310,6 +311,45 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     positionedInitially = true
     tableView.layoutSubtreeIfNeeded()
     tableView.scrollToBottom()
+  }
+
+  func updateFontSize(_ fontSize: Int) {
+    guard appliedFontSize != CGFloat(fontSize) else { return }
+    appliedFontSize = CGFloat(fontSize)
+    guard isViewLoaded else { return }
+
+    let clipView = scrollView.contentView
+    let followBottom = documentView.isAtBottom
+    let candidates = readingAnchorCandidates()
+    let oldOrigin = clipView.bounds.origin
+    let wasUpdating = updatingTimelineItems
+    updatingTimelineItems = true
+    defer { updatingTimelineItems = wasUpdating }
+
+    hideHoverOverlay()
+    measurementMessageViews.removeAll()
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0
+      context.allowsImplicitAnimation = false
+      let rows = IndexSet(integersIn: 0..<tableView.numberOfRows)
+      tableView.reloadData(forRowIndexes: rows, columnIndexes: IndexSet(integer: 0))
+      tableView.noteHeightOfRows(withIndexesChanged: rows)
+      updateSelectedMessage()
+      scrollView.layoutSubtreeIfNeeded()
+      documentView.updateGeometry()
+
+      var bounds = clipView.bounds
+      bounds.origin = oldOrigin
+      if followBottom {
+        bounds.origin.y = documentView.bottomAlignedOriginY
+      } else if let (anchor, row) = survivingReadingAnchor(from: candidates) {
+        let rect = tableView.rect(ofRow: row)
+        let top = clipView.convert(NSPoint(x: rect.minX, y: rect.minY), from: tableView)
+        bounds.origin.y = top.y - anchor.offset
+      }
+      clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
+      scrollView.reflectScrolledClipView(clipView)
+    }
   }
 
   private func replyDetails(for content: MatrixRustSDK.MsgLikeContent) -> MatrixRustSDK

@@ -2,7 +2,9 @@ import AppKit
 import QuartzCore
 
 final class TypingIndicatorRowView: NSView {
-  static let rowHeight: Double = 32
+  static var rowHeight: Double {
+    max(32, Double(ceil(TimelineTypography.scaled(32))))
+  }
 
   private let label = NSTextField(labelWithString: "")
   private let dots = (0..<3).map { _ in NSView() }
@@ -60,12 +62,16 @@ final class TypingIndicatorRowView: NSView {
 
     let text = NSMutableAttributedString(
       string: names.joined(separator: ", "),
-      attributes: [.font: NSFont.boldSystemFont(ofSize: NSFont.systemFontSize)]
+      attributes: [
+        .font: NSFont.boldSystemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
+      ]
     )
     text.append(
       NSAttributedString(
         string: String(localized: names.count == 1 ? " is typing" : " are typing"),
-        attributes: [.font: NSFont.systemFont(ofSize: NSFont.systemFontSize)]
+        attributes: [
+          .font: NSFont.systemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
+        ]
       ))
     label.attributedStringValue = text
     content.isHidden = false

@@ -5,8 +5,17 @@ import MatrixRustSDK
 class MessageProfileRowView: NSView {
   let profilePicture = ProfilePictureButton()
   let name = NSTextField(labelWithString: "")
+  private static var avatarSize: CGFloat { TimelineTypography.scaled(32) }
+  private lazy var avatarTrailingConstraint = profilePicture.trailingAnchor.constraint(
+    equalTo: leadingAnchor, constant: TimelineTypography.timestampColumnWidth)
+  private lazy var avatarWidthConstraint = profilePicture.widthAnchor.constraint(
+    equalToConstant: Self.avatarSize)
+  private lazy var avatarHeightConstraint = profilePicture.heightAnchor.constraint(
+    equalToConstant: Self.avatarSize)
 
-  static let rowHeight: Double = 32
+  static var rowHeight: Double {
+    max(32, Double(ceil(TimelineTypography.scaled(32))))
+  }
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
@@ -14,7 +23,7 @@ class MessageProfileRowView: NSView {
     name.translatesAutoresizingMaskIntoConstraints = false
     name.isSelectable = true
     name.drawsBackground = false
-    name.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
+    name.font = .boldSystemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
     name.lineBreakMode = .byTruncatingTail
     name.maximumNumberOfLines = 1
 
@@ -22,10 +31,10 @@ class MessageProfileRowView: NSView {
     addSubview(name)
 
     NSLayoutConstraint.activate([
-      profilePicture.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
+      avatarTrailingConstraint,
       profilePicture.centerYAnchor.constraint(equalTo: centerYAnchor),
-      profilePicture.widthAnchor.constraint(equalToConstant: 32),
-      profilePicture.heightAnchor.constraint(equalToConstant: 32),
+      avatarWidthConstraint,
+      avatarHeightConstraint,
 
       name.leadingAnchor.constraint(equalTo: profilePicture.trailingAnchor, constant: 16),
       name.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -10),
@@ -45,6 +54,10 @@ class MessageProfileRowView: NSView {
   }
 
   func configure(event: EventTimelineItem) {
+    avatarTrailingConstraint.constant = TimelineTypography.timestampColumnWidth
+    avatarWidthConstraint.constant = Self.avatarSize
+    avatarHeightConstraint.constant = Self.avatarSize
+    name.font = .boldSystemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
     let username: String
     switch event.senderProfile {
     case .ready(let profileDisplayName, _, _, _, _):

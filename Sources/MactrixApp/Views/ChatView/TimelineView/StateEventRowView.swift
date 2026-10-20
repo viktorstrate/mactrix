@@ -3,21 +3,22 @@ import MatrixRustSDK
 
 final class StateEventRowView: NSView {
   @MainActor private enum Layout {
-    static let timestampWidth: CGFloat = 48
+    static var timestampWidth: CGFloat { TimelineTypography.scaled(48) }
     static let timestampGap: CGFloat = 16
     static let buttonGap: CGFloat = 10
     static let trailingInset: CGFloat = 10
     static let verticalInset: CGFloat = 2
     static let detailSpacing: CGFloat = 4
-    static let minimumLineHeight: CGFloat = 24
-    static let buttonWidth: CGFloat = {
+    static var minimumLineHeight: CGFloat { max(24, ceil(TimelineTypography.scaled(24))) }
+    static var buttonWidth: CGFloat {
       let button = NSButton()
       button.isBordered = false
+      button.font = .systemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
       button.title = "Expand"
       let expand = button.intrinsicContentSize.width
       button.title = "Collapse"
       return ceil(max(expand, button.intrinsicContentSize.width))
-    }()
+    }
   }
 
   private let stack = NSStackView()
@@ -26,6 +27,7 @@ final class StateEventRowView: NSView {
   private var lineHeights: [NSLayoutConstraint] = []
   private var measuredTextWidth: CGFloat?
   private var stackTrailing: NSLayoutConstraint!
+  private var buttonWidth: NSLayoutConstraint!
   private var onToggleExpanded: (() -> Void)?
   private var showsButton = false
 
@@ -55,6 +57,7 @@ final class StateEventRowView: NSView {
     addSubview(stack)
     addSubview(expandButton)
     stackTrailing = stack.trailingAnchor.constraint(equalTo: trailingAnchor)
+    buttonWidth = expandButton.widthAnchor.constraint(equalToConstant: Layout.buttonWidth)
     NSLayoutConstraint.activate([
       stack.leadingAnchor.constraint(equalTo: leadingAnchor),
       stack.topAnchor.constraint(equalTo: topAnchor, constant: Layout.verticalInset),
@@ -62,7 +65,7 @@ final class StateEventRowView: NSView {
       expandButton.trailingAnchor.constraint(
         equalTo: trailingAnchor, constant: -Layout.trailingInset),
       expandButton.topAnchor.constraint(equalTo: topAnchor, constant: Layout.verticalInset),
-      expandButton.widthAnchor.constraint(equalToConstant: Layout.buttonWidth),
+      buttonWidth,
     ])
   }
 
@@ -72,6 +75,8 @@ final class StateEventRowView: NSView {
   ) {
     precondition(!items.isEmpty)
     self.onToggleExpanded = onToggleExpanded
+    expandButton.font = .systemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
+    buttonWidth.constant = Layout.buttonWidth
     showsButton = items.count > 1
     let expanded = expanded && showsButton
     expandButton.isHidden = !showsButton
@@ -131,7 +136,7 @@ final class StateEventRowView: NSView {
   static func height(
     for items: [TimelineItemRowInfo.StateEntry], width: CGFloat, expanded: Bool = false
   ) -> CGFloat {
-    guard !items.isEmpty else { return 28 }
+    guard !items.isEmpty else { return Layout.minimumLineHeight + 2 * Layout.verticalInset }
     let descriptions = descriptions(for: items, expanded: expanded && items.count > 1)
     let textWidth = textWidth(width: width, showsButton: items.count > 1)
     return descriptions.reduce(2 * Layout.verticalInset) {
@@ -190,7 +195,7 @@ final class StateEventRowView: NSView {
   }
 
   private static func attributedText(_ text: String, isName: Bool) -> NSAttributedString {
-    let size = NSFont.systemFontSize
+    let size = TimelineTypography.scaled(NSFont.systemFontSize)
     let font =
       isName
       ? NSFont.boldSystemFont(ofSize: size)
@@ -206,7 +211,7 @@ final class StateEventRowView: NSView {
     override init(frame frameRect: NSRect) {
       super.init(frame: frameRect)
       translatesAutoresizingMaskIntoConstraints = false
-      timestamp.font = .systemFont(ofSize: NSFont.labelFontSize)
+      timestamp.font = .systemFont(ofSize: TimelineTypography.scaled(NSFont.labelFontSize))
       timestamp.textColor = .secondaryLabelColor
       timestamp.alignment = .right
       timestamp.translatesAutoresizingMaskIntoConstraints = false

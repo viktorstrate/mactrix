@@ -102,7 +102,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   private static func attributedCaption(_ caption: String?, formatted: FormattedBody?)
     -> NSAttributedString
   {
-    let fontSize = UserDefaults.standard.object(forKey: "fontSize") as? Int ?? 13
+    let fontSize = TimelineTypography.fontSize
     if let formatted, formatted.format == .html {
       return attributedFormattedBody(
         formatted.body, baseFontSize: CGFloat(fontSize), color: .labelColor)
@@ -127,7 +127,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   private static func attributedBody(for content: MatrixRustSDK.MsgLikeContent)
     -> NSAttributedString
   {
-    let fontSize = UserDefaults.standard.object(forKey: "fontSize") as? Int ?? 13
+    let fontSize = TimelineTypography.fontSize
     let font = NSFont.systemFont(ofSize: CGFloat(fontSize))
 
     func plain(_ text: String, color: NSColor = .labelColor, italic: Bool = false)

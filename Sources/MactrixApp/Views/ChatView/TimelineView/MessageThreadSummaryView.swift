@@ -9,10 +9,13 @@ final class MessageThreadSummaryView: NSButton {
   private let heading = NSTextField(labelWithString: "")
   private let snippet = NSTextField(labelWithString: "")
 
-  private static let font = NSFontManager.shared.convert(
-    NSFont.systemFont(ofSize: 13), toHaveTrait: .italicFontMask
-  )
-  private static let lineHeight = ceil(NSFont.systemFont(ofSize: 13).boundingRectForFont.height)
+  private static var font: NSFont {
+    NSFontManager.shared.convert(
+      NSFont.systemFont(ofSize: TimelineTypography.fontSize), toHaveTrait: .italicFontMask)
+  }
+  private static var lineHeight: CGFloat {
+    ceil(font.boundingRectForFont.height)
+  }
   private static let padding: CGFloat = 8
   private static let lineSpacing: CGFloat = 4
 
@@ -59,6 +62,8 @@ final class MessageThreadSummaryView: NSButton {
   }
 
   func configure(summary: ThreadSummary) {
+    heading.font = Self.font
+    snippet.font = Self.font
     heading.stringValue = "Thread (\(summary.numReplies()) messages)"
     snippet.stringValue = summary.description ?? ""
     snippet.isHidden = summary.description == nil

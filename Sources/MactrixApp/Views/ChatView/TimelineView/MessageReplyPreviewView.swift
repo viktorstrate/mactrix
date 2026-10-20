@@ -10,13 +10,14 @@ final class MessageReplyPreviewView: NSButton {
   private let name = NSTextField(labelWithString: "")
   private let message = NSTextField(labelWithString: "")
 
-  private static let fontSize: CGFloat = 13
-  private static let nameFont = NSFontManager.shared.convert(
-    NSFont.boldSystemFont(ofSize: fontSize), toHaveTrait: .italicFontMask
-  )
-  private static let messageFont = NSFontManager.shared.convert(
-    NSFont.systemFont(ofSize: fontSize), toHaveTrait: .italicFontMask
-  )
+  private static var nameFont: NSFont {
+    NSFontManager.shared.convert(
+      NSFont.boldSystemFont(ofSize: TimelineTypography.fontSize), toHaveTrait: .italicFontMask)
+  }
+  private static var messageFont: NSFont {
+    NSFontManager.shared.convert(
+      NSFont.systemFont(ofSize: TimelineTypography.fontSize), toHaveTrait: .italicFontMask)
+  }
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
@@ -66,6 +67,8 @@ final class MessageReplyPreviewView: NSButton {
   }
 
   func configure(details: EmbeddedEventDetails) {
+    name.font = Self.nameFont
+    message.font = Self.messageFont
     let text = Self.text(for: details)
     name.stringValue = text.name
     message.stringValue = text.message

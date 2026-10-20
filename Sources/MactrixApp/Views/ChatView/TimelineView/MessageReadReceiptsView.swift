@@ -5,8 +5,14 @@ import MatrixRustSDK
 
 /// Reuses the visible receipt avatars as the table row is recycled.
 final class MessageReadReceiptsView: NSButton {
-  static let rowHeight: CGFloat = 18
-  private static let countFont = NSFont.systemFont(ofSize: 11)
+  private static var avatarSize: CGFloat { TimelineTypography.scaled(14) }
+  private static var avatarOverlap: CGFloat { TimelineTypography.scaled(2) }
+  static var rowHeight: CGFloat {
+    max(18, ceil(max(avatarSize, countFont.boundingRectForFont.height)) + 4)
+  }
+  private static var countFont: NSFont {
+    .systemFont(ofSize: TimelineTypography.scaled(11))
+  }
   var onFocusUser: ((String) -> Void)?
   var receiptCount: Int {
     receipts.count
@@ -35,6 +41,7 @@ final class MessageReadReceiptsView: NSButton {
     receipts: [String: MatrixProtocols.Receipt], members: [MatrixRustSDK.RoomMember],
     imageLoader: MactrixUI.ImageLoader?
   ) {
+    countLabel.font = Self.countFont
     self.receipts = receipts.map { ($0.key, $0.value.timestamp) }
       .sorted { ($0.date ?? .distantPast) < ($1.date ?? .distantPast) }
     self.members = Dictionary(
@@ -44,7 +51,8 @@ final class MessageReadReceiptsView: NSButton {
 
     let visible = Array(self.receipts.suffix(3))
     while avatars.count < visible.count {
-      let avatar = AvatarView(frame: NSRect(x: 0, y: 0, width: 14, height: 14))
+      let avatar = AvatarView(
+        frame: NSRect(x: 0, y: 0, width: Self.avatarSize, height: Self.avatarSize))
       addSubview(avatar)
       avatars.append(avatar)
     }
@@ -73,7 +81,8 @@ final class MessageReadReceiptsView: NSButton {
   static func width(for count: Int) -> CGFloat {
     guard count > 0 else { return 0 }
     let visible = min(count, 3)
-    let avatarsWidth = CGFloat(visible) * 14 - CGFloat(max(visible - 1, 0)) * 2
+    let avatarsWidth =
+      CGFloat(visible) * avatarSize - CGFloat(max(visible - 1, 0)) * avatarOverlap
     return avatarsWidth + countWidth(for: count)
   }
 
@@ -88,11 +97,13 @@ final class MessageReadReceiptsView: NSButton {
     var x: CGFloat = 0
     if !countLabel.isHidden {
       x = Self.countWidth(for: receipts.count)
-      countLabel.frame = NSRect(x: 0, y: 2, width: x, height: 14)
+      countLabel.frame = NSRect(x: 0, y: 2, width: x, height: Self.rowHeight - 4)
     }
     for avatar in avatars where !avatar.isHidden {
-      avatar.frame = NSRect(x: x, y: 2, width: 14, height: 14)
-      x += 12
+      avatar.frame = NSRect(
+        x: x, y: (Self.rowHeight - Self.avatarSize) / 2,
+        width: Self.avatarSize, height: Self.avatarSize)
+      x += Self.avatarSize - Self.avatarOverlap
     }
   }
 
@@ -130,16 +141,17 @@ final class MessageReadReceiptsView: NSButton {
         self?.onFocusUser?(userId)
       }
       row.widthAnchor.constraint(equalToConstant: width - 24).isActive = true
-      row.heightAnchor.constraint(equalToConstant: 36).isActive = true
+      let avatarSize = TimelineTypography.scaled(28)
+      row.heightAnchor.constraint(equalToConstant: max(36, ceil(avatarSize) + 8)).isActive = true
       let content = row.content
-      let avatar = AvatarView(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
+      let avatar = AvatarView(frame: NSRect(x: 0, y: 0, width: avatarSize, height: avatarSize))
       let member = members[receipt.userId]
       avatar.configure(
         userID: receipt.userId, displayName: member?.displayName, avatarUrl: member?.avatarUrl,
         kind: .user, imageLoader: imageLoader
       )
-      avatar.widthAnchor.constraint(equalToConstant: 28).isActive = true
-      avatar.heightAnchor.constraint(equalToConstant: 28).isActive = true
+      avatar.widthAnchor.constraint(equalToConstant: avatarSize).isActive = true
+      avatar.heightAnchor.constraint(equalToConstant: avatarSize).isActive = true
       content.addArrangedSubview(avatar)
 
       let details = NSStackView()

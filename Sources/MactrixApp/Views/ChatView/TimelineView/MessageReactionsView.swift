@@ -8,7 +8,9 @@ final class MessageReactionsView: NSView {
   private var buttons: [ReactionButton] = []
   private var reactions: [Reaction] = []
 
-  private static let rowHeight: CGFloat = 28
+  private static var rowHeight: CGFloat {
+    max(28, ceil(ReactionButton.font.boundingRectForFont.height) + 10)
+  }
   private static let spacing: CGFloat = 6
 
   override var isFlipped: Bool {
@@ -81,7 +83,7 @@ private final class ReactionButton: NSButton {
   var onClick: ((String) -> Void)?
   private var reactionKey = ""
   private let label = NSTextField(labelWithString: "")
-  private static let font = NSFont.systemFont(ofSize: 13)
+  static var font: NSFont { .systemFont(ofSize: TimelineTypography.fontSize) }
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
@@ -104,6 +106,7 @@ private final class ReactionButton: NSButton {
   }
 
   func configure(reaction: Reaction, ownUserId: String?) {
+    label.font = Self.font
     reactionKey = reaction.key
     label.stringValue = "\(reaction.key)  \(reaction.senders.count)"
     setAccessibilityLabel(label.stringValue)

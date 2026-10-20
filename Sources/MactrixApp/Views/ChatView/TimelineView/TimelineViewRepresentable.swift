@@ -3,6 +3,7 @@ import MatrixRustSDK
 import SwiftUI
 
 struct TimelineViewRepresentable: NSViewControllerRepresentable {
+  @AppStorage("fontSize") private var fontSize: Int = 13
   @Environment(AppState.self) private var appState
   @Environment(WindowState.self) private var windowState
 
@@ -35,6 +36,6 @@ struct TimelineViewRepresentable: NSViewControllerRepresentable {
   }
 
   func updateNSViewController(_ timelineViewController: TimelineViewController, context: Context) {
-    // SDK diff batches update the controller directly through LiveTimeline.
+    timelineViewController.updateFontSize(fontSize)
   }
 }

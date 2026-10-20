@@ -24,7 +24,8 @@ final class MessageRowView: NSView {
   private var isHovered = false
   private var isMessageSelected = false
 
-  private static let contentHorizontalInset: CGFloat = 74
+  private static var timestampWidth: CGFloat { TimelineTypography.timestampColumnWidth }
+  private static var contentHorizontalInset: CGFloat { timestampWidth + 26 }
   private static let replySpacing: CGFloat = 20
   private static let threadSpacing: CGFloat = 10
   private static let reactionSpacing: CGFloat = 10
@@ -32,6 +33,8 @@ final class MessageRowView: NSView {
 
   private let timestamp = NSTextField(labelWithString: "")
   private let editedLabel = NSTextField(labelWithString: "(edited)")
+  private lazy var timestampWidthConstraint = timestamp.widthAnchor.constraint(
+    equalToConstant: Self.timestampWidth)
   private let contentView: any MessageContentRowView
   private var replyPreview: MessageReplyPreviewView?
   private var replyDetails: MatrixRustSDK.EmbeddedEventDetails?
@@ -59,6 +62,7 @@ final class MessageRowView: NSView {
 
   private var receiptsView: MessageReadReceiptsView?
   private var receiptsWidthConstraint: NSLayoutConstraint?
+  private var receiptsHeightConstraint: NSLayoutConstraint?
   private var receiptsTopToContent: NSLayoutConstraint?
   private var receiptsTopToThread: NSLayoutConstraint?
   private var receiptsTopToReactions: NSLayoutConstraint?
@@ -78,12 +82,12 @@ final class MessageRowView: NSView {
     self.contentView = contentView
     super.init(frame: frameRect)
 
-    timestamp.font = .systemFont(ofSize: NSFont.labelFontSize)
+    timestamp.font = .systemFont(ofSize: TimelineTypography.scaled(NSFont.labelFontSize))
     timestamp.textColor = .secondaryLabelColor
     timestamp.alignment = .right
     timestamp.translatesAutoresizingMaskIntoConstraints = false
 
-    editedLabel.font = .systemFont(ofSize: 10)
+    editedLabel.font = .systemFont(ofSize: TimelineTypography.scaled(10))
     editedLabel.textColor = .secondaryLabelColor
     editedLabel.alignment = .right
     editedLabel.isHidden = true
@@ -111,13 +115,13 @@ final class MessageRowView: NSView {
     addSubview(timestamp)
     addSubview(editedLabel)
     addSubview(contentView)
-    
+
     // NSTableView may retain an old encapsulated height while a reused row is reconfigured.
     contentBottomToRow.priority = .init(999)
     NSLayoutConstraint.activate([
       timestamp.leadingAnchor.constraint(equalTo: leadingAnchor),
       timestamp.topAnchor.constraint(equalTo: topAnchor, constant: 6),
-      timestamp.widthAnchor.constraint(equalToConstant: 48),
+      timestampWidthConstraint,
       editedLabel.leadingAnchor.constraint(equalTo: timestamp.leadingAnchor),
       editedLabel.trailingAnchor.constraint(equalTo: timestamp.trailingAnchor),
       editedLabel.topAnchor.constraint(equalTo: timestamp.bottomAnchor, constant: 1),
@@ -151,6 +155,10 @@ final class MessageRowView: NSView {
     reactionsBottomToRow?.isActive = false
     receiptsBottomToRow?.isActive = false
 
+    timestamp.font = .systemFont(ofSize: TimelineTypography.scaled(NSFont.labelFontSize))
+    editedLabel.font = .systemFont(ofSize: TimelineTypography.scaled(10))
+    timestampWidthConstraint.constant = Self.timestampWidth
+    receiptsHeightConstraint?.constant = MessageReadReceiptsView.rowHeight
     let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
     timestamp.stringValue = Self.timeFormatter.string(from: date)
     editedLabel.isHidden = !Self.hasBeenEdited(content)
@@ -258,9 +266,12 @@ final class MessageRowView: NSView {
       view.translatesAutoresizingMaskIntoConstraints = false
       addSubview(view)
       receiptsView = view
+      let heightConstraint = view.heightAnchor.constraint(
+        equalToConstant: MessageReadReceiptsView.rowHeight)
+      receiptsHeightConstraint = heightConstraint
       NSLayoutConstraint.activate([
         view.trailingAnchor.constraint(equalTo: contentView.trailingAnchor),
-        view.heightAnchor.constraint(equalToConstant: MessageReadReceiptsView.rowHeight),
+        heightConstraint,
       ])
       receiptsWidthConstraint = view.widthAnchor.constraint(equalToConstant: 0)
       receiptsWidthConstraint?.isActive = true
@@ -456,7 +467,12 @@ final class MessageRowView: NSView {
       ? 0 : MessageReadReceiptsView.rowHeight + Self.receiptSpacing
     return max(
       ceil(contentView.height(for: content, width: contentWidth)) + replyHeight + threadHeight
-        + reactionsHeight + receiptsHeight + 8, Self.hasBeenEdited(content) ? 40 : 28)
+        + reactionsHeight + receiptsHeight + 8,
+      max(
+        Self.hasBeenEdited(content) ? 40 : 28,
+        6 + ceil(timestamp.font?.boundingRectForFont.height ?? 0)
+          + (Self.hasBeenEdited(content)
+            ? 1 + ceil(editedLabel.font?.boundingRectForFont.height ?? 0) : 0)))
   }
 
   @available(*, unavailable)

@@ -17,6 +17,7 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
 
   private let fileButton = FilePreviewButton()
   private let captionView = MessageTextContentView()
+  private var fileHeightConstraint: NSLayoutConstraint!
   private var fileBottomConstraint: NSLayoutConstraint!
   private var captionBottomConstraint: NSLayoutConstraint!
   private var fileContent: FileMessageContent?
@@ -35,6 +36,8 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
       addSubview(view)
     }
 
+    fileHeightConstraint = fileButton.heightAnchor.constraint(
+      equalToConstant: FilePreviewButton.contentHeight)
     fileBottomConstraint = fileButton.bottomAnchor.constraint(equalTo: bottomAnchor)
     captionBottomConstraint = captionView.bottomAnchor.constraint(equalTo: bottomAnchor)
     fileBottomConstraint.priority = .init(999)
@@ -43,7 +46,7 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
       fileButton.leadingAnchor.constraint(equalTo: leadingAnchor),
       fileButton.trailingAnchor.constraint(equalTo: trailingAnchor),
       fileButton.topAnchor.constraint(equalTo: topAnchor),
-      fileButton.heightAnchor.constraint(equalToConstant: 36),
+      fileHeightConstraint,
       captionView.leadingAnchor.constraint(equalTo: leadingAnchor),
       captionView.trailingAnchor.constraint(equalTo: trailingAnchor),
       captionView.topAnchor.constraint(equalTo: fileButton.bottomAnchor, constant: 10),
@@ -69,6 +72,7 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
   func configure(file: FileMessageContent, matrixClient: MatrixClient?) {
     fileContent = file
     self.matrixClient = matrixClient
+    fileHeightConstraint.constant = FilePreviewButton.contentHeight
     let mimeType = file.info?.mimetype.flatMap(UTType.init) ?? .data
     fileButton.configure(
       icon: NSWorkspace.shared.icon(for: mimeType),
@@ -114,8 +118,8 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
 
   func height(for file: FileMessageContent, width: CGFloat) -> CGFloat {
     guard captionView.isEditing || file.caption?.isEmpty == false || file.formattedCaption != nil
-    else { return 36 }
-    return 36 + 10
+    else { return FilePreviewButton.contentHeight }
+    return FilePreviewButton.contentHeight + 10
       + ceil(
         captionView.height(forCaption: file.caption, formatted: file.formattedCaption, width: width)
       )
@@ -175,7 +179,27 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
 }
 
 private final class FilePreviewButton: NSButton {
+  private static var iconSize: CGFloat { TimelineTypography.scaled(36) }
+  private static var filenameFont: NSFont {
+    .systemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
+  }
+
+  private static var sizeFont: NSFont {
+    .systemFont(ofSize: TimelineTypography.scaled(NSFont.smallSystemFontSize))
+  }
+
+  static var contentHeight: CGFloat {
+    let filenameHeight = NSAttributedString(string: "Ag", attributes: [.font: filenameFont]).size()
+      .height
+    let sizeHeight = NSAttributedString(string: "Ag", attributes: [.font: sizeFont]).size().height
+    return max(ceil(iconSize), ceil(filenameHeight) + 2 + ceil(sizeHeight))
+  }
+
   private let iconView = NSImageView()
+  private lazy var iconWidthConstraint = iconView.widthAnchor.constraint(
+    equalToConstant: Self.iconSize)
+  private lazy var iconHeightConstraint = iconView.heightAnchor.constraint(
+    equalToConstant: Self.iconSize)
   private let filenameLabel = NSTextField(labelWithString: "")
   private let sizeLabel = NSTextField(labelWithString: "")
 
@@ -184,11 +208,12 @@ private final class FilePreviewButton: NSButton {
 
     isBordered = false
     title = ""
-    iconView.imageScaling = .scaleProportionallyDown
+    iconView.imageScaling = .scaleProportionallyUpOrDown
     filenameLabel.lineBreakMode = .byTruncatingMiddle
     filenameLabel.maximumNumberOfLines = 1
     sizeLabel.textColor = .secondaryLabelColor
-    sizeLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize)
+    filenameLabel.font = Self.filenameFont
+    sizeLabel.font = Self.sizeFont
 
     for view in [iconView, filenameLabel, sizeLabel] {
       view.translatesAutoresizingMaskIntoConstraints = false
@@ -197,8 +222,8 @@ private final class FilePreviewButton: NSButton {
     NSLayoutConstraint.activate([
       iconView.leadingAnchor.constraint(equalTo: leadingAnchor),
       iconView.topAnchor.constraint(equalTo: topAnchor),
-      iconView.widthAnchor.constraint(equalToConstant: 36),
-      iconView.heightAnchor.constraint(equalToConstant: 36),
+      iconWidthConstraint,
+      iconHeightConstraint,
       filenameLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 8),
       filenameLabel.trailingAnchor.constraint(equalTo: trailingAnchor),
       filenameLabel.topAnchor.constraint(equalTo: topAnchor),
@@ -209,6 +234,10 @@ private final class FilePreviewButton: NSButton {
   }
 
   func configure(icon: NSImage, filename: String, size: String?) {
+    iconWidthConstraint.constant = Self.iconSize
+    iconHeightConstraint.constant = Self.iconSize
+    filenameLabel.font = Self.filenameFont
+    sizeLabel.font = Self.sizeFont
     iconView.image = icon
     filenameLabel.stringValue = filename
     sizeLabel.stringValue = size ?? ""

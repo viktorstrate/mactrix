@@ -2,7 +2,9 @@ import AppKit
 import MatrixRustSDK
 
 final class VirtualItemRowView: NSView {
-  static let rowHeight: CGFloat = 40
+  static var rowHeight: CGFloat {
+    max(40, ceil(TimelineTypography.scaled(40)))
+  }
 
   private let leadingLine = NSView()
   private let trailingLine = NSView()
@@ -55,15 +57,17 @@ final class VirtualItemRowView: NSView {
       } else {
         label.stringValue = date.formatted(date: .long, time: .omitted)
       }
-      label.font = .systemFont(ofSize: NSFont.systemFontSize)
+      label.font = .systemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
       isReadMarker = false
     case .readMarker:
       label.stringValue = String(localized: "Read Marker")
-      label.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .medium)
+      label.font = .systemFont(
+        ofSize: TimelineTypography.scaled(NSFont.systemFontSize), weight: .medium)
       isReadMarker = true
     case .timelineStart:
       label.stringValue = String(localized: "Start of conversation")
-      label.font = .systemFont(ofSize: NSFont.systemFontSize, weight: .medium)
+      label.font = .systemFont(
+        ofSize: TimelineTypography.scaled(NSFont.systemFontSize), weight: .medium)
       isReadMarker = false
     }
 

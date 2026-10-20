@@ -19,7 +19,7 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
 
     editor.onSubmit = self.saveEdit
     editor.isRichText = false
-    editor.font = .systemFont(ofSize: 13)
+    updateFonts()
     editor.isHorizontallyResizable = false
     editor.isVerticallyResizable = true
     editor.autoresizingMask = [.width]
@@ -83,11 +83,29 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
     }
   }
 
+  private func updateFonts() {
+    let editorFont = NSFont.systemFont(ofSize: TimelineTypography.scaled(13))
+    if editor.font != editorFont {
+      editor.font = editorFont
+      editor.invalidateIntrinsicContentSize()
+    }
+    let controlFont = NSFont.systemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
+    saveButton.font = controlFont
+    cancelButton.font = controlFont
+    editErrorLabel.font = controlFont
+  }
+
   func height(for width: CGFloat) -> CGFloat {
-    editor.height(for: width) + 6 + saveButton.intrinsicContentSize.height
+    updateFonts()
+    let controlsHeight = max(
+      saveButton.intrinsicContentSize.height,
+      cancelButton.intrinsicContentSize.height,
+      editErrorLabel.intrinsicContentSize.height)
+    return editor.height(for: width) + 6 + controlsHeight
   }
 
   func configureEditing(_ state: MessageEditState?) {
+    updateFonts()
     editState = state
     guard let state else { return }
 
