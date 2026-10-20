@@ -4,6 +4,7 @@ import MatrixRustSDK
 
 /// One event's ordered attachments and final caption, retained within a single timeline row.
 final class MessageGalleryContentView: NSView, MessageMediaPreviewContentView {
+  var onFocusUser: ((String) -> Void)? { didSet { updateCallbacks() } }
   var onSelectRequest: (() -> Void)? { didSet { updateCallbacks() } }
   var onArrowKey: ((TimelineSelectionDirection) -> Void)? { didSet { updateCallbacks() } }
   var onMediaPreviewRequest: (() -> Bool)? { didSet { updateCallbacks() } }
@@ -173,9 +174,11 @@ final class MessageGalleryContentView: NSView, MessageMediaPreviewContentView {
   }
 
   private func updateCallbacks() {
+    captionView.onFocusUser = onFocusUser
     captionView.onSelectRequest = onSelectRequest
     captionView.onArrowKey = onArrowKey
     for attachment in attachments {
+      attachment.view.onFocusUser = onFocusUser
       attachment.view.onSelectRequest = onSelectRequest
       attachment.view.onArrowKey = onArrowKey
       if let preview = attachment.view as? any MessageMediaPreviewContentView {

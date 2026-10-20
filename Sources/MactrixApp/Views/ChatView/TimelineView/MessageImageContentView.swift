@@ -7,6 +7,9 @@ import OSLog
 final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
   var onMediaPreviewRequest: (() -> Bool)?
   var onMediaPreview: ((URL, MediaFileHandle) -> Void)?
+  var onFocusUser: ((String) -> Void)? {
+    didSet { captionView.onFocusUser = onFocusUser }
+  }
   var onSelectRequest: (() -> Void)? {
     didSet { captionView.onSelectRequest = onSelectRequest }
   }

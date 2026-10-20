@@ -5,6 +5,9 @@ import MessageFormatting
 
 /// Retains the NSTextView and its layout machinery when its table row is reused.
 final class MessageTextContentView: NSView, MessageContentRowView {
+  var onFocusUser: ((String) -> Void)? {
+    didSet { bodyText.onFocusUser = onFocusUser }
+  }
   var onSelectRequest: (() -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?
 
@@ -16,16 +19,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
 
-    bodyText.isSelectable = true
-    bodyText.isEditable = false
-    bodyText.isRichText = true
-    bodyText.drawsBackground = false
-    bodyText.textContainerInset = .zero
-    bodyText.textContainer?.lineFragmentPadding = 0
-    bodyText.textContainer?.widthTracksTextView = true
-    bodyText.isHorizontallyResizable = false
     bodyText.isVerticallyResizable = true
-    bodyText.translatesAutoresizingMaskIntoConstraints = false
     bodyText.onMouseDown = { [weak self] in self?.onSelectRequest?() }
     bodyText.onArrowKey = { [weak self] direction in self?.onArrowKey?(direction) }
 
@@ -210,7 +204,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
 }
 
 /// Lets a view drawn above the text own the cursor without knowing what that view is.
-private final class OcclusionAwareTextView: NSTextView {
+private final class OcclusionAwareTextView: MessageTextView {
   var onMouseDown: (() -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?
 

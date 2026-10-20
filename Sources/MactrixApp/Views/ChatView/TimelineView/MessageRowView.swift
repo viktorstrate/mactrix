@@ -162,6 +162,7 @@ final class MessageRowView: NSView {
     let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
     timestamp.stringValue = Self.timeFormatter.string(from: date)
     editedLabel.isHidden = !Self.hasBeenEdited(content)
+    contentView.onFocusUser = onFocusUser
     contentView.configure(content: content, matrixClient: matrixClient)
     configureReply(details: replyDetails, onClick: onReplyClick)
     configureThread(summary: content.threadSummary, onClick: onThreadClick)

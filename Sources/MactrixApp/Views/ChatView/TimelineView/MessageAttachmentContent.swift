@@ -70,6 +70,7 @@ final class MessageAttachmentContent {
     (view as? MessageImageContentView)?.resetMedia()
     (view as? MessageVideoContentView)?.resetMedia()
     (view as? MessageFileContentView)?.resetMedia()
+    view.onFocusUser = nil
     view.onSelectRequest = nil
     view.onArrowKey = nil
     if let preview = view as? any MessageMediaPreviewContentView {

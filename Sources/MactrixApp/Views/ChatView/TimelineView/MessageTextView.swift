@@ -1,26 +1,23 @@
 import AppKit
 import Utils
 
-/// Read-only message text with Matrix user links handled in the originating window.
+/// NSTextView with Matrix user links handled in the originating window.
+/// Shares read-only message styling.
 class MessageTextView: NSTextView, NSTextViewDelegate {
   var onFocusUser: ((String) -> Void)?
-  private let backingTextStorage: NSTextStorage?
 
-  override init(frame frameRect: NSRect, textContainer container: NSTextContainer? = nil) {
-    let resolvedContainer: NSTextContainer
-    if let container {
-      backingTextStorage = container.layoutManager?.textStorage
-      resolvedContainer = container
-    } else {
-      let storage = NSTextStorage()
-      backingTextStorage = storage
-      let layoutManager = NSLayoutManager()
-      resolvedContainer = NSTextContainer(
-        size: NSSize(width: frameRect.width, height: .greatestFiniteMagnitude))
-      storage.addLayoutManager(layoutManager)
-      layoutManager.addTextContainer(resolvedContainer)
-    }
-    super.init(frame: frameRect, textContainer: resolvedContainer)
+  override init(frame frameRect: NSRect) {
+    // Preserve AppKit's default TextKit graph and sizing, just like NSTextView(frame:).
+    super.init(frame: frameRect)
+    configure()
+  }
+
+  override init(frame frameRect: NSRect, textContainer container: NSTextContainer?) {
+    super.init(frame: frameRect, textContainer: container)
+    configure()
+  }
+
+  private func configure() {
     delegate = self
     isEditable = false
     isSelectable = true
@@ -29,10 +26,8 @@ class MessageTextView: NSTextView, NSTextViewDelegate {
     textContainerInset = .zero
     textContainer?.lineFragmentPadding = 0
     textContainer?.widthTracksTextView = true
-    textContainer?.heightTracksTextView = false
-    textContainer?.containerSize.height = .greatestFiniteMagnitude
     isHorizontallyResizable = false
-    isVerticallyResizable = false
+    translatesAutoresizingMaskIntoConstraints = false
   }
 
   @available(*, unavailable)

@@ -171,7 +171,10 @@ final class StateEventRowView: NSView {
 
   private static func makeDescriptionView() -> MessageTextView {
     let view = MessageTextView(frame: .zero)
-    view.translatesAutoresizingMaskIntoConstraints = false
+
+    view.textContainer?.heightTracksTextView = false
+    view.textContainer?.containerSize.height = .greatestFiniteMagnitude
+    view.isVerticallyResizable = false
     view.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
     view.linkTextAttributes = [:]
     return view

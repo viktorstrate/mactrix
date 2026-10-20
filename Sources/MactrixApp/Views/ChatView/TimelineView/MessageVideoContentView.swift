@@ -6,6 +6,9 @@ import OSLog
 
 /// A retained video player, thumbnail, and optional caption for a reusable message row.
 final class MessageVideoContentView: NSView, MessageContentRowView {
+  var onFocusUser: ((String) -> Void)? {
+    didSet { captionView.onFocusUser = onFocusUser }
+  }
   var onSelectRequest: (() -> Void)? {
     didSet { captionView.onSelectRequest = onSelectRequest }
   }
