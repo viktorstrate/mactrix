@@ -196,9 +196,14 @@ struct StateEventSummaryFormatterTests {
     ])
     #expect(result.text == "Alice invited Bob and Charlie, Dave changed their display name")
     #expect(result.omittedEventCount == 0)
-    #expect(result.segments.filter(\.isName).map(\.text) == ["Alice", "Bob", "Charlie", "Dave"])
     #expect(
-      result.segments.filter { !$0.isName }.allSatisfy {
+      result.segments.filter { $0.userId != nil }.map(\.text)
+        == ["Alice", "Bob", "Charlie", "Dave"])
+    #expect(
+      result.segments.compactMap(\.userId)
+        == ["@a:example.org", "@b:example.org", "@c:example.org", "@d:example.org"])
+    #expect(
+      result.segments.filter { $0.userId == nil }.allSatisfy {
         !["Alice", "Bob", "Charlie", "Dave"].contains($0.text)
       })
   }
@@ -211,7 +216,7 @@ struct StateEventSummaryFormatterTests {
       let result = summary(Array(events.prefix(count)))
       #expect(result.text == "Alice invited Same and \(count - 1) others")
       #expect(result.omittedEventCount == 0)
-      #expect(result.segments.filter(\.isName).map(\.text) == ["Alice", "Same"])
+      #expect(result.segments.filter { $0.userId != nil }.map(\.text) == ["Alice", "Same"])
     }
   }
 
@@ -388,6 +393,13 @@ struct StateEventSummaryFormatterTests {
     let attributed = field.attributedStringValue
     let nameFont = try #require(attributed.attribute(.font, at: 0, effectiveRange: nil) as? NSFont)
     #expect(NSFontManager.shared.traits(of: nameFont).contains(.boldFontMask))
+    #expect(
+      (attributed.attribute(.link, at: 0, effectiveRange: nil) as? URL)?.absoluteString
+        == "matrix:u/a:example.org")
+    #expect(
+      (attributed.attribute(.link, at: 10, effectiveRange: nil) as? URL)?.absoluteString
+        == "matrix:u/c:example.org")
+    #expect(attributed.attribute(.link, at: 5, effectiveRange: nil) == nil)
     let bodyFont = try #require(attributed.attribute(.font, at: 5, effectiveRange: nil) as? NSFont)
     #expect(NSFontManager.shared.traits(of: bodyFont).contains(.italicFontMask))
     let button = try #require(descendants(of: row, as: NSButton.self).first)
@@ -541,6 +553,10 @@ struct StateEventSummaryFormatterTests {
           attributed.attribute(.font, at: offset, effectiveRange: nil) as? NSFont)
         #expect(NSFontManager.shared.traits(of: font).contains(.boldFontMask))
       }
+      #expect(
+        (attributed.attribute(.link, at: 0, effectiveRange: nil) as? URL)?.absoluteString
+          == "matrix:u/" + value.sender.dropFirst())
+      #expect(attributed.attribute(.link, at: name.utf16.count, effectiveRange: nil) == nil)
       let detailRow = try #require(field.superview)
       let expectedTime = formatter.string(
         from: Date(timeIntervalSince1970: Double(value.timestamp) / 1000))

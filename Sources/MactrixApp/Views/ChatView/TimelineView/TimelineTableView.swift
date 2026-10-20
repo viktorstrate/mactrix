@@ -563,7 +563,12 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private func configureStateRow(
     _ view: StateEventRowView, items: [TimelineItemRowInfo.StateEntry], id: String
   ) {
-    view.configure(items: items, expanded: expandedStateRowIDs.contains(id)) { [weak self] in
+    view.configure(
+      items: items, expanded: expandedStateRowIDs.contains(id),
+      onFocusUser: { [weak self] userId in
+        self?.coordinator.windowState.focusUser(userId: userId)
+      }
+    ) { [weak self] in
       self?.toggleStateRow(id: id)
     }
   }

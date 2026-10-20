@@ -5,7 +5,7 @@ import MatrixRustSDK
 enum StateEventSummaryFormatter {
   struct Segment: Equatable {
     let text: String
-    var isName = false
+    var userId: String? = nil
   }
 
   struct Summary {
@@ -107,7 +107,7 @@ enum StateEventSummaryFormatter {
         clauses.append(
           Clause(
             segments: [
-              Segment(text: name, isName: true),
+              Segment(text: name, userId: event.sender),
               Segment(text: " " + event.content.userInterfaceText),
             ],
             eventCount: 1, firstIndex: index, isImportant: isPolicyRule(event.content)))
@@ -182,13 +182,19 @@ enum StateEventSummaryFormatter {
   private static func clause(for participants: [Participant], descriptor: Descriptor) -> Clause {
     var segments: [Segment]
     if let actor = descriptor.actorName {
-      segments = [Segment(text: actor, isName: true), Segment(text: " " + descriptor.phrase + " ")]
+      segments = [
+        Segment(text: actor, userId: descriptor.key.actor),
+        Segment(text: " " + descriptor.phrase + " "),
+      ]
       segments += participantSegments(participants)
     } else {
       segments = participantSegments(participants)
       segments.append(Segment(text: " " + descriptor.phrase))
       if let target = descriptor.targetName {
-        segments += [Segment(text: " "), Segment(text: target, isName: true)]
+        segments += [
+          Segment(text: " "),
+          Segment(text: target, userId: descriptor.key.target),
+        ]
         if !descriptor.targetSuffix.isEmpty {
           segments.append(Segment(text: descriptor.targetSuffix))
         }
@@ -205,9 +211,14 @@ enum StateEventSummaryFormatter {
   }
 
   private static func participantSegments(_ participants: [Participant]) -> [Segment] {
-    var segments = [Segment(text: participants[0].name, isName: true)]
+    var segments = [
+      Segment(text: participants[0].name, userId: participants[0].id)
+    ]
     if participants.count == 2 {
-      segments += [Segment(text: " and "), Segment(text: participants[1].name, isName: true)]
+      segments += [
+        Segment(text: " and "),
+        Segment(text: participants[1].name, userId: participants[1].id),
+      ]
     } else if participants.count > 2 {
       segments.append(Segment(text: " and \(participants.count - 1) others"))
     }

@@ -1,5 +1,6 @@
 import AppKit
 import MatrixRustSDK
+import Utils
 
 final class StateEventRowView: NSView {
   @MainActor private enum Layout {
@@ -71,6 +72,7 @@ final class StateEventRowView: NSView {
 
   func configure(
     items: [TimelineItemRowInfo.StateEntry], expanded: Bool = false,
+    onFocusUser: ((String) -> Void)? = nil,
     onToggleExpanded: (() -> Void)? = nil
   ) {
     precondition(!items.isEmpty)
@@ -102,6 +104,7 @@ final class StateEventRowView: NSView {
       let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
       line.timestamp.stringValue = Self.timeFormatter.string(from: date)
       line.descriptionField.attributedStringValue = description
+      line.descriptionField.onFocusUser = onFocusUser
       stack.addArrangedSubview(line)
       let height = line.heightAnchor.constraint(equalToConstant: Layout.minimumLineHeight)
       NSLayoutConstraint.activate([
@@ -163,8 +166,8 @@ final class StateEventRowView: NSView {
     return max(ceil(size.height), Layout.minimumLineHeight)
   }
 
-  private static func makeDescriptionField() -> NSTextField {
-    let field = NSTextField(wrappingLabelWithString: "")
+  private static func makeDescriptionField() -> MessageTextField {
+    let field = MessageTextField(wrappingLabelWithString: "")
     field.isSelectable = true
     field.maximumNumberOfLines = 0
     field.allowsEditingTextAttributes = true
@@ -182,26 +185,40 @@ final class StateEventRowView: NSView {
     let summary = StateEventSummaryFormatter.summary(for: items.map(\.event))
     let result = NSMutableAttributedString()
     for segment in summary.segments {
-      result.append(attributedText(segment.text, isName: segment.isName))
+      result.append(
+        attributedText(segment.text, userId: segment.userId))
     }
     return [result]
   }
 
   private static func fullDescription(for event: EventTimelineItem) -> NSAttributedString {
     let name = event.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? event.sender
-    let result = NSMutableAttributedString(attributedString: attributedText(name, isName: true))
-    result.append(attributedText(" " + event.content.userInterfaceText, isName: false))
+    let result = NSMutableAttributedString(
+      attributedString: attributedText(name, userId: event.sender))
+    result.append(attributedText(" " + event.content.userInterfaceText))
     return result
   }
 
-  private static func attributedText(_ text: String, isName: Bool) -> NSAttributedString {
+  private static func attributedText(
+    _ text: String, userId: String? = nil
+  ) -> NSAttributedString {
+    let isName = userId != nil
     let size = TimelineTypography.scaled(NSFont.systemFontSize)
     let font =
       isName
       ? NSFont.boldSystemFont(ofSize: size)
       : NSFontManager.shared.convert(NSFont.systemFont(ofSize: size), toHaveTrait: .italicFontMask)
-    return NSAttributedString(
-      string: text, attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor])
+    var attributes: [NSAttributedString.Key: Any] = [
+      .font: font, .foregroundColor: NSColor.secondaryLabelColor,
+    ]
+    if isName, let userId,
+      let identifier = userId.dropFirst().addingPercentEncoding(
+        withAllowedCharacters: .urlPathAllowed.subtracting(CharacterSet(charactersIn: "/?#%"))),
+      let url = URL(string: "matrix:u/" + identifier)
+    {
+      attributes[.link] = url
+    }
+    return NSAttributedString(string: text, attributes: attributes)
   }
 
   private final class EventLineView: NSView {
@@ -236,5 +253,20 @@ final class StateEventRowView: NSView {
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
+  }
+}
+
+// NSTextField is the delegate of its field editor; handle links before AppKit opens them externally.
+final class MessageTextField: NSTextField, NSTextViewDelegate {
+  var onFocusUser: ((String) -> Void)?
+
+  func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
+    guard let url = link as? URL,
+      let uri = try? MatrixUriScheme(parseUrl: url.absoluteString),
+      case .user(let userId) = uri.kind, uri.action == nil,
+      let onFocusUser
+    else { return false }
+    onFocusUser(userId)
+    return true
   }
 }
