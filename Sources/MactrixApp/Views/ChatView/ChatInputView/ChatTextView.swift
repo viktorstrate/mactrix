@@ -1,152 +1,61 @@
 import AppKit
 import MactrixUI
-import OSLog
-import QuickLookUI
-import SwiftUI
-
-struct ChatTextView: NSViewRepresentable {
-  typealias NSViewRepresentableType = NSTextView
-
-  @AppStorage("fontSize") var fontSize: Int = 13
-
-  let text: Binding<String>
-  let placeholder: String
-  let disabled: Bool
-  let focusRequest: Int
-  let onSubmit: () -> Void
-  let onCanPasteAttachments: (NSPasteboard) -> Bool
-  let onAttachmentPaste: (NSPasteboard) -> Bool
-
-  func makeNSView(context: Context) -> DynamicTextView {
-    let textView = DynamicTextView()
-
-    textView.allowsUndo = true
-    textView.onSubmit = onSubmit
-    textView.onCanPasteAttachments = onCanPasteAttachments
-    textView.onAttachmentPaste = onAttachmentPaste
-
-    textView.placeholderAttributedString = NSAttributedString(
-      string: placeholder,
-      attributes: [
-        .foregroundColor: NSColor.secondaryLabelColor,
-        .font: NSFont.systemFont(ofSize: CGFloat(fontSize)),
-      ]
-    )
-
-    textView.backgroundColor = .clear
-    textView.drawsBackground = false
-
-    context.coordinator.textView = textView
-    textView.delegate = context.coordinator
-
-    textView.textContainerInset = DynamicTextView.padding
-
-    textView.isVerticallyResizable = true
-    textView.isHorizontallyResizable = false
-    unsafe textView.textContainer?.widthTracksTextView = true
-
-    textView.setContentHuggingPriority(.required, for: .vertical)
-    textView.setContentCompressionResistancePriority(.required, for: .vertical)
-
-    textView.font = NSFont.systemFont(ofSize: CGFloat(fontSize))
-
-    return textView
-  }
-
-  func updateNSView(_ textView: DynamicTextView, context: Context) {
-    context.coordinator.text = text
-
-    textView.onSubmit = onSubmit
-    textView.onCanPasteAttachments = onCanPasteAttachments
-    textView.onAttachmentPaste = onAttachmentPaste
-
-    if textView.string != text.wrappedValue {
-      textView.string = text.wrappedValue
-      textView.invalidateIntrinsicContentSize()
-    }
-
-    let currentPlaceholderFont =
-      unsafe textView.placeholderAttributedString?
-      .attribute(
-        .font,
-        at: 0,
-        effectiveRange: nil
-      ) as? NSFont
-    let placeholderFontChanged =
-      currentPlaceholderFont?.pointSize != CGFloat(fontSize)
-    if textView.placeholderAttributedString?.string != placeholder || placeholderFontChanged {
-      textView.placeholderAttributedString = NSAttributedString(
-        string: placeholder,
-        attributes: [
-          .foregroundColor: NSColor.secondaryLabelColor,
-          .font: NSFont.systemFont(ofSize: CGFloat(fontSize)),
-        ]
-      )
-    }
-
-    if textView.isEditable != !disabled {
-      textView.isEditable = !disabled
-      textView.isSelectable = !disabled
-      textView.alphaValue = !disabled ? 1.0 : 0.5
-
-      if disabled {
-        // resign first responder
-        unsafe textView.window?.makeFirstResponder(nil)
-      }
-    }
-
-    context.coordinator.requestFocus(focusRequest, disabled: disabled)
-
-    let currentFont = NSFont.systemFont(ofSize: CGFloat(fontSize))
-    if textView.font?.pointSize != currentFont.pointSize {
-      textView.font = currentFont
-      textView.invalidateIntrinsicContentSize()
-    }
-  }
-
-  func makeCoordinator() -> Coordinator {
-    return Coordinator(text: text)
-  }
-
-  @MainActor
-  class Coordinator: NSObject, NSTextViewDelegate {
-    var textView: NSTextView?
-    var text: Binding<String>
-    private var requestedFocus = 0
-    private var fulfilledFocus = 0
-
-    init(text: Binding<String>) {
-      self.text = text
-    }
-
-    func requestFocus(_ request: Int, disabled: Bool) {
-      requestedFocus = request
-      guard !disabled, request != fulfilledFocus else { return }
-
-      Task { @MainActor [weak self] in
-        await Task.yield()
-        guard let self, requestedFocus == request, let textView, textView.isEditable,
-          let window = textView.window
-        else { return }
-
-        if window.makeFirstResponder(textView) {
-          fulfilledFocus = request
-        }
-      }
-    }
-
-    func textDidChange(_ notification: Notification) {
-      guard let textView else { return }
-
-      text.wrappedValue = textView.string
-    }
-  }
-}
 
 class DynamicTextView: SubmitableTextView {
   @objc var placeholderAttributedString: NSAttributedString?
 
   static let padding = NSSize(width: 10, height: 10)
+
+  var attachmentDropDestination: ComposerAttachmentDropDestination?
+  private var isInterceptingAttachmentDrag = false
+  var onWindowChanged: (() -> Void)?
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    onWindowChanged?()
+  }
+
+  override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    isInterceptingAttachmentDrag = attachmentDropDestination?.recognizes(sender) == true
+    if isInterceptingAttachmentDrag {
+      return attachmentDropDestination?.entered(sender) ?? []
+    }
+    return super.draggingEntered(sender)
+  }
+
+  override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    isInterceptingAttachmentDrag = attachmentDropDestination?.recognizes(sender) == true
+    if isInterceptingAttachmentDrag {
+      return attachmentDropDestination?.entered(sender) ?? []
+    }
+    return super.draggingUpdated(sender)
+  }
+
+  override func draggingExited(_ sender: (any NSDraggingInfo)?) {
+    attachmentDropDestination?.exited()
+    if !isInterceptingAttachmentDrag { super.draggingExited(sender) }
+    isInterceptingAttachmentDrag = false
+  }
+
+  override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+    if attachmentDropDestination?.recognizes(sender) == true {
+      return attachmentDropDestination?.operation(sender) == .copy
+    }
+    return super.prepareForDragOperation(sender)
+  }
+
+  override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+    if attachmentDropDestination?.recognizes(sender) == true {
+      return attachmentDropDestination?.perform(sender) ?? false
+    }
+    return super.performDragOperation(sender)
+  }
+
+  override func concludeDragOperation(_ sender: (any NSDraggingInfo)?) {
+    attachmentDropDestination?.exited()
+    if !isInterceptingAttachmentDrag { super.concludeDragOperation(sender) }
+    isInterceptingAttachmentDrag = false
+  }
 
   var onCanPasteAttachments: ((NSPasteboard) -> Bool)?
   var onAttachmentPaste: ((NSPasteboard) -> Bool)?
@@ -157,6 +66,7 @@ class DynamicTextView: SubmitableTextView {
 
   override var acceptableDragTypes: [NSPasteboard.PasteboardType] {
     [.mactrixUser] + super.acceptableDragTypes
+      + (attachmentDropDestination == nil ? [] : ComposerAttachmentInputAdapter.dragTypes)
   }
 
   override func readSelection(
