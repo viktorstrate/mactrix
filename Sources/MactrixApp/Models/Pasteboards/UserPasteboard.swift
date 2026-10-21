@@ -22,7 +22,33 @@ struct UserDragPayload: Codable {
       try JSONEncoder().encode(self),
       forType: .mactrixUser
     )
+    var components = URLComponents()
+    components.scheme = "https"
+    components.host = "matrix.to"
+    components.path = "/"
+
+    guard
+      let encodedUserID = userID.addingPercentEncoding(
+        withAllowedCharacters: CharacterSet.urlFragmentAllowed)
+    else { throw URLError(.badURL) }
+    components.percentEncodedFragment = "/" + encodedUserID
+    guard let permalink = components.url else { throw URLError(.badURL) }
+
+    let url = permalink.absoluteString
+    let html = "<a href=\"\(Self.escapeHTML(url))\">\(Self.escapeHTML(username))</a>"
+    item.setString(url, forType: .URL)
+    item.setString(html, forType: .html)
+    item.setString(userID, forType: .string)
     return item
+  }
+
+  private static func escapeHTML(_ value: String) -> String {
+    value
+      .replacingOccurrences(of: "&", with: "&amp;")
+      .replacingOccurrences(of: "<", with: "&lt;")
+      .replacingOccurrences(of: ">", with: "&gt;")
+      .replacingOccurrences(of: "\"", with: "&quot;")
+      .replacingOccurrences(of: "'", with: "&#39;")
   }
 
   static func read(from pasteboard: NSPasteboard) -> Self? {

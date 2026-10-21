@@ -88,9 +88,7 @@ extension MessageProfileRowView: NSDraggingSource {
     _ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext
   ) -> NSDragOperation {
     switch context {
-    case .outsideApplication:
-      return []
-    case .withinApplication:
+    case .outsideApplication, .withinApplication:
       return .copy
     @unknown default:
       return []
