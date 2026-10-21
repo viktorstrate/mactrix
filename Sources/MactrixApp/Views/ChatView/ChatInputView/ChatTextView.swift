@@ -1,4 +1,5 @@
 import AppKit
+import MactrixUI
 import OSLog
 import QuickLookUI
 import SwiftUI
@@ -149,6 +150,32 @@ class DynamicTextView: SubmitableTextView {
 
   var onCanPasteAttachments: ((NSPasteboard) -> Bool)?
   var onAttachmentPaste: ((NSPasteboard) -> Bool)?
+
+  override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
+    [.mactrixUser] + super.readablePasteboardTypes
+  }
+
+  override var acceptableDragTypes: [NSPasteboard.PasteboardType] {
+    [.mactrixUser] + super.acceptableDragTypes
+  }
+
+  override func readSelection(
+    from pasteboard: NSPasteboard,
+    type: NSPasteboard.PasteboardType
+  ) -> Bool {
+    guard type == .mactrixUser else {
+      return super.readSelection(from: pasteboard, type: type)
+    }
+
+    guard isEditable,
+      let payload = UserDragPayload.read(from: pasteboard)
+    else {
+      return false
+    }
+
+    insertText(payload.markdownLink ?? payload.userID, replacementRange: selectedRange())
+    return true
+  }
 
   override func validateUserInterfaceItem(_ item: any NSValidatedUserInterfaceItem) -> Bool {
     if item.action == #selector(paste(_:)) {

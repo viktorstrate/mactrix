@@ -16,12 +16,7 @@ public struct UserDragPayload: Codable {
     self.username = username
   }
 
-  public func makePasteboardItem() throws -> NSPasteboardItem {
-    let item = NSPasteboardItem()
-    item.setData(
-      try JSONEncoder().encode(self),
-      forType: .mactrixUser
-    )
+  public var url: String? {
     var components = URLComponents()
     components.scheme = "https"
     components.host = "matrix.to"
@@ -30,14 +25,38 @@ public struct UserDragPayload: Codable {
     guard
       let encodedUserID = userID.addingPercentEncoding(
         withAllowedCharacters: CharacterSet.urlFragmentAllowed)
-    else { throw URLError(.badURL) }
+    else { return nil }
     components.percentEncodedFragment = "/" + encodedUserID
-    guard let permalink = components.url else { throw URLError(.badURL) }
+    guard let permalink = components.url else { return nil }
 
-    let url = permalink.absoluteString
-    let html = "<a href=\"\(Self.escapeHTML(url))\">\(Self.escapeHTML(username))</a>"
-    item.setString(url, forType: .URL)
-    item.setString(html, forType: .html)
+    return permalink.absoluteString
+  }
+
+  public var htmlLink: String? {
+    guard let url else { return nil }
+    return "<a href=\"\(Self.escapeHTML(url))\">\(Self.escapeHTML(username))</a>"
+  }
+
+  public var markdownLink: String? {
+    guard let url else { return nil }
+    return "[\(Self.escapeMarkdownBrackets(username))](\(Self.escapeHTML(url)))"
+  }
+
+  public func makePasteboardItem() throws -> NSPasteboardItem {
+    let item = NSPasteboardItem()
+    item.setData(
+      try JSONEncoder().encode(self),
+      forType: .mactrixUser
+    )
+
+    if let url {
+      item.setString(url, forType: .URL)
+    }
+
+    if let htmlLink {
+      item.setString(htmlLink, forType: .html)
+    }
+
     item.setString(userID, forType: .string)
     return item
   }
@@ -69,6 +88,14 @@ public struct UserDragPayload: Codable {
       .replacingOccurrences(of: ">", with: "&gt;")
       .replacingOccurrences(of: "\"", with: "&quot;")
       .replacingOccurrences(of: "'", with: "&#39;")
+  }
+
+  private static func escapeMarkdownBrackets(_ value: String) -> String {
+    Self.escapeHTML(value)
+      .replacingOccurrences(of: "[", with: "\\[")
+      .replacingOccurrences(of: "]", with: "\\]")
+      .replacingOccurrences(of: "(", with: "\\(")
+      .replacingOccurrences(of: ")", with: "\\)")
   }
 
   public static func read(from pasteboard: NSPasteboard) -> Self? {
