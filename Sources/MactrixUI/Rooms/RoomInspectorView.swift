@@ -7,7 +7,8 @@ struct RoomInspectorMemberRow<RoomMember: MatrixProtocols.RoomMember>: View {
   let imageLoader: ImageLoader?
 
   var body: some View {
-    UserProfileRow(profile: member, imageLoader: imageLoader)
+    // UserProfileRow(profile: member, imageLoader: imageLoader)
+    UserProfileRowLarge(profile: member, imageLoader: imageLoader)
   }
 }
 

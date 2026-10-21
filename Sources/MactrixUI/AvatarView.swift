@@ -92,10 +92,6 @@ public final class AvatarView: NSView {
     }
   }
 
-  public override func hitTest(_ point: NSPoint) -> NSView? {
-    nil
-  }
-
   public func configure(
     userID: String, displayName: String?, avatarUrl: String?, kind: AvatarKind,
     imageLoader: ImageLoader?

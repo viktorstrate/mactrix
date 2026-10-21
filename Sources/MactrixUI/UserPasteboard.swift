@@ -1,14 +1,14 @@
 import AppKit
 
 extension NSPasteboard.PasteboardType {
-  static let mactrixUser = Self("org.mactrix.user")
+  public static let mactrixUser = Self("org.mactrix.user")
 }
 
-struct UserDragPayload: Codable {
-  let userID: String
-  let username: String
+public struct UserDragPayload: Codable {
+  public let userID: String
+  public let username: String
 
-  init(
+  public init(
     userID: String,
     username: String,
   ) {
@@ -16,7 +16,7 @@ struct UserDragPayload: Codable {
     self.username = username
   }
 
-  func makePasteboardItem() throws -> NSPasteboardItem {
+  public func makePasteboardItem() throws -> NSPasteboardItem {
     let item = NSPasteboardItem()
     item.setData(
       try JSONEncoder().encode(self),
@@ -42,6 +42,26 @@ struct UserDragPayload: Codable {
     return item
   }
 
+  public func makeItemProvider() throws -> NSItemProvider {
+    let item = try makePasteboardItem()
+    let provider = NSItemProvider()
+    provider.suggestedName = username
+
+    for type in item.types {
+      guard let data = item.data(forType: type) else { continue }
+      // Capture bytes now; provider callbacks may run outside the UI thread.
+      provider.registerDataRepresentation(
+        forTypeIdentifier: type.rawValue,
+        visibility: .all
+      ) { completion in
+        completion(data, nil)
+        return nil
+      }
+    }
+
+    return provider
+  }
+
   private static func escapeHTML(_ value: String) -> String {
     value
       .replacingOccurrences(of: "&", with: "&amp;")
@@ -51,7 +71,7 @@ struct UserDragPayload: Codable {
       .replacingOccurrences(of: "'", with: "&#39;")
   }
 
-  static func read(from pasteboard: NSPasteboard) -> Self? {
+  public static func read(from pasteboard: NSPasteboard) -> Self? {
     guard
       let data = pasteboard.data(forType: .mactrixUser),
       let payload = try? JSONDecoder().decode(Self.self, from: data)
