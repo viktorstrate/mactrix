@@ -30,31 +30,28 @@ jobs:
         run: bash scripts/build-metadata.sh >> "$GITHUB_ENV"
       - name: Build
         run: |
-          set -o pipefail
           xcodebuild clean build analyze \
             -scheme "$scheme" \
             -workspace Mactrix.xcworkspace \
             MARKETING_VERSION="$APP_VERSION" \
             CURRENT_PROJECT_VERSION="$APP_BUILD" \
             MACTRIX_GIT_COMMIT="$APP_COMMIT" \
-            -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
+            -destination 'platform=macOS'
       - name: Test
         run: |
-          set -o pipefail
           xcodebuild test \
             -workspace Mactrix.xcworkspace \
             -scheme "$scheme" \
             MARKETING_VERSION="$APP_VERSION" \
             CURRENT_PROJECT_VERSION="$APP_BUILD" \
             MACTRIX_GIT_COMMIT="$APP_COMMIT" \
-            -destination 'platform=macOS' | xcpretty && exit ${PIPESTATUS[0]}
+            -destination 'platform=macOS'
       - name: Build release artifact
         if: |
           matrix.macos-version == 'macos-26' &&
           github.event_name == 'push' &&
           (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))
         run: |
-          set -o pipefail
           xcodebuild archive \
             -workspace Mactrix.xcworkspace \
             -scheme "$scheme" \
@@ -63,7 +60,7 @@ jobs:
             CURRENT_PROJECT_VERSION="$APP_BUILD" \
             MACTRIX_GIT_COMMIT="$APP_COMMIT" \
             -destination 'platform=macOS' \
-            -archivePath ./Mactrix.xcarchive | xcpretty && exit ${PIPESTATUS[0]}
+            -archivePath ./Mactrix.xcarchive
       - name: Upload Artifact
         if: |
           matrix.macos-version == 'macos-26' &&
