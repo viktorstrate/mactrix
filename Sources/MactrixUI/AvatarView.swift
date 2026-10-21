@@ -142,6 +142,20 @@ public final class AvatarView: NSView {
     }
   }
 
+  /// Creates an independent view of the current presentation without starting an image request.
+  public func makePresentationCopy() -> AvatarView {
+    let copy = AvatarView(frame: NSRect(origin: .zero, size: bounds.size))
+    copy.appearance = effectiveAppearance
+    copy.userID = userID
+    copy.kind = kind
+    copy.initialLabel.stringValue = initialLabel.stringValue
+    copy.imageView.image = imageView.image
+    copy.updateColors()
+    copy.configureCornerRadius()
+    copy.needsLayout = true
+    return copy
+  }
+
   public func cancelLoad() {
     loadTask?.cancel()
     loadTask = nil

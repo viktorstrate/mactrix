@@ -100,53 +100,19 @@ extension MessageProfileRowView: NSDraggingSource {
   private func beginUserDrag(with event: NSEvent) {
     guard let payload = dragPayload else { return }
 
-    profilePicture.layoutSubtreeIfNeeded()
-
-    guard let pasteboardItem = try? payload.makePasteboardItem() else {
-      return
-    }
-
-    let draggingItem = NSDraggingItem(
-      pasteboardWriter: pasteboardItem
-    )
-
-    // This frame must use the coordinate system of the view
-    // on which beginDraggingSession is called.
-    let avatarFrame = profilePicture.convert(
-      profilePicture.bounds,
-      to: self
-    )
-
-    guard
-      let bitmap =
-        profilePicture
-        .bitmapImageRepForCachingDisplay(in: profilePicture.bounds)
-    else {
-      return
-    }
-    profilePicture.cacheDisplay(in: profilePicture.bounds, to: bitmap)
-
-    let image = NSImage(size: profilePicture.bounds.size)
-    image.addRepresentation(bitmap)
-
-    draggingItem.setDraggingFrame(
-      avatarFrame,
-      contents: image
-    )
-
-    let session = beginDraggingSession(
-      with: [draggingItem],
+    _ = try? UserDragging.begin(
+      payload: payload,
+      from: self,
+      avatarView: profilePicture.avatarView,
       event: event,
       source: self
     )
-
-    session.animatesToStartingPositionsOnCancelOrFail = true
   }
 }
 
 class ProfilePictureButton: NSButton {
 
-  private let avatarView = AvatarView()
+  let avatarView = AvatarView()
   private var sender: String?
   private var focusUserAction: (_ sender: String) -> Void = { _ in }
   private var imageLoader: MactrixUI.ImageLoader?
