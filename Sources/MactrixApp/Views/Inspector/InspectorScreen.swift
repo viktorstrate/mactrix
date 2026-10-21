@@ -37,17 +37,17 @@ struct InspectorScreen: View {
           imageLoader: appState.matrixClient, inspectorVisible: $windowState.inspectorVisible)
       case .none, .newRoom, .previewRoom, .loadMatrixUrl(_), .user(profile: _):
         Text("No room selected")
-          .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
+          .inspectorColumnWidth(min: 200, ideal: 250, max: 900)
       }
     case .userInfo(let userId):
       InspectorUserInfo(userId: userId)
-        .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
+        .inspectorColumnWidth(min: 200, ideal: 250, max: 900)
     case .roomThreads:
       InspectorThreads()
-        .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
+        .inspectorColumnWidth(min: 200, ideal: 250, max: 900)
     case .roomPins:
       InspectorRoomPins()
-        .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
+        .inspectorColumnWidth(min: 200, ideal: 250, max: 900)
     }
   }
 

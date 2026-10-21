@@ -122,7 +122,7 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
         .textSelection(.enabled)
       }
     }
-    .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
+    .inspectorColumnWidth(min: 200, ideal: 250, max: 900)
   }
 }
 
