@@ -99,7 +99,8 @@ struct WelcomeSheetView: View {
     }
   }
 
-  var body: some View {
+  @ViewBuilder
+  var content: some View {
     VStack {
       Text("Welcome to Mactrix")
         .font(.headline)
@@ -144,6 +145,14 @@ struct WelcomeSheetView: View {
       }
     }
     .padding()
+  }
+
+  var body: some View {
+    if #available(macOS 15.4, *) {
+      content.presentationPreventsAppTermination(false)
+    } else {
+      content
+    }
   }
 }
 

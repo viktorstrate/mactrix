@@ -28,7 +28,7 @@ public struct SessionVerificationModal<VerificationEmoji: SessionVerificationEmo
     }
   }
 
-  public var body: some View {
+  var content: some View {
     VStack(spacing: 20) {
       VStack {
         Text("Session Verification")
@@ -64,6 +64,14 @@ public struct SessionVerificationModal<VerificationEmoji: SessionVerificationEmo
       }
     }
     .padding()
+  }
+
+  public var body: some View {
+    if #available(macOS 15.4, *) {
+      content.presentationPreventsAppTermination(false)
+    } else {
+      content
+    }
   }
 }
 
