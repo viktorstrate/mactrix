@@ -37,7 +37,6 @@ final class ComposerAttachmentDropDestination {
   var enabled = false
   var onHighlight: ((Bool) -> Void)?
   var onDrop: ((NSPasteboard) -> Bool)?
-  private var highlightRevision = 0
 
   func recognizes(_ sender: any NSDraggingInfo) -> Bool {
     ComposerAttachmentInputAdapter.canImportAttachments(from: sender.draggingPasteboard)
@@ -50,25 +49,16 @@ final class ComposerAttachmentDropDestination {
   }
 
   func entered(_ sender: any NSDraggingInfo) -> NSDragOperation {
-    highlightRevision += 1
     let result = operation(sender)
     onHighlight?(result == .copy)
     return result
   }
 
   func exited() {
-    highlightRevision += 1
-    let revision = highlightRevision
-    // A destination change sends exit and enter in the same run-loop turn.
-    Task { @MainActor [weak self] in
-      await Task.yield()
-      guard let self, revision == highlightRevision else { return }
-      onHighlight?(false)
-    }
+    onHighlight?(false)
   }
 
   func perform(_ sender: any NSDraggingInfo) -> Bool {
-    highlightRevision += 1
     onHighlight?(false)
     guard operation(sender) == .copy else { return false }
     return onDrop?(sender.draggingPasteboard) ?? false

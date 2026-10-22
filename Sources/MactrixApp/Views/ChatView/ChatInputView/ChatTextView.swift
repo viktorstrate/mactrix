@@ -105,19 +105,29 @@ class DynamicTextView: SubmitableTextView {
   }
 
   func height(for width: CGFloat) -> CGFloat {
-    guard let container = unsafe textContainer, let manager = unsafe layoutManager else {
+    guard let liveContainer = unsafe textContainer, let storage = unsafe textStorage else {
       return 0
     }
 
-    container.containerSize = NSSize(
-      width: max(width - 2 * textContainerInset.width, 1),
-      height: .greatestFiniteMagnitude)
+    // SwiftUI can measure proposals that never become the view's actual width.
+    // Use a separate layout so probes cannot change the editor's wrapping or frame.
+    let measurementStorage = NSTextStorage(attributedString: storage)
+    let manager = NSLayoutManager()
+    let container = NSTextContainer(
+      containerSize: NSSize(
+        width: max(width - 2 * textContainerInset.width, 1),
+        height: .greatestFiniteMagnitude))
+
+    container.lineFragmentPadding = liveContainer.lineFragmentPadding
+    measurementStorage.addLayoutManager(manager)
+    manager.addTextContainer(container)
     manager.ensureLayout(for: container)
 
     let lineHeight = manager.defaultLineHeight(for: font ?? .systemFont(ofSize: 13))
     let textHeight = max(
       lineHeight,
       max(manager.usedRect(for: container).maxY, manager.extraLineFragmentRect.maxY))
+
     return ceil(textHeight + 2 * textContainerInset.height)
   }
 

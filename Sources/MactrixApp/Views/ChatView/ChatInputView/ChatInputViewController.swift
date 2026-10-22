@@ -47,8 +47,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     editor.onAttachmentPaste = { [weak self] pasteboard in
       self?.importAttachments(from: pasteboard) ?? false
     }
-    // Explicitly extend registration rather than replacing NSTextView's native types.
-    editor.registerForDraggedTypes(editor.acceptableDragTypes)
+
     container.dropDestination.onDrop = { [weak self] pasteboard in
       self?.importAttachments(from: pasteboard) ?? false
     }

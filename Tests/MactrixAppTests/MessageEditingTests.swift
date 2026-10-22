@@ -77,6 +77,31 @@ struct MessageEditingTests {
     #expect(view.height(forCaption: nil, formatted: nil, width: 400) == wideHeight)
   }
 
+  @Test func measuringProposedWidthPreservesEditorLayout() throws {
+    let editor = DynamicTextView(frame: NSRect(x: 0, y: 0, width: 600, height: 200))
+    editor.isVerticallyResizable = true
+    editor.isHorizontallyResizable = false
+    editor.textContainerInset = DynamicTextView.padding
+    editor.font = .systemFont(ofSize: 13)
+    let container = try #require(unsafe editor.textContainer)
+    let manager = try #require(unsafe editor.layoutManager)
+    container.widthTracksTextView = true
+    editor.string = String(repeating: "A message with wrapping text. ", count: 10)
+    manager.ensureLayout(for: container)
+    let originalSize = container.containerSize
+    let originalUsedRect = manager.usedRect(for: container)
+    let originalFrame = editor.frame
+
+    let wideHeight = editor.height(for: 600)
+    let narrowHeight = editor.height(for: 120)
+
+    #expect(narrowHeight > wideHeight)
+    #expect(container.containerSize == originalSize)
+    #expect(manager.usedRect(for: container) == originalUsedRect)
+    #expect(editor.frame == originalFrame)
+    #expect(editor.height(for: 600) == wideHeight)
+  }
+
   private func findEditor(in view: NSView) -> NSTextView? {
     if let text = view as? NSTextView, text.isEditable { return text }
     for child in view.subviews {
