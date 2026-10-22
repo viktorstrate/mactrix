@@ -53,7 +53,10 @@ class DynamicTextView: SubmitableTextView {
 
   override func concludeDragOperation(_ sender: (any NSDraggingInfo)?) {
     attachmentDropDestination?.exited()
-    if !isInterceptingAttachmentDrag { super.concludeDragOperation(sender) }
+    if !isInterceptingAttachmentDrag {
+      super.concludeDragOperation(sender)
+      window?.makeFirstResponder(self)
+    }
     isInterceptingAttachmentDrag = false
   }
 
