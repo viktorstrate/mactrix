@@ -14,8 +14,18 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
   private(set) var isActive = true
   private lazy var editorSession = ComposerEditorSession(
     editor: container.editor, composer: composer)
-  private(set) var previewAttachmentID: ComposerAttachment.ID?
-  private var previewURL: URL?
+  private var previewAttachments: [ComposerAttachment] = []
+  private var initialPreviewItemIndex = 0
+  var previewAttachmentID: ComposerAttachment.ID? {
+    var index = initialPreviewItemIndex
+    if QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(),
+      panel.currentController as AnyObject? === self
+    {
+      index = panel.currentPreviewItemIndex
+    }
+    guard previewAttachments.indices.contains(index) else { return nil }
+    return previewAttachments[index].id
+  }
   private var fontSize = 13
   private var revision: Int?
   private var wasDraftLoaded = false
@@ -115,9 +125,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
       container.replyDetails = nil
       container.reply.isHidden = true
     }
-    if let id = previewAttachmentID, !composer.attachments.contains(where: { $0.id == id }) {
-      closePreview()
-    }
+    synchronizePreviewAttachments()
     container.attachments.update(attachments: composer.attachments)
     container.attachments.isHidden = composer.attachments.isEmpty
     container.invalidateSizing()
@@ -213,11 +221,11 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
 extension ChatInputViewController: @preconcurrency QLPreviewPanelDataSource {
   func showPreview(id: ComposerAttachment.ID) {
-    guard isActive, let attachment = composer.attachments.first(where: { $0.id == id }),
+    guard isActive, let index = composer.attachments.firstIndex(where: { $0.id == id }),
       let window = container.window, let panel = QLPreviewPanel.shared()
     else { return }
-    previewAttachmentID = id
-    previewURL = attachment.sourceURL
+    previewAttachments = composer.attachments
+    initialPreviewItemIndex = index
     guard window.makeFirstResponder(container) else {
       closePreview()
       return
@@ -226,7 +234,27 @@ extension ChatInputViewController: @preconcurrency QLPreviewPanelDataSource {
     panel.makeKeyAndOrderFront(nil)
     if panel.currentController as AnyObject? === self {
       panel.reloadData()
-      panel.currentPreviewItemIndex = 0
+      panel.currentPreviewItemIndex = index
+    }
+  }
+
+  private func synchronizePreviewAttachments() {
+    guard !previewAttachments.isEmpty,
+      previewAttachments.map(\.id) != composer.attachments.map(\.id)
+    else { return }
+    guard let id = previewAttachmentID,
+      let index = composer.attachments.firstIndex(where: { $0.id == id })
+    else {
+      closePreview()
+      return
+    }
+    previewAttachments = composer.attachments
+    initialPreviewItemIndex = index
+    if QLPreviewPanel.sharedPreviewPanelExists(), let panel = QLPreviewPanel.shared(),
+      panel.currentController as AnyObject? === self
+    {
+      panel.reloadData()
+      panel.currentPreviewItemIndex = index
     }
   }
 
@@ -237,32 +265,33 @@ extension ChatInputViewController: @preconcurrency QLPreviewPanelDataSource {
       panel.close()
       if panel.dataSource === self { panel.dataSource = nil }
     }
-    previewAttachmentID = nil
-    previewURL = nil
+    previewAttachments = []
+    initialPreviewItemIndex = 0
   }
 
   override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
-    MainActor.assumeIsolated { isActive && previewURL != nil }
+    MainActor.assumeIsolated { isActive && !previewAttachments.isEmpty }
   }
 
   override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {
     MainActor.assumeIsolated {
       panel.dataSource = self
       panel.reloadData()
-      panel.currentPreviewItemIndex = 0
+      panel.currentPreviewItemIndex = initialPreviewItemIndex
     }
   }
 
   override func endPreviewPanelControl(_ panel: QLPreviewPanel!) {
     MainActor.assumeIsolated {
       if panel.dataSource === self { panel.dataSource = nil }
-      previewURL = nil
-      previewAttachmentID = nil
+      previewAttachments = []
+      initialPreviewItemIndex = 0
     }
   }
 
-  func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { previewURL == nil ? 0 : 1 }
+  func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { previewAttachments.count }
   func previewPanel(_ panel: QLPreviewPanel!, previewItemAt index: Int) -> (any QLPreviewItem)! {
-    index == 0 ? previewURL as NSURL? : nil
+    guard previewAttachments.indices.contains(index) else { return nil }
+    return previewAttachments[index].sourceURL as NSURL
   }
 }
