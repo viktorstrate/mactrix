@@ -1,4 +1,5 @@
 import MatrixProtocols
+import OSLog
 import SwiftUI
 
 @MainActor
@@ -39,6 +40,7 @@ public struct UserProfileView<Profile: UserProfile>: View {
   var profileHeader: some View {
     VStack(alignment: .center) {
       AvatarImage(userProfile: profile, imageLoader: imageLoader)
+        .allowsHitTesting(false)
         .frame(width: 72, height: 72)
         .padding(.bottom, 6)
 
@@ -47,6 +49,20 @@ public struct UserProfileView<Profile: UserProfile>: View {
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .textSelection(.enabled)
+    }
+    .contentShape(Rectangle())
+    .onDrag {
+      do {
+        return try UserDragPayload(
+          userID: profile.userId,
+          username: profile.displayName ?? profile.userId
+        ).makeItemProvider()
+      } catch {
+        Logger.viewCycle.error("Failed to prepare user drag: \(error)")
+        return NSItemProvider()
+      }
+    } preview: {
+      UserProfileRow(profile: profile, imageLoader: imageLoader)
     }
     .frame(maxWidth: .infinity)
     .listRowSeparator(.hidden)

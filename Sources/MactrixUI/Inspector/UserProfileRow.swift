@@ -1,4 +1,5 @@
 import MatrixProtocols
+import OSLog
 import SwiftUI
 
 public struct UserProfileRow<Profile: UserProfile>: View {
@@ -14,9 +15,22 @@ public struct UserProfileRow<Profile: UserProfile>: View {
 
   public var body: some View {
     Label {
-      Username(userProfile: profile)
+      Username(userProfile: profile, isSelectable: false)
     } icon: {
       AvatarImage(userProfile: profile, imageLoader: imageLoader)
+        .allowsHitTesting(false)
+    }
+    .contentShape(Rectangle())
+    .onDrag {
+      do {
+        return try UserDragPayload(
+          userID: profile.userId,
+          username: profile.displayName ?? profile.userId
+        ).makeItemProvider()
+      } catch {
+        Logger.viewCycle.error("Failed to prepare user drag: \(error)")
+        return NSItemProvider()
+      }
     }
   }
 }
@@ -34,14 +48,29 @@ public struct UserProfileRowLarge<Profile: UserProfile>: View {
     HStack {
       AvatarImage(userProfile: profile, imageLoader: imageLoader)
         .frame(width: 32, height: 32)
+        .allowsHitTesting(false)
       VStack(alignment: .leading) {
-        Username(userProfile: profile)
+        Username(userProfile: profile, isSelectable: false)
         Text(profile.userId)
           .font(.subheadline)
           .foregroundStyle(.secondary)
-          .textSelection(.enabled)
+          .lineLimit(1)
+          .truncationMode(.tail)
       }
-      Spacer()
+    }
+    .contentShape(Rectangle())
+    .onDrag {
+      do {
+        return try UserDragPayload(
+          userID: profile.userId,
+          username: profile.displayName ?? profile.userId
+        ).makeItemProvider()
+      } catch {
+        Logger.viewCycle.error("Failed to prepare user drag: \(error)")
+        return NSItemProvider()
+      }
+    } preview: {
+      UserProfileRow(profile: profile, imageLoader: imageLoader)
     }
   }
 }

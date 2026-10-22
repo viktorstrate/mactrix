@@ -7,7 +7,8 @@ struct RoomInspectorMemberRow<RoomMember: MatrixProtocols.RoomMember>: View {
   let imageLoader: ImageLoader?
 
   var body: some View {
-    UserProfileRow(profile: member, imageLoader: imageLoader)
+    // UserProfileRow(profile: member, imageLoader: imageLoader)
+    UserProfileRowLarge(profile: member, imageLoader: imageLoader)
   }
 }
 
@@ -19,17 +20,19 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
 
   let roomInfo: RoomInfo?
   let imageLoader: ImageLoader?
+  let onSelectUser: (RoomMember) -> Void
 
   @Binding var inspectorVisible: Bool
 
   public init(
     room: Room, members: [RoomMember], roomInfo: RoomInfo?, imageLoader: ImageLoader?,
-    inspectorVisible: Binding<Bool>
+    onSelectUser: @escaping (RoomMember) -> Void, inspectorVisible: Binding<Bool>
   ) {
     self.room = room
     self.members = members
     self.imageLoader = imageLoader
     self.roomInfo = roomInfo
+    self.onSelectUser = onSelectUser
     _inspectorVisible = inspectorVisible
   }
 
@@ -40,7 +43,10 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
     let roleMembers = allMembers.filter { $0.roleForPowerLevel == role }
     Section("\(title) (\(roleMembers.count))") {
       ForEach(roleMembers) { member in
-        RoomInspectorMemberRow(member: member, imageLoader: imageLoader)
+        Button(action: { onSelectUser(member) }) {
+          RoomInspectorMemberRow(member: member, imageLoader: imageLoader)
+        }
+        .buttonStyle(.plain)
       }
     }
   }
@@ -121,14 +127,14 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
         .textSelection(.enabled)
       }
     }
-    .inspectorColumnWidth(min: 200, ideal: 250, max: nil)
+    .inspectorColumnWidth(min: 200, ideal: 250, max: 900)
   }
 }
 
 #Preview {
   RoomInspectorView<MockRoom, MockRoomMember>(
     room: MockRoom.previewRoom, members: [], roomInfo: MockRoomInfo(), imageLoader: nil,
-    inspectorVisible: .constant(true)
+    onSelectUser: { _ in }, inspectorVisible: .constant(true)
   )
   .frame(width: 250, height: 500)
 }

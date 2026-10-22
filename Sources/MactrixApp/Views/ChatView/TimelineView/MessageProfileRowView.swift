@@ -17,6 +17,8 @@ class MessageProfileRowView: NSView {
     max(32, Double(ceil(TimelineTypography.scaled(32))))
   }
 
+  private var dragPayload: UserDragPayload?
+
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
 
@@ -26,6 +28,10 @@ class MessageProfileRowView: NSView {
     name.font = .boldSystemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
     name.lineBreakMode = .byTruncatingTail
     name.maximumNumberOfLines = 1
+
+    profilePicture.onBeginUserDrag = { [weak self] dragEvent in
+      self?.beginUserDrag(with: dragEvent)
+    }
 
     addSubview(profilePicture)
     addSubview(name)
@@ -71,16 +77,45 @@ class MessageProfileRowView: NSView {
     name.toolTip = username
 
     profilePicture.configure(event: event)
+
+    dragPayload = UserDragPayload(userID: event.sender, username: username)
   }
 
 }
 
+extension MessageProfileRowView: NSDraggingSource {
+  func draggingSession(
+    _ session: NSDraggingSession, sourceOperationMaskFor context: NSDraggingContext
+  ) -> NSDragOperation {
+    switch context {
+    case .outsideApplication, .withinApplication:
+      return .copy
+    @unknown default:
+      return []
+    }
+  }
+
+  private func beginUserDrag(with event: NSEvent) {
+    guard let payload = dragPayload else { return }
+
+    _ = try? UserDragging.begin(
+      payload: payload,
+      from: self,
+      avatarView: profilePicture.avatarView,
+      event: event,
+      source: self
+    )
+  }
+}
+
 class ProfilePictureButton: NSButton {
 
-  private let avatarView = AvatarView()
+  let avatarView = AvatarView()
   private var sender: String?
   private var focusUserAction: (_ sender: String) -> Void = { _ in }
   private var imageLoader: MactrixUI.ImageLoader?
+
+  var onBeginUserDrag: ((NSEvent) -> Void)? = nil
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
@@ -132,10 +167,61 @@ class ProfilePictureButton: NSButton {
     }
   }
 
+  override var isHighlighted: Bool {
+    didSet {
+      avatarView.alphaValue = isHighlighted ? 0.6 : 1
+    }
+  }
+
   override func mouseDown(with event: NSEvent) {
-    alphaValue = 0.6
-    window?.displayIfNeeded()
-    super.mouseDown(with: event)
-    alphaValue = 1
+    guard isEnabled else { return }
+
+    guard let window, let onBeginUserDrag else {
+      super.mouseDown(with: event)
+      return
+    }
+
+    isHighlighted = true
+    defer { isHighlighted = false }
+    window.displayIfNeeded()
+
+    let startPoint = event.locationInWindow
+
+    while let nextEvent = window.nextEvent(
+      matching: [.leftMouseDragged, .leftMouseUp]
+    ) {
+      let currentPoint = nextEvent.locationInWindow
+
+      switch nextEvent.type {
+      case .leftMouseDragged:
+        isHighlighted = bounds.contains(convert(currentPoint, from: nil))
+
+        let distance = hypot(
+          currentPoint.x - startPoint.x,
+          currentPoint.y - startPoint.y
+        )
+
+        guard distance >= 4 else { continue }
+
+        // Capture the normal avatar appearance, not its pressed state.
+        isHighlighted = false
+
+        onBeginUserDrag(nextEvent)
+        return
+
+      case .leftMouseUp:
+        let point = convert(currentPoint, from: nil)
+        isHighlighted = false
+
+        if bounds.contains(point), isEnabled {
+          sendAction(action, to: target)
+        }
+
+        return
+
+      default:
+        break
+      }
+    }
   }
 }

@@ -92,10 +92,6 @@ public final class AvatarView: NSView {
     }
   }
 
-  public override func hitTest(_ point: NSPoint) -> NSView? {
-    nil
-  }
-
   public func configure(
     userID: String, displayName: String?, avatarUrl: String?, kind: AvatarKind,
     imageLoader: ImageLoader?
@@ -140,6 +136,20 @@ public final class AvatarView: NSView {
       self.loadTask = nil
       self.imageView.image = image
     }
+  }
+
+  /// Creates an independent view of the current presentation without starting an image request.
+  public func makePresentationCopy() -> AvatarView {
+    let copy = AvatarView(frame: NSRect(origin: .zero, size: bounds.size))
+    copy.appearance = effectiveAppearance
+    copy.userID = userID
+    copy.kind = kind
+    copy.initialLabel.stringValue = initialLabel.stringValue
+    copy.imageView.image = imageView.image
+    copy.updateColors()
+    copy.configureCornerRadius()
+    copy.needsLayout = true
+    return copy
   }
 
   public func cancelLoad() {

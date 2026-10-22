@@ -1,7 +1,4 @@
 import AppKit
-import QuickLook
-import SwiftUI
-import UniformTypeIdentifiers
 
 extension ComposerAttachment {
   var usesThumbnail: Bool {
@@ -9,171 +6,233 @@ extension ComposerAttachment {
   }
 }
 
-struct ComposerAttachmentPreviewTile: View {
+final class ComposerAttachmentPreviewTile: NSView {
   static let sideLength: CGFloat = 72
+  static let height: CGFloat = 90
 
-  enum Visual {
-    case thumbnail(NSImage)
-    case fileIcon(NSImage)
+  private(set) var attachment: ComposerAttachment
+  var onRemove: (() -> Void)?
+  var onPreview: (() -> Void)?
+
+  private let previewButton = AttachmentPreviewButton()
+  private let removeButton = NSButton()
+  private let filenameLabel = NSTextField(labelWithString: "")
+
+  override var isFlipped: Bool { true }
+  override var intrinsicContentSize: NSSize {
+    NSSize(width: Self.sideLength, height: Self.height)
   }
 
-  let attachment: ComposerAttachment
-  let onRemove: () -> Void
-  @State private var previewURL: URL?
+  init(attachment: ComposerAttachment) {
+    self.attachment = attachment
+    super.init(frame: NSRect(x: 0, y: 0, width: Self.sideLength, height: Self.height))
 
-  func visual() -> Visual {
-    if attachment.usesThumbnail, let preview = attachment.preview {
-      return .thumbnail(preview)
-    }
-    return .fileIcon(NSWorkspace.shared.icon(for: attachment.contentType))
+    previewButton.isBordered = false
+    previewButton.setButtonType(.momentaryChange)
+    previewButton.target = self
+    previewButton.action = #selector(previewAttachment)
+    addSubview(previewButton)
+
+    removeButton.isBordered = false
+    removeButton.setButtonType(.momentaryChange)
+    removeButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: nil)?
+      .withSymbolConfiguration(.init(pointSize: 10, weight: .bold))
+    removeButton.imagePosition = .imageOnly
+    removeButton.wantsLayer = true
+    removeButton.layer?.cornerRadius = 10
+    removeButton.target = self
+    removeButton.action = #selector(removeAttachment)
+    addSubview(removeButton)
+
+    filenameLabel.font = .systemFont(ofSize: NSFont.smallSystemFontSize - 1)
+    filenameLabel.alignment = .center
+    filenameLabel.lineBreakMode = .byTruncatingMiddle
+    filenameLabel.maximumNumberOfLines = 1
+    filenameLabel.cell?.wraps = false
+    filenameLabel.cell?.isScrollable = false
+    addSubview(filenameLabel)
+
+    update(attachment: attachment)
+    unregisterAttachmentDragTypes(in: self)
   }
 
-  private var typeDescription: String {
+  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+  override func layout() {
+    super.layout()
+    previewButton.frame = NSRect(x: 0, y: 0, width: Self.sideLength, height: Self.sideLength)
+    removeButton.frame = NSRect(x: Self.sideLength - 23, y: 3, width: 20, height: 20)
+    filenameLabel.frame = NSRect(
+      x: 5, y: Self.sideLength + 4, width: Self.sideLength - 10, height: 14)
+  }
+
+  override func viewDidChangeEffectiveAppearance() {
+    super.viewDidChangeEffectiveAppearance()
+    removeButton.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+  }
+
+  func update(attachment: ComposerAttachment) {
+    self.attachment = attachment
+    previewButton.previewImage = attachment.preview
+    previewButton.usesThumbnail = attachment.usesThumbnail
+    previewButton.fileIcon = NSWorkspace.shared.icon(for: attachment.contentType)
+    previewButton.isVideo = attachment.kind == .video
+    previewButton.needsDisplay = true
+    filenameLabel.stringValue = attachment.filename
+    filenameLabel.toolTip = attachment.filename
+    // The preview button already exposes the filename to assistive technology.
+    filenameLabel.setAccessibilityElement(false)
+
+    let typeDescription: String
     switch attachment.kind {
-    case .image: "image"
-    case .video: "video"
-    case .audio: "audio"
-    case .file: "file"
+    case .image: typeDescription = "image"
+    case .video: typeDescription = "video"
+    case .audio: typeDescription = "audio"
+    case .file: typeDescription = "file"
     }
-  }
-
-  private var tooltip: String {
+    let tooltip: String
     if let byteCount = attachment.byteCount {
-      return "\(attachment.filename) (\(byteCount.formatted(.byteCount(style: .file))))"
+      tooltip = "\(attachment.filename) (\(byteCount.formatted(.byteCount(style: .file))))"
     } else {
-      return attachment.filename
+      tooltip = attachment.filename
     }
+    previewButton.toolTip = tooltip
+    previewButton.setAccessibilityLabel("\(attachment.filename), \(typeDescription), \(tooltip)")
+    previewButton.setAccessibilityHelp("Open in Quick Look")
+    removeButton.toolTip = "Remove \(attachment.filename)"
+    removeButton.setAccessibilityLabel("Remove \(attachment.filename)")
+    removeButton.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
   }
 
-  var body: some View {
-    VStack(spacing: 0) {
-      ZStack(alignment: .topTrailing) {
-        Button {
-          previewURL = attachment.sourceURL
-        } label: {
-          ZStack {
-            switch visual() {
-            case .thumbnail(let image):
-              Image(nsImage: image)
-                .resizable()
-                .scaledToFill()
-                .frame(width: Self.sideLength, height: Self.sideLength)
-            case .fileIcon(let image):
-              Image(nsImage: image)
-                .resizable()
-                .scaledToFit()
-                .frame(width: Self.sideLength, height: Self.sideLength)
-            }
-
-            if attachment.kind == .video {
-              Image(systemName: "play.circle.fill")
-                .font(.largeTitle)
-                .foregroundStyle(.white, .black.opacity(0.45))
-                .accessibilityHidden(true)
-            }
-          }
-          .frame(width: Self.sideLength, height: Self.sideLength)
-          // .background(Color(nsColor: .controlBackgroundColor))
-          .clipShape(RoundedRectangle(cornerRadius: 8))
-        }
-        .buttonStyle(.plain)
-        .help(tooltip)
-        .accessibilityLabel("\(attachment.filename), \(typeDescription), \(tooltip)")
-        .accessibilityHint("Open in Quick Look")
-
-        Button(action: onRemove) {
-          Image(systemName: "xmark")
-            .font(.caption.bold())
-            .foregroundStyle(.primary)
-            .frame(width: 20, height: 20)
-            .background(.regularMaterial, in: Circle())
-        }
-        .buttonStyle(.plain)
-        .padding(3)
-        .help("Remove \(attachment.filename)")
-      }
-      .frame(width: Self.sideLength, height: Self.sideLength)
-
-      Text(attachment.filename)
-        .font(.caption2)
-        .lineLimit(1)
-        .truncationMode(.middle)
-        .padding(.horizontal, 5)
-        .padding(.top, 4)
-        .frame(width: Self.sideLength)
-    }
-    .quickLookPreview($previewURL)
-  }
+  @objc private func previewAttachment() { onPreview?() }
+  @objc private func removeAttachment() { onRemove?() }
 }
 
-struct ComposerAttachmentPreviewStrip: View {
-  let attachments: [ComposerAttachment]
-  let onRemove: (ComposerAttachment.ID) -> Void
+private final class AttachmentPreviewButton: NSButton {
+  var previewImage: NSImage?
+  var fileIcon: NSImage?
+  var usesThumbnail = false
+  var isVideo = false
 
-  var body: some View {
-    if !attachments.isEmpty {
-      ScrollView(.horizontal) {
-        HStack(spacing: 8) {
-          ForEach(attachments) { attachment in
-            ComposerAttachmentPreviewTile(attachment: attachment) {
-              onRemove(attachment.id)
-            }
-          }
-        }
-        .padding(.horizontal, 10)
-      }
-      .scrollIndicators(.hidden)
-      .accessibilityElement(children: .contain)
-      .accessibilityLabel("Attachments")
+  override func draw(_ dirtyRect: NSRect) {
+    NSGraphicsContext.saveGraphicsState()
+    defer { NSGraphicsContext.restoreGraphicsState() }
+    NSBezierPath(roundedRect: bounds, xRadius: 8, yRadius: 8).addClip()
+
+    if let image = usesThumbnail ? previewImage : fileIcon,
+      image.size.width > 0, image.size.height > 0
+    {
+      let widthScale = bounds.width / image.size.width
+      let heightScale = bounds.height / image.size.height
+      let scale = usesThumbnail ? max(widthScale, heightScale) : min(widthScale, heightScale)
+      let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
+      let rect = NSRect(
+        x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2,
+        width: size.width, height: size.height)
+      image.draw(
+        in: rect, from: .zero, operation: .sourceOver, fraction: isHighlighted ? 0.7 : 1,
+        respectFlipped: true, hints: [.interpolation: NSImageInterpolation.high])
+    }
+
+    if isVideo {
+      let overlay = NSRect(x: bounds.midX - 16, y: bounds.midY - 16, width: 32, height: 32)
+      NSColor.black.withAlphaComponent(0.45).setFill()
+      NSBezierPath(ovalIn: overlay.insetBy(dx: 2, dy: 2)).fill()
+      NSImage(systemSymbolName: "play.circle.fill", accessibilityDescription: nil)?
+        .withSymbolConfiguration(.init(paletteColors: [.white]))?
+        .draw(
+          in: overlay, from: .zero, operation: .sourceOver, fraction: 1,
+          respectFlipped: true, hints: nil)
     }
   }
 }
 
-#if DEBUG
-  private enum ComposerAttachmentPreviewFixtures {
-    static let thumbnail = NSImage(size: CGSize(width: 320, height: 180), flipped: false) { rect in
-      NSColor.systemIndigo.setFill()
-      rect.fill()
-      NSColor.white.withAlphaComponent(0.2).setFill()
-      NSBezierPath(ovalIn: rect.insetBy(dx: 45, dy: 20)).fill()
-      return true
-    }
+final class ComposerAttachmentPreviewStrip: NSScrollView {
+  static let height = ComposerAttachmentPreviewTile.height
 
-    static let attachments: [ComposerAttachment] = [
-      attachment(
-        filename: "sunset-over-the-mountains.png", type: .png, kind: .image, preview: thumbnail),
-      attachment(
-        filename: "conference-recording.mov", type: .quickTimeMovie, kind: .video,
-        preview: thumbnail),
-      attachment(filename: "weekly-standup.m4a", type: .mpeg4Audio, kind: .audio),
-      attachment(
-        filename: "very-long-project-specification-for-accessibility-testing.pdf", type: .pdf,
-        kind: .file),
-    ]
+  var onRemove: ((ComposerAttachment.ID) -> Void)?
+  var onPreview: ((ComposerAttachment.ID) -> Void)?
+  private(set) var tiles: [ComposerAttachmentPreviewTile] = []
 
-    private static func attachment(
-      filename: String,
-      type: UTType,
-      kind: ComposerAttachment.Kind,
-      preview: NSImage? = nil
-    ) -> ComposerAttachment {
-      ComposerAttachment(
-        sourceURL: URL(fileURLWithPath: "/tmp/\(filename)"),
-        filename: filename,
-        contentType: type,
-        byteCount: 1_536_000,
-        kind: kind,
-        storageOwnership: .externalUserFile,
-        deduplicationIdentity: .absolutePath("/tmp/\(filename)"),
-        preview: preview)
-    }
+  private let tileContainer = AttachmentPreviewDocumentView()
+  private let spacing: CGFloat = 8
+  private let horizontalInset: CGFloat = 10
+
+  override init(frame frameRect: NSRect) {
+    super.init(frame: frameRect)
+    drawsBackground = false
+    borderType = .noBorder
+    hasHorizontalScroller = false
+    hasVerticalScroller = false
+    horizontalScrollElasticity = .allowed
+    verticalScrollElasticity = .none
+    documentView = tileContainer
+    setAccessibilityElement(true)
+    setAccessibilityRole(.group)
+    setAccessibilityLabel("Attachments")
+    unregisterAttachmentDragTypes(in: self)
   }
 
-  #Preview("Attachment preview tiles") {
-    ComposerAttachmentPreviewStrip(attachments: ComposerAttachmentPreviewFixtures.attachments) {
-      _ in
-    }
-    .padding()
-    .frame(width: 440)
+  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
+
+  override var intrinsicContentSize: NSSize {
+    NSSize(width: NSView.noIntrinsicMetric, height: Self.height)
   }
-#endif
+
+  func update(attachments: [ComposerAttachment]) {
+    let existing = Dictionary(uniqueKeysWithValues: tiles.map { ($0.attachment.id, $0) })
+    let retainedIDs = Set(attachments.map(\.id))
+    for tile in tiles where !retainedIDs.contains(tile.attachment.id) {
+      tile.onRemove = nil
+      tile.onPreview = nil
+      tile.removeFromSuperview()
+    }
+    tiles = attachments.map { attachment in
+      let tile = existing[attachment.id] ?? ComposerAttachmentPreviewTile(attachment: attachment)
+      tile.update(attachment: attachment)
+      tile.onRemove = { [weak self] in self?.onRemove?(attachment.id) }
+      tile.onPreview = { [weak self] in self?.onPreview?(attachment.id) }
+      if tile.superview !== tileContainer { tileContainer.addSubview(tile) }
+      return tile
+    }
+    layoutTiles()
+    unregisterAttachmentDragTypes(in: self)
+    needsLayout = true
+  }
+
+  override func layout() {
+    super.layout()
+    layoutTiles()
+  }
+
+  private func layoutTiles() {
+    let origin = contentView.bounds.origin
+    let contentWidth =
+      horizontalInset * 2 + CGFloat(tiles.count) * ComposerAttachmentPreviewTile.sideLength
+      + CGFloat(max(0, tiles.count - 1)) * spacing
+    tileContainer.setFrameSize(
+      NSSize(width: max(contentView.bounds.width, contentWidth), height: Self.height))
+    for (index, tile) in tiles.enumerated() {
+      tile.frame = NSRect(
+        x: horizontalInset + CGFloat(index) * (ComposerAttachmentPreviewTile.sideLength + spacing),
+        y: 0, width: ComposerAttachmentPreviewTile.sideLength, height: Self.height)
+    }
+    let maxX = max(0, tileContainer.bounds.width - contentView.bounds.width)
+    contentView.scroll(to: NSPoint(x: min(max(0, origin.x), maxX), y: 0))
+    reflectScrolledClipView(contentView)
+  }
+}
+
+private final class AttachmentPreviewDocumentView: NSView {
+  override var isFlipped: Bool { true }
+}
+
+// NSScrollView and its clip view can register drag types of their own. Leave the
+// entire subtree unregistered so attachment drags reach the composer container.
+@MainActor
+private func unregisterAttachmentDragTypes(in view: NSView) {
+  view.unregisterDraggedTypes()
+  for subview in view.subviews {
+    unregisterAttachmentDragTypes(in: subview)
+  }
+}

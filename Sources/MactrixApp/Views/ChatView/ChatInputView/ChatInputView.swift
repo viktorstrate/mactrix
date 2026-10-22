@@ -1,181 +1,267 @@
 import AppKit
 import MatrixIntegration
 import MatrixRustSDK
-import OSLog
 import SwiftUI
-import UniformTypeIdentifiers
 
-struct ChatInputView: View, DropDelegate {
-  @Environment(\.accessibilityReduceTransparency) var reduceTransparency
-
+struct ChatInputView: NSViewControllerRepresentable {
+  @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+  @AppStorage("fontSize") private var fontSize = 13
   let room: Room
   let timeline: LiveTimeline
-  @Bindable var composer: ChatComposerState
-  @AppStorage("fontSize") var fontSize: Int = 13
-  @State private var isAttachmentDropTargeted = false
+  let composer: ChatComposerState
 
-  private func handlePaste(from pasteboard: NSPasteboard) -> Bool {
-    let inputs = ComposerAttachmentInputAdapter.inputs(from: pasteboard)
-    guard !inputs.isEmpty else { return false }
-    Task {
-      var attachments: [ComposerAttachment] = []
-      for input in inputs {
-        do {
-          attachments.append(try await ComposerAttachmentImporter.importInput(input))
-          Logger.composerAttachment.debug("Pasted attachment import succeeded")
-        } catch {
-          Logger.composerAttachment.error("Unable to import pasted attachment: \(error)")
-        }
-      }
-      composer.addAttachments(attachments)
-      if !attachments.isEmpty { composer.requestTextFocus() }
+  func makeNSViewController(context: Context) -> ChatInputViewController {
+    ChatInputViewController(room: room, timeline: timeline, composer: composer)
+  }
+
+  func updateNSViewController(_ controller: ChatInputViewController, context: Context) {
+    controller.update(fontSize: fontSize, reduceTransparency: reduceTransparency)
+  }
+
+  func sizeThatFits(
+    _ proposal: ProposedViewSize, nsViewController: ChatInputViewController,
+    context: Context
+  ) -> CGSize? {
+    let width = proposal.width ?? 400
+    return CGSize(width: width, height: nsViewController.container.height(for: width))
+  }
+
+  static func dismantleNSViewController(_ controller: ChatInputViewController, coordinator: ()) {
+    controller.tearDown()
+  }
+}
+
+/// Shared routing and highlight state for both native destinations.
+@MainActor
+final class ComposerAttachmentDropDestination {
+  var enabled = false
+  var onHighlight: ((Bool) -> Void)?
+  var onDrop: ((NSPasteboard) -> Bool)?
+
+  func recognizes(_ sender: any NSDraggingInfo) -> Bool {
+    ComposerAttachmentInputAdapter.canImportAttachments(from: sender.draggingPasteboard)
+  }
+
+  func operation(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    ComposerAttachmentInputAdapter.attachmentOperation(
+      from: sender.draggingPasteboard, sourceOperations: sender.draggingSourceOperationMask,
+      enabled: enabled)
+  }
+
+  func entered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    let result = operation(sender)
+    onHighlight?(result == .copy)
+    return result
+  }
+
+  func exited() {
+    onHighlight?(false)
+  }
+
+  func perform(_ sender: any NSDraggingInfo) -> Bool {
+    onHighlight?(false)
+    guard operation(sender) == .copy else { return false }
+    return onDrop?(sender.draggingPasteboard) ?? false
+  }
+}
+
+private final class ComposerDecorationView: NSView {
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+@available(macOS 26.0, *)
+private final class ComposerGlassView: NSGlassEffectView {
+  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+}
+
+final class ChatComposerContainer: NSView {
+  private static let horizontalInset: CGFloat = 16
+  private static let verticalInset: CGFloat = 0
+  private static let bottomSpacing: CGFloat = 10
+
+  private var topInset: CGFloat {
+    reply.isHidden && !attachments.isHidden ? 8 : Self.verticalInset
+  }
+
+  let editor = DynamicTextView()
+  let reply = MessageReplyPreviewView()
+  let attachments = ComposerAttachmentPreviewStrip()
+  let dropDestination = ComposerAttachmentDropDestination()
+  private var sectionConstraints: [NSLayoutConstraint] = []
+  private var sectionVisibility: [Bool] = []
+  private let surface = ComposerDecorationView()
+  private let highlight = ComposerDecorationView()
+  private var glass: NSView?
+  private var reduceTransparency = true
+  private var replyHeight: NSLayoutConstraint!
+  private var editorHeight: NSLayoutConstraint!
+  var replyDetails: EmbeddedEventDetails?
+  var onWindowChanged: (() -> Void)?
+
+  override init(frame: NSRect) {
+    super.init(frame: frame)
+    wantsLayer = true
+
+    for view in [surface, reply, attachments, editor, highlight] {
+      view.translatesAutoresizingMaskIntoConstraints = false
+      addSubview(view)
     }
-    return true
-  }
 
-  private func chatInputChanged() async {
-    await composer.saveDraft(room: room, timeline: timeline)
-    if !composer.text.isEmpty {
-      do {
-        try await room.typingNotice(isTyping: !composer.text.isEmpty)
-      } catch {
-        Logger.viewCycle.warning("Failed to send typing notice: \(error)")
-      }
+    for view in [surface, highlight] {
+      view.wantsLayer = true
+      view.layer?.cornerRadius = 16
+      NSLayoutConstraint.activate([
+        view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.horizontalInset),
+        view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.horizontalInset),
+        view.topAnchor.constraint(equalTo: topAnchor),
+        view.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.bottomSpacing),
+      ])
     }
-  }
 
-  var replyEmbeddedDetails: EmbeddedEventDetails? {
-    guard let replyTarget = composer.replyTarget else { return nil }
-
-    return .ready(
-      content: replyTarget.content, sender: replyTarget.sender,
-      senderProfile: replyTarget.senderProfile, timestamp: replyTarget.timestamp,
-      eventOrTransactionId: replyTarget.eventOrTransactionId
-    )
-  }
-
-  var content: some View {
-    VStack(alignment: .leading) {
-      if let replyEmbeddedDetails {
-        EmbeddedMessageView(embeddedEvent: replyEmbeddedDetails) {
-          composer.cancelReply()
-        }
-        .padding([.horizontal, .top], 10)
-      }
-
-      ComposerAttachmentPreviewStrip(attachments: composer.attachments) { attachmentID in
-        composer.removeAttachment(id: attachmentID)
-      }
-      .padding(.top, replyEmbeddedDetails == nil ? 10 : 0)
-
-      ChatTextView(
-        text: $composer.text,
-        placeholder: "Message \(room.displayName() ?? "room")",
-        disabled: !composer.isDraftLoaded,
-        focusRequest: composer.focusRequest,
-        onSubmit: {
-          Task {
-            guard let timeline = timeline.timeline else { return }
-            await composer.sendMessage(timeline: timeline)
-          }
-        },
-        onCanPasteAttachments: ComposerAttachmentInputAdapter.canImportAttachments,
-        onAttachmentPaste: handlePaste
-      )
+    for view in [reply, attachments, editor] {
+      NSLayoutConstraint.activate([
+        view.leadingAnchor.constraint(equalTo: leadingAnchor, constant: Self.horizontalInset),
+        view.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -Self.horizontalInset),
+      ])
     }
-    .font(.system(size: .init(fontSize)))
-    .task(id: composer.draftRevision) {
-      await chatInputChanged()
+
+    reply.isHidden = true
+    attachments.isHidden = true
+    replyHeight = reply.heightAnchor.constraint(equalToConstant: 60)
+    editorHeight = editor.heightAnchor.constraint(equalToConstant: 36)
+    NSLayoutConstraint.activate([
+      editor.bottomAnchor.constraint(
+        equalTo: bottomAnchor, constant: -(Self.verticalInset + Self.bottomSpacing)),
+      replyHeight, editorHeight,
+      attachments.heightAnchor.constraint(equalToConstant: ComposerAttachmentPreviewStrip.height),
+    ])
+    updateSectionConstraints()
+    editor.attachmentDropDestination = dropDestination
+    registerForDraggedTypes(ComposerAttachmentInputAdapter.dragTypes)
+    dropDestination.onHighlight = { [weak self] active in
+      self?.highlight.layer?.backgroundColor =
+        active
+        ? NSColor.controlAccentColor.withAlphaComponent(0.10).cgColor : nil
+      self?.highlight.layer?.borderColor = NSColor.controlAccentColor.cgColor
+      self?.highlight.layer?.borderWidth = active ? 2 : 0
     }
-    .task(id: timeline.timeline != nil) {
-      // we need the timeline to be populated before we load a draft
-      // (in case the draft holds a reply)
-      await composer.loadDraft(room: room, timeline: timeline)
-    }
+    updateAppearance(reduceTransparency: true)
   }
 
-  @available(macOS 26.0, *)
-  var tahoeView: some View {
-    content
-      .glassEffect(in: .rect(cornerRadius: 16.0))
-      .background(dropHighlight)
-      .padding(.horizontal)
-      .padding(.bottom, 10)
-  }
-
-  var oldView: some View {
-    content
-      .background(Color(NSColor.textBackgroundColor))
-      .cornerRadius(4)
-      .overlay(
-        RoundedRectangle(cornerRadius: 16.0)
-          .stroke(
-            isAttachmentDropTargeted ? Color.accentColor : Color(NSColor.separatorColor),
-            lineWidth: isAttachmentDropTargeted ? 2 : 1)
-      )
-      .background(dropHighlight)
-      .padding(.horizontal)
-      .padding(.bottom, 10)
-  }
-
-  private var dropHighlight: some View {
-    RoundedRectangle(cornerRadius: 16.0)
-      .fill(Color.accentColor.opacity(isAttachmentDropTargeted ? 0.10 : 0))
-      .overlay(
-        RoundedRectangle(cornerRadius: 16.0)
-          .stroke(Color.accentColor.opacity(isAttachmentDropTargeted ? 0.7 : 0), lineWidth: 2)
-      )
-      .allowsHitTesting(false)
-  }
-
-  private func dropTarget<Content: View>(for view: Content) -> some View {
-    view
-      .contentShape(Rectangle())
-      .onDrop(of: [.fileURL, .image, .pdf], delegate: self)
-  }
-
-  private func dropProviders(for info: DropInfo)
-    -> (providers: [NSItemProvider], mode: ComposerAttachmentInputAdapter.DropMode)
-  {
-    let files = info.itemProviders(for: [.fileURL])
-    return files.isEmpty ? (info.itemProviders(for: [.item]), .raw) : (files, .files)
-  }
-
-  func validateDrop(info: DropInfo) -> Bool {
-    let selection = dropProviders(for: info)
-    return ComposerAttachmentInputAdapter.canImportAttachments(
-      from: selection.providers, mode: selection.mode)
-  }
-
-  func dropEntered(info: DropInfo) {
-    isAttachmentDropTargeted = validateDrop(info: info)
-  }
-
-  func dropExited(info: DropInfo) {
-    isAttachmentDropTargeted = false
-  }
-
-  func dropUpdated(info: DropInfo) -> DropProposal? {
-    let accepted = validateDrop(info: info)
-    return DropProposal(operation: accepted ? .copy : .forbidden)
-  }
-
-  func performDrop(info: DropInfo) -> Bool {
-    isAttachmentDropTargeted = false
-    let selection = dropProviders(for: info)
-    return ComposerAttachmentInputAdapter.startImportProviders(
-      selection.providers, mode: selection.mode
-    ) { attachments in
-      composer.addAttachments(attachments)
-      if !attachments.isEmpty { composer.requestTextFocus() }
+  override func viewDidChangeEffectiveAppearance() {
+    super.viewDidChangeEffectiveAppearance()
+    effectiveAppearance.performAsCurrentDrawingAppearance {
+      updateAppearance(reduceTransparency: reduceTransparency)
     }
   }
 
-  var body: some View {
+  func updateAppearance(reduceTransparency: Bool) {
+    self.reduceTransparency = reduceTransparency
     if #available(macOS 26.0, *), !reduceTransparency {
-      dropTarget(for: tahoeView)
+      if glass == nil {
+        let effect = ComposerGlassView()
+        effect.cornerRadius = 16
+        effect.translatesAutoresizingMaskIntoConstraints = false
+        addSubview(effect, positioned: .below, relativeTo: surface)
+        NSLayoutConstraint.activate([
+          effect.leadingAnchor.constraint(equalTo: surface.leadingAnchor),
+          effect.trailingAnchor.constraint(equalTo: surface.trailingAnchor),
+          effect.topAnchor.constraint(equalTo: surface.topAnchor),
+          effect.bottomAnchor.constraint(equalTo: surface.bottomAnchor),
+        ])
+        glass = effect
+      }
+      glass?.isHidden = false
+      surface.layer?.backgroundColor = nil
+      surface.layer?.borderWidth = 0
     } else {
-      dropTarget(for: oldView)
+      glass?.isHidden = true
+      surface.layer?.backgroundColor = NSColor.textBackgroundColor.cgColor
+      surface.layer?.borderColor = NSColor.separatorColor.cgColor
+      surface.layer?.borderWidth = 1
     }
   }
+
+  func height(for width: CGFloat) -> CGFloat {
+    let contentWidth = max(1, width - 2 * Self.horizontalInset)
+    var height =
+      editor.height(for: contentWidth) + topInset + Self.verticalInset + Self.bottomSpacing
+    if let replyDetails {
+      height += MessageReplyPreviewView.height(for: replyDetails, width: contentWidth) + 8
+    }
+    if !attachments.isHidden { height += ComposerAttachmentPreviewStrip.height + 8 }
+    return ceil(height)
+  }
+
+  private func updateSectionConstraints() {
+    let visibility = [!reply.isHidden, !attachments.isHidden]
+    guard visibility != sectionVisibility else { return }
+    sectionVisibility = visibility
+    NSLayoutConstraint.deactivate(sectionConstraints)
+    sectionConstraints = []
+    var previous: NSView?
+    for section in [reply, attachments, editor] {
+      if section.isHidden {
+        sectionConstraints.append(
+          section.topAnchor.constraint(equalTo: topAnchor, constant: Self.verticalInset))
+      } else {
+        sectionConstraints.append(
+          section.topAnchor.constraint(
+            equalTo: previous?.bottomAnchor ?? topAnchor,
+            constant: previous == nil ? topInset : 8))
+        previous = section
+      }
+    }
+    NSLayoutConstraint.activate(sectionConstraints)
+  }
+
+  func invalidateSizing() {
+    updateSectionConstraints()
+    needsLayout = true
+    invalidateIntrinsicContentSize()
+    superview?.invalidateIntrinsicContentSize()
+  }
+
+  override var intrinsicContentSize: NSSize {
+    NSSize(width: NSView.noIntrinsicMetric, height: height(for: bounds.width))
+  }
+
+  override func layout() {
+    let width = max(1, bounds.width - 2 * Self.horizontalInset)
+    editorHeight.constant = editor.height(for: width)
+    if let replyDetails {
+      replyHeight.constant = MessageReplyPreviewView.height(for: replyDetails, width: width)
+    }
+    super.layout()
+  }
+
+  override func setFrameSize(_ newSize: NSSize) {
+    let changed = frame.width != newSize.width
+    super.setFrameSize(newSize)
+    if changed { invalidateSizing() }
+  }
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    onWindowChanged?()
+  }
+
+  override var acceptsFirstResponder: Bool { true }
+  override func draggingEntered(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    dropDestination.entered(sender)
+  }
+  override func draggingUpdated(_ sender: any NSDraggingInfo) -> NSDragOperation {
+    dropDestination.entered(sender)
+  }
+  override func draggingExited(_ sender: (any NSDraggingInfo)?) { dropDestination.exited() }
+  override func prepareForDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+    dropDestination.operation(sender) == .copy
+  }
+  override func performDragOperation(_ sender: any NSDraggingInfo) -> Bool {
+    dropDestination.perform(sender)
+  }
+  override func concludeDragOperation(_ sender: (any NSDraggingInfo)?) { dropDestination.exited() }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 }

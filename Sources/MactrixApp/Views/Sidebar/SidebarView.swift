@@ -80,6 +80,7 @@ struct SidebarView: View {
         // force list view to re-render to avoid a rendering bug
         .id(windowState.selectedSpaceId)
     }
+    .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 900)
     .safeAreaInset(edge: .bottom, spacing: 0) {
       Group {
         if #available(macOS 26.0, *) {
