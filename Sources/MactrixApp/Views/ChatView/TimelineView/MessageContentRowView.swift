@@ -1,10 +1,11 @@
 import AppKit
 import MatrixIntegration
 import MatrixRustSDK
+import Utils
 
 /// Content retained by a message row across NSTableView reuse.
 protocol MessageContentRowView: NSView {
-  var onFocusUser: ((String) -> Void)? { get set }
+  var handleMatrixUri: ((MatrixUriScheme) -> Bool)? { get set }
   var onSelectRequest: (() -> Void)? { get set }
   var onArrowKey: ((TimelineSelectionDirection) -> Void)? { get set }
   func configure(content: MatrixRustSDK.MsgLikeContent, matrixClient: MatrixClient?)

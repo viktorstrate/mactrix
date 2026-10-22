@@ -106,4 +106,11 @@ public struct MatrixUriScheme: Hashable, Codable {
     self.action = action
     self.event = nil
   }
+
+  public init(kind: Kind) {
+    self.kind = kind
+    routingVia = []
+    action = nil
+    event = nil
+  }
 }

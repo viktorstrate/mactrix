@@ -1,5 +1,6 @@
 import AppKit
 import MatrixRustSDK
+import Utils
 
 final class StateEventRowView: NSView {
   @MainActor private enum Layout {
@@ -71,7 +72,7 @@ final class StateEventRowView: NSView {
 
   func configure(
     items: [TimelineItemRowInfo.StateEntry], expanded: Bool = false,
-    onFocusUser: ((String) -> Void)? = nil,
+    handleMatrixUri: ((MatrixUriScheme) -> Bool)? = nil,
     onToggleExpanded: (() -> Void)? = nil
   ) {
     precondition(!items.isEmpty)
@@ -103,7 +104,7 @@ final class StateEventRowView: NSView {
       let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
       line.timestamp.stringValue = Self.timeFormatter.string(from: date)
       line.descriptionView.textStorage?.setAttributedString(description)
-      line.descriptionView.onFocusUser = onFocusUser
+      line.descriptionView.handleMatrixUri = handleMatrixUri
       stack.addArrangedSubview(line)
       let height = line.heightAnchor.constraint(equalToConstant: Layout.minimumLineHeight)
       NSLayoutConstraint.activate([

@@ -2,13 +2,14 @@ import AppKit
 import MatrixIntegration
 import MatrixRustSDK
 import OSLog
+import Utils
 
 /// One image and its optional text caption. Both views survive table row reuse.
 final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
   var onMediaPreviewRequest: (() -> Bool)?
   var onMediaPreview: ((URL, MediaFileHandle) -> Void)?
-  var onFocusUser: ((String) -> Void)? {
-    didSet { captionView.onFocusUser = onFocusUser }
+  var handleMatrixUri: ((MatrixUriScheme) -> Bool)? {
+    didSet { captionView.handleMatrixUri = handleMatrixUri }
   }
   var onSelectRequest: (() -> Void)? {
     didSet { captionView.onSelectRequest = onSelectRequest }

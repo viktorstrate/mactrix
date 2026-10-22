@@ -4,6 +4,7 @@ import MatrixProtocols
 import MatrixRustSDK
 import OSLog
 import QuickLookUI
+import Utils
 
 enum TimelineSelectionDirection {
   case up
@@ -250,8 +251,10 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
           },
           roomMembers: self.timeline.room.members,
           matrixClient: self.coordinator.appState.matrixClient,
-          onFocusUser: { [weak self] userId in
-            self?.coordinator.windowState.focusUser(userId: userId)
+          handleMatrixUri: { [weak self] matrixUri in
+            guard let self else { return false }
+            self.handleMatrixUri(matrixUri)
+            return true
           }
         )
         view.setSelected(tableView.selectedRow == row)
@@ -565,12 +568,22 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   ) {
     view.configure(
       items: items, expanded: expandedStateRowIDs.contains(id),
-      onFocusUser: { [weak self] userId in
-        self?.coordinator.windowState.focusUser(userId: userId)
+      handleMatrixUri: { [weak self] matrixUri in
+        guard let self else { return false }
+        self.handleMatrixUri(matrixUri)
+        return true
       }
     ) { [weak self] in
       self?.toggleStateRow(id: id)
     }
+  }
+
+  private func handleMatrixUri(_ matrixUri: MatrixUriScheme) {
+    if case .user(let userID) = matrixUri.kind, matrixUri.action == nil {
+      self.coordinator.windowState.focusUser(userId: userID)
+      return
+    }
+    self.coordinator.windowState.selectedScreen = .loadMatrixUrl(matrixUri)
   }
 
   private func toggleStateRow(id: String) {

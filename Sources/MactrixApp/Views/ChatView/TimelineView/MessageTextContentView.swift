@@ -2,11 +2,12 @@ import AppKit
 import MatrixIntegration
 import MatrixRustSDK
 import MessageFormatting
+import Utils
 
 /// Retains the NSTextView and its layout machinery when its table row is reused.
 final class MessageTextContentView: NSView, MessageContentRowView {
-  var onFocusUser: ((String) -> Void)? {
-    didSet { bodyText.onFocusUser = onFocusUser }
+  var handleMatrixUri: ((MatrixUriScheme) -> Bool)? {
+    didSet { bodyText.handleMatrixUri = handleMatrixUri }
   }
   var onSelectRequest: (() -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?

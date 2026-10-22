@@ -4,7 +4,7 @@ import Utils
 /// NSTextView with Matrix user links handled in the originating window.
 /// Shares read-only message styling.
 class MessageTextView: NSTextView, NSTextViewDelegate {
-  var onFocusUser: ((String) -> Void)?
+  var handleMatrixUri: ((MatrixUriScheme) -> Bool)?
 
   override init(frame frameRect: NSRect) {
     // Preserve AppKit's default TextKit graph and sizing, just like NSTextView(frame:).
@@ -38,12 +38,9 @@ class MessageTextView: NSTextView, NSTextViewDelegate {
   func textView(_ textView: NSTextView, clickedOnLink link: Any, at charIndex: Int) -> Bool {
     guard let url = link as? URL,
       let uri = (try? MatrixUriScheme(parseUrl: url.absoluteString))
-        ?? (try? MatrixUriScheme(parseMatrixToUrl: url.absoluteString)),
-      case .user(let userId) = uri.kind, uri.action == nil,
-      let onFocusUser
+        ?? (try? MatrixUriScheme(parseMatrixToUrl: url.absoluteString))
     else { return false }
 
-    onFocusUser(userId)
-    return true
+    return handleMatrixUri?(uri) ?? false
   }
 }

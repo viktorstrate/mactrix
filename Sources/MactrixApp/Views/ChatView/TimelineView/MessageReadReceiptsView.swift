@@ -2,6 +2,7 @@ import AppKit
 import MactrixUI
 import MatrixProtocols
 import MatrixRustSDK
+import Utils
 
 /// Reuses the visible receipt avatars as the table row is recycled.
 final class MessageReadReceiptsView: NSButton {
@@ -13,7 +14,7 @@ final class MessageReadReceiptsView: NSButton {
   private static var countFont: NSFont {
     .systemFont(ofSize: TimelineTypography.scaled(11))
   }
-  var onFocusUser: ((String) -> Void)?
+  var handleMatrixUri: ((MatrixUriScheme) -> Bool)?
   var receiptCount: Int {
     receipts.count
   }
@@ -136,9 +137,9 @@ final class MessageReadReceiptsView: NSButton {
     let width: CGFloat = 230
     for receipt in receipts.reversed() {
       let row = ReceiptPopoverRowButton(userId: receipt.userId)
-      row.onClick = { [weak self] userId in
+      row.onClick = { [weak self] userID in
         self?.receiptPopover.close()
-        self?.onFocusUser?(userId)
+        let _ = self?.handleMatrixUri?(MatrixUriScheme(kind: .user(userID)))
       }
       row.widthAnchor.constraint(equalToConstant: width - 24).isActive = true
       let avatarSize = TimelineTypography.scaled(28)

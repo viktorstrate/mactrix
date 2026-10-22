@@ -3,6 +3,7 @@ import MactrixUI
 import MatrixIntegration
 import MatrixProtocols
 import MatrixRustSDK
+import Utils
 
 /// Shared row chrome. The content view is created once and retained across table reuse.
 final class MessageRowView: NSView {
@@ -147,7 +148,7 @@ final class MessageRowView: NSView {
     onReactionClick: ((String) -> Void)?,
     roomMembers: [MatrixRustSDK.RoomMember],
     matrixClient: MatrixClient?,
-    onFocusUser: ((String) -> Void)?
+    handleMatrixUri: ((MatrixUriScheme) -> Bool)?
   ) {
     // A reused row may still have its previous table height while its content changes.
     contentBottomToRow.isActive = false
@@ -162,14 +163,14 @@ final class MessageRowView: NSView {
     let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
     timestamp.stringValue = Self.timeFormatter.string(from: date)
     editedLabel.isHidden = !Self.hasBeenEdited(content)
-    contentView.onFocusUser = onFocusUser
+    contentView.handleMatrixUri = handleMatrixUri
     contentView.configure(content: content, matrixClient: matrixClient)
     configureReply(details: replyDetails, onClick: onReplyClick)
     configureThread(summary: content.threadSummary, onClick: onThreadClick)
     configureReactions(event.reactions, ownUserId: ownUserId, onClick: onReactionClick)
     configureReceipts(
       event.userReadReceipts, roomMembers: roomMembers, imageLoader: matrixClient,
-      onFocusUser: onFocusUser)
+      handleMatrixUri: handleMatrixUri)
     isHovered = false
     updateBackground()
   }
@@ -260,7 +261,7 @@ final class MessageRowView: NSView {
 
   private func configureReceipts(
     _ receipts: [String: MatrixProtocols.Receipt], roomMembers: [MatrixRustSDK.RoomMember],
-    imageLoader: MactrixUI.ImageLoader?, onFocusUser: ((String) -> Void)?
+    imageLoader: MactrixUI.ImageLoader?, handleMatrixUri: ((MatrixUriScheme) -> Bool)?
   ) {
     if !receipts.isEmpty, receiptsView == nil {
       let view = MessageReadReceiptsView()
@@ -294,7 +295,7 @@ final class MessageRowView: NSView {
     }
 
     receiptsView?.isHidden = receipts.isEmpty
-    receiptsView?.onFocusUser = onFocusUser
+    receiptsView?.handleMatrixUri = handleMatrixUri
     if !receipts.isEmpty {
       receiptsView?.configure(receipts: receipts, members: roomMembers, imageLoader: imageLoader)
       receiptsWidthConstraint?.constant = MessageReadReceiptsView.width(for: receipts.count)

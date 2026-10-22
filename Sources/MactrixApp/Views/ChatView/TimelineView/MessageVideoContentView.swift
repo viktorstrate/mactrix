@@ -3,11 +3,12 @@ import AppKit
 import MatrixIntegration
 import MatrixRustSDK
 import OSLog
+import Utils
 
 /// A retained video player, thumbnail, and optional caption for a reusable message row.
 final class MessageVideoContentView: NSView, MessageContentRowView {
-  var onFocusUser: ((String) -> Void)? {
-    didSet { captionView.onFocusUser = onFocusUser }
+  var handleMatrixUri: ((MatrixUriScheme) -> Bool)? {
+    didSet { captionView.handleMatrixUri = handleMatrixUri }
   }
   var onSelectRequest: (() -> Void)? {
     didSet { captionView.onSelectRequest = onSelectRequest }

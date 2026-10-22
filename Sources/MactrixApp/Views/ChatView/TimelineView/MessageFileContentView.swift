@@ -3,12 +3,13 @@ import MatrixIntegration
 import MatrixRustSDK
 import OSLog
 import UniformTypeIdentifiers
+import Utils
 
 final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
   var onMediaPreviewRequest: (() -> Bool)?
   var onMediaPreview: ((URL, MediaFileHandle) -> Void)?
-  var onFocusUser: ((String) -> Void)? {
-    didSet { captionView.onFocusUser = onFocusUser }
+  var handleMatrixUri: ((MatrixUriScheme) -> Bool)? {
+    didSet { captionView.handleMatrixUri = handleMatrixUri }
   }
   var onSelectRequest: (() -> Void)? {
     didSet { captionView.onSelectRequest = onSelectRequest }
