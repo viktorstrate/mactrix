@@ -79,6 +79,10 @@ final class ChatComposerContainer: NSView {
   private static let verticalInset: CGFloat = 0
   private static let bottomSpacing: CGFloat = 10
 
+  private var topInset: CGFloat {
+    reply.isHidden && !attachments.isHidden ? 8 : Self.verticalInset
+  }
+
   let editor = DynamicTextView()
   let reply = MessageReplyPreviewView()
   let attachments = ComposerAttachmentPreviewStrip()
@@ -180,7 +184,8 @@ final class ChatComposerContainer: NSView {
 
   func height(for width: CGFloat) -> CGFloat {
     let contentWidth = max(1, width - 2 * Self.horizontalInset)
-    var height = editor.height(for: contentWidth) + 2 * Self.verticalInset + Self.bottomSpacing
+    var height =
+      editor.height(for: contentWidth) + topInset + Self.verticalInset + Self.bottomSpacing
     if let replyDetails {
       height += MessageReplyPreviewView.height(for: replyDetails, width: contentWidth) + 8
     }
@@ -203,7 +208,7 @@ final class ChatComposerContainer: NSView {
         sectionConstraints.append(
           section.topAnchor.constraint(
             equalTo: previous?.bottomAnchor ?? topAnchor,
-            constant: previous == nil ? Self.verticalInset : 8))
+            constant: previous == nil ? topInset : 8))
         previous = section
       }
     }
