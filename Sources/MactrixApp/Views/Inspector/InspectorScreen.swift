@@ -9,6 +9,10 @@ struct InspectorScreen: View {
   @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
+  func onSelectUser(user: MatrixRustSDK.RoomMember) {
+    windowState.focusUser(userId: user.id)
+  }
+
   @ViewBuilder
   var content: some View {
     @Bindable var windowState = windowState
@@ -34,7 +38,8 @@ struct InspectorScreen: View {
       case .joinedRoom(let timeline):
         MactrixUI.RoomInspectorView(
           room: timeline.room, members: timeline.room.members, roomInfo: timeline.room.roomInfo,
-          imageLoader: appState.matrixClient, inspectorVisible: $windowState.inspectorVisible)
+          imageLoader: appState.matrixClient, onSelectUser: onSelectUser,
+          inspectorVisible: $windowState.inspectorVisible)
       case .none, .newRoom, .previewRoom, .loadMatrixUrl(_), .user(profile: _):
         Text("No room selected")
           .inspectorColumnWidth(min: 200, ideal: 250, max: 900)
