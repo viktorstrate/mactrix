@@ -16,22 +16,11 @@ struct SidebarView: View {
     let joinedRooms = (appState.matrixClient?.rooms ?? []).filter { $0.roomInfo != nil }
     let spaceService = appState.matrixClient?.spaceService
 
-    let selectedSpaceRoom = spaceService?.spaceRooms.first {
-      $0.id == windowState.selectedSpaceId
-    }
-
-    if let selectedSpaceRoom {
-      switch selectedSpaceRoom.children {
-      case .error:
-        return []
-      case .loading:
-        Task { await selectedSpaceRoom.loadChildren() }
-        return []
-      case .loaded(let children):
-        return joinedRooms.filter { room in
-          children.rooms.contains { $0.spaceRoom.id == room.id }
-        }
-      }
+    if let selectedSpaceId = windowState.selectedSpaceId {
+      let roomIDs = Set(
+        spaceService?.spaceFilters
+          .first { $0.spaceRoom.roomId == selectedSpaceId }?.descendants ?? [])
+      return joinedRooms.filter { roomIDs.contains($0.id) }
     }
 
     let roomsWithParents = spaceService?.roomsWithJoinedSpaceParents ?? []
@@ -79,6 +68,9 @@ struct SidebarView: View {
       listView
         // force list view to re-render to avoid a rendering bug
         .id(windowState.selectedSpaceId)
+    }
+    .task(id: selectedSpace?.id) {
+      await selectedSpace?.loadChildren()
     }
     .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 900)
     .safeAreaInset(edge: .bottom, spacing: 0) {
