@@ -118,17 +118,12 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
       let details = EmbeddedEventDetails.ready(
         content: target.content, sender: target.sender, senderProfile: target.senderProfile,
         timestamp: target.timestamp, eventOrTransactionId: target.eventOrTransactionId)
-      container.replyDetails = details
-      container.reply.configure(details: details)
-      container.reply.isHidden = false
+      container.setReply(details: details)
     } else {
-      container.replyDetails = nil
-      container.reply.isHidden = true
+      container.setReply(details: nil)
     }
     synchronizePreviewAttachments()
-    container.attachments.update(attachments: composer.attachments)
-    container.attachments.isHidden = composer.attachments.isEmpty
-    container.invalidateSizing()
+    container.setAttachments(composer.attachments)
     requestFocus()
   }
 
