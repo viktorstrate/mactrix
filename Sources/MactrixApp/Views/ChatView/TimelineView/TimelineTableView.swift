@@ -1182,6 +1182,44 @@ class TimelineTableView: NSTableView {
     super.mouseDown(with: event)
   }
 
+  override func viewDidEndLiveResize() {
+    super.viewDidEndLiveResize()
+
+    // Visible row heights are refreshed live while resizing the window.
+    // The remaining rows are only resized once when live resize ends to stay performant.
+    let visibleRows = rows(in: visibleRect)
+    let allRows = IndexSet(integersIn: 0..<numberOfRows)
+    guard let scrollView = enclosingScrollView,
+      visibleRows.location != NSNotFound, visibleRows.length > 0
+    else {
+      noteHeightOfRows(withIndexesChanged: allRows)
+      return
+    }
+    let otherRows = allRows.subtracting(
+      IndexSet(integersIn: visibleRows.lowerBound..<visibleRows.upperBound))
+    let clipView = scrollView.contentView
+    let anchorRow = visibleRows.location
+    let anchorRect = rect(ofRow: anchorRow)
+    let anchorTop = clipView.convert(anchorRect.origin, from: self)
+    let anchorOffset = anchorTop.y - clipView.bounds.minY
+
+    NSAnimationContext.runAnimationGroup { context in
+      context.duration = 0
+      context.allowsImplicitAnimation = false
+      noteHeightOfRows(withIndexesChanged: otherRows)
+
+      // Heights above the viewport move the anchor in document coordinates.
+      // Settle geometry before compensating, including the bottom-aligned table origin.
+      scrollView.layoutSubtreeIfNeeded()
+      (superview as? TimelineDocumentView)?.updateGeometry()
+      let newTop = clipView.convert(rect(ofRow: anchorRow).origin, from: self)
+      var bounds = clipView.bounds
+      bounds.origin.y = newTop.y - anchorOffset
+      clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
+      scrollView.reflectScrolledClipView(clipView)
+    }
+  }
+
   override func layout() {
     super.layout()
     (superview as? TimelineDocumentView)?.updateGeometry()
