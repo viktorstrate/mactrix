@@ -1194,6 +1194,7 @@ final class TimelineDocumentView: NSView {
   private let tableView: TimelineTableView
   private var updatingGeometry = false
   private var previousViewportHeight: CGFloat?
+  private var previousBottomInset: CGFloat?
 
   override var isFlipped: Bool { true }
 
@@ -1226,11 +1227,15 @@ final class TimelineDocumentView: NSView {
     let viewportHeight = clipView.bounds.height
     let insets = clipView.contentInsets
     let resized = previousViewportHeight != nil && previousViewportHeight != viewportHeight
+    let bottomInsetChanged = previousBottomInset != nil && previousBottomInset != insets.bottom
+
     let followBottom =
-      resized
-      && frame.maxY - (previousViewportHeight ?? viewportHeight) + insets.bottom
-        - clipView.bounds.minY <= 2
+      (resized || bottomInsetChanged)
+      && frame.maxY - (previousViewportHeight ?? viewportHeight)
+        + (previousBottomInset ?? insets.bottom) - clipView.bounds.minY <= 2
+
     previousViewportHeight = viewportHeight
+    previousBottomInset = insets.bottom
 
     let width = max(0, clipView.bounds.width - insets.left - insets.right)
     if tableView.frame.width != width {
