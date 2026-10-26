@@ -1,5 +1,6 @@
 import AppKit
 import MatrixIntegration
+import OSLog
 
 final class ChatRoomViewController: NSViewController {
   let timelineController: TimelineViewController
@@ -28,20 +29,20 @@ final class ChatRoomViewController: NSViewController {
     super.viewDidAppear()
 
     guard #available(macOS 26.0, *), composerAccessory == nil else { return }
-    guard let item = enclosingSplitViewItem else {
-      print("[ChatRoomViewController] No enclosing split-view item; keeping composer overlay")
+    if let splitView = enclosingSplitViewItem {
+      let accessory = ChatComposerAccessoryViewController(composerController: composerController)
+      composerAccessory = accessory
+      composerController.view.removeFromSuperview()
+      composerController.removeFromParent()
+      view.needsLayout = true
+      splitView.addBottomAlignedAccessoryViewController(accessory)
+
+      Logger.composerView.debug(
+        "Attached composer accessory to \(type(of: splitView.viewController))")
+    } else {
+      Logger.composerView.debug("No enclosing split-view item; keeping composer overlay")
       return
     }
-
-    let accessory = ChatComposerAccessoryViewController(composerController: composerController)
-    composerAccessory = accessory
-    composerController.view.removeFromSuperview()
-    composerController.removeFromParent()
-    view.needsLayout = true
-    item.addBottomAlignedAccessoryViewController(accessory)
-
-    print(
-      "[ChatRoomViewController] Attached composer accessory to \(type(of: item.viewController))")
   }
 
   private var enclosingSplitViewItem: NSSplitViewItem? {
@@ -80,6 +81,7 @@ final class ChatRoomViewController: NSViewController {
 @available(macOS 26.0, *)
 private final class ChatComposerAccessoryViewController: NSSplitViewItemAccessoryViewController {
   private let composerController: ChatInputViewController
+  private var restoreClipping: (() -> Void)?
 
   init(composerController: ChatInputViewController) {
     self.composerController = composerController
@@ -93,6 +95,41 @@ private final class ChatComposerAccessoryViewController: NSSplitViewItemAccessor
   override func loadView() {
     addChild(composerController)
     view = ChatComposerAccessoryContainerView(composer: composerController.composerView)
+  }
+
+  override func viewDidAppear() {
+    super.viewDidAppear()
+    disableShadowClipping()
+  }
+
+  /// Access the internal view that clips the shadow of the composer view.
+  /// This internal view is not directly accessible on the super views.
+  /// The method attempts to find it to disable clipping.
+  private func disableShadowClipping() {
+    guard restoreClipping == nil else { return }
+    var ancestor = view.superview
+    while let current = ancestor, !(current is NSSplitView) {
+      if current.clipsToBounds || current.layer?.masksToBounds == true {
+        let layer = current.layer
+        let clipping = (current.clipsToBounds, layer?.masksToBounds ?? false)
+        restoreClipping = { [weak current, weak layer] in
+          current?.clipsToBounds = clipping.0
+          layer?.masksToBounds = clipping.1
+        }
+        current.clipsToBounds = false
+        layer?.masksToBounds = false
+        current.superview?.needsDisplay = true
+        return
+      }
+      ancestor = current.superview
+    }
+    Logger.composerView.info("No matching accessory clip found; clipping unchanged")
+  }
+
+  override func viewWillDisappear() {
+    restoreClipping?()
+    restoreClipping = nil
+    super.viewWillDisappear()
   }
 
   @available(*, unavailable)

@@ -182,7 +182,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
       // Finish consuming captured inputs even after cancellation so owned files are cleaned up.
       for input in inputs {
         do { attachments.append(try await ComposerAttachmentImporter.importInput(input)) } catch {
-          Logger.composerAttachment.error("Unable to import attachment: \(error)")
+          Logger.composerView.error("Unable to import attachment: \(error)")
         }
       }
       guard !Task.isCancelled, let self else {

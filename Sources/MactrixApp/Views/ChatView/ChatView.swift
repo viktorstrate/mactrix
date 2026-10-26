@@ -27,7 +27,7 @@ struct ChatJoinedRoom: View {
 
   var body: some View {
     ChatRoomViewRepresentable(timeline: timeline, composer: composer)
-      .ignoresSafeArea(edges: .top)
+      .ignoresSafeArea(edges: .vertical)
       .navigationTitle(room.room.displayName() ?? "Unknown room")
       .navigationSubtitle(toolbarSubtitle)
       .frame(minWidth: 250, minHeight: 200)
