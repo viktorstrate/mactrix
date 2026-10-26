@@ -126,7 +126,7 @@ final class ChatComposerState {
         try await joinHandle.join()
         finishSending(snapshot: snapshot, cleanupAttachments: true)
       } catch {
-        Logger.composerAttachment.error(
+        Logger.composerView.error(
           "failed to enqueue attachment \(attachment.filename): \(error)")
       }
 
@@ -163,7 +163,7 @@ final class ChatComposerState {
         try await joinHandle.join()
         finishSending(snapshot: snapshot, cleanupAttachments: true)
       } catch {
-        Logger.composerAttachment.error("failed to enqueue attachments: \(error)")
+        Logger.composerView.error("failed to enqueue attachments: \(error)")
       }
     }
   }
@@ -261,7 +261,7 @@ final class ChatComposerState {
           }
         } catch {
           discardedAttachment = true
-          Logger.composerAttachment.warning("Discarding unavailable draft attachment: \(error)")
+          Logger.composerView.warning("Discarding unavailable draft attachment: \(error)")
         }
       }
       completeDraftRestoration()

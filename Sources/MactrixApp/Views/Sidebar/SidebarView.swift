@@ -61,7 +61,7 @@ struct SidebarView: View {
     appState.matrixClient?.spaceService.spaceRooms ?? []
   }
 
-  var body: some View {
+  var content: some View {
     HStack(spacing: 0) {
       SidebarGroupsList()
       Divider()
@@ -73,23 +73,27 @@ struct SidebarView: View {
       await selectedSpace?.loadChildren()
     }
     .navigationSplitViewColumnWidth(min: 200, ideal: 250, max: 900)
-    .safeAreaInset(edge: .bottom, spacing: 0) {
-      Group {
-        if #available(macOS 26.0, *) {
-          statusContent
-            .glassEffect(
-              .regular,
-              in: ConcentricRectangle(corners: .concentric(minimum: .fixed(12)))
-            )
-        } else {
-          statusContent
-            .background(
-              .regularMaterial,
-              in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-            )
-        }
+  }
+
+  var body: some View {
+    if #available(macOS 26.0, *) {
+      content.safeAreaBar(edge: .bottom) {
+        statusContent
+          .glassEffect(
+            .regular,
+            in: ConcentricRectangle(corners: .concentric(minimum: .fixed(12)))
+          )
+          .padding(8)
       }
-      .padding(8)
+    } else {
+      content.safeAreaInset(edge: .bottom) {
+        statusContent
+          .background(
+            .regularMaterial,
+            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
+          )
+          .padding(8)
+      }
     }
   }
 

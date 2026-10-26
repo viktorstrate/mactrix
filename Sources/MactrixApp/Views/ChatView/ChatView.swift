@@ -26,12 +26,8 @@ struct ChatJoinedRoom: View {
   }
 
   var body: some View {
-    TimelineViewRepresentable(timeline: timeline, composer: composer)
-      .ignoresSafeArea(edges: .top)
-      .safeAreaInset(edge: .bottom, spacing: 8) {
-        ChatInputView(room: room.room, timeline: timeline, composer: composer)
-      }
-      .background(Color(NSColor.controlBackgroundColor))
+    ChatRoomViewRepresentable(timeline: timeline, composer: composer)
+      .ignoresSafeArea(edges: .vertical)
       .navigationTitle(room.room.displayName() ?? "Unknown room")
       .navigationSubtitle(toolbarSubtitle)
       .frame(minWidth: 250, minHeight: 200)

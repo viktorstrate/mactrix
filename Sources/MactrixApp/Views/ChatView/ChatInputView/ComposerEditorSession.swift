@@ -6,7 +6,6 @@ final class ComposerEditorSession {
   let editor: DynamicTextView
   let composer: ChatComposerState
   private(set) var fulfilledFocus = 0
-  private(set) var isActive = true
   private var requestedFocus = 0
   private var focusTask: Task<Void, Never>?
 
@@ -16,7 +15,6 @@ final class ComposerEditorSession {
   }
 
   func synchronize(text: String, enabled: Bool, placeholder: String, fontSize: Int) {
-    guard isActive else { return }
     if editor.string != text {
       editor.string = text
       editor.invalidateIntrinsicContentSize()
@@ -37,17 +35,17 @@ final class ComposerEditorSession {
   }
 
   func textDidChange() {
-    guard isActive, editor.isEditable else { return }
+    guard editor.isEditable else { return }
     if composer.text != editor.string { composer.text = editor.string }
   }
 
   func requestFocus(_ request: Int) {
     requestedFocus = request
-    guard isActive, editor.isEditable, request != fulfilledFocus else { return }
+    guard editor.isEditable, request != fulfilledFocus else { return }
     focusTask?.cancel()
     focusTask = Task { @MainActor [weak self] in
       await Task.yield()
-      guard !Task.isCancelled, let self, isActive, editor.isEditable,
+      guard !Task.isCancelled, let self, editor.isEditable,
         requestedFocus == request, let window = editor.window
       else { return }
       if window.makeFirstResponder(editor) { fulfilledFocus = request }
@@ -55,7 +53,6 @@ final class ComposerEditorSession {
   }
 
   func tearDown() {
-    isActive = false
     focusTask?.cancel()
     focusTask = nil
   }
