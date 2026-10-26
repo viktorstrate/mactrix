@@ -22,6 +22,7 @@ final class MessageHoverOverlayView: NSView {
   init() {
     super.init(frame: .zero)
 
+    translatesAutoresizingMaskIntoConstraints = false
     wantsLayer = true
     layer?.cornerRadius = 4
     layer?.borderWidth = 1

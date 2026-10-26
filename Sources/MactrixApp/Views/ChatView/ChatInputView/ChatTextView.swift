@@ -64,11 +64,11 @@ class DynamicTextView: SubmitableTextView {
   var onAttachmentPaste: ((NSPasteboard) -> Bool)?
 
   override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
-    [.mactrixUser] + super.readablePasteboardTypes
+    [.mactrixUser, .string]
   }
 
   override var acceptableDragTypes: [NSPasteboard.PasteboardType] {
-    [.mactrixUser] + super.acceptableDragTypes
+    readablePasteboardTypes
       + (attachmentDropDestination == nil ? [] : ComposerAttachmentInputAdapter.dragTypes)
   }
 

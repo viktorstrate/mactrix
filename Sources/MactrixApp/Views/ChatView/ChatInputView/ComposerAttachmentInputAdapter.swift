@@ -26,7 +26,8 @@ enum ComposerAttachmentInputAdapter {
   }
 
   private static func containsText(_ identifiers: [String]) -> Bool {
-    identifiers.contains { UTType($0)?.conforms(to: .text) == true }
+    // Only plain text competes with attachments, the editor rejects HTML and RTF.
+    identifiers.contains { UTType($0)?.conforms(to: .plainText) == true }
   }
 
   private static func canImport(_ identifiers: [String]) -> Bool {
