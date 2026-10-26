@@ -10,10 +10,15 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
   let room: Room
   let timeline: LiveTimeline
   let composer: ChatComposerState
-  let container = ChatComposerContainer()
-  private(set) var isActive = true
+  private let container = ChatComposerContainer()
+  var composerView: ChatComposerContainer {
+    loadViewIfNeeded()
+    return container
+  }
+
   private lazy var editorSession = ComposerEditorSession(
     editor: container.editor, composer: composer)
+
   private var previewAttachments: [ComposerAttachment] = []
   private var initialPreviewItemIndex = 0
   var previewAttachmentID: ComposerAttachment.ID? {
@@ -26,6 +31,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     guard previewAttachments.indices.contains(index) else { return nil }
     return previewAttachments[index].id
   }
+
   private var fontSize = 13
   private var revision: Int?
   private var wasDraftLoaded = false
@@ -43,6 +49,11 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
   override func loadView() {
     view = container
+  }
+
+  override func viewDidLoad() {
+    super.viewDidLoad()
+
     let editor = container.editor
     editor.allowsUndo = true
     editor.backgroundColor = .clear
@@ -77,7 +88,6 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
   }
 
   private func observeState() {
-    guard isActive else { return }
     withObservationTracking {
       _ = composer.text
       _ = composer.replyTarget
@@ -88,10 +98,10 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
       _ = timeline.timeline
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
-        guard let self, isActive else { return }
-        observeState()
+        self?.observeState()
       }
     }
+
     synchronizeEditor()
     if timeline.timeline != nil, !composer.isDraftLoaded, draftLoadTask == nil {
       let room = room
@@ -108,7 +118,6 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
   /// Only replace externally changed text; ordinary editing preserves selection and undo.
   func synchronizeEditor() {
-    guard isActive else { return }
     editorSession.synchronize(
       text: composer.text, enabled: composer.isDraftLoaded,
       placeholder: "Message \(room.displayName() ?? "room")", fontSize: fontSize)
@@ -128,13 +137,12 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
   }
 
   func textDidChange(_ notification: Notification) {
-    guard isActive, container.editor.isEditable else { return }
+    guard container.editor.isEditable else { return }
     editorSession.textDidChange()
     container.invalidateSizing()
   }
 
   func requestFocus() {
-    guard isActive else { return }
     editorSession.requestFocus(composer.focusRequest)
   }
 
@@ -154,7 +162,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
   }
 
   private func submit() {
-    guard isActive, composer.isDraftLoaded, let inner = timeline.timeline else { return }
+    guard composer.isDraftLoaded, let inner = timeline.timeline else { return }
     let id = UUID()
     let composer = composer
     actionTasks[id] = Task { [weak self] in
@@ -165,7 +173,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
   @discardableResult
   func importAttachments(from pasteboard: NSPasteboard) -> Bool {
-    guard isActive, composer.isDraftLoaded else { return false }
+    guard composer.isDraftLoaded else { return false }
     let inputs = ComposerAttachmentInputAdapter.inputs(from: pasteboard, captureFiles: true)
     guard !inputs.isEmpty else { return false }
     let id = UUID()
@@ -177,7 +185,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
           Logger.composerAttachment.error("Unable to import attachment: \(error)")
         }
       }
-      guard !Task.isCancelled, let self, isActive else {
+      guard !Task.isCancelled, let self else {
         for attachment in attachments where attachment.storageOwnership == .appOwnedTemporaryFile {
           try? ComposerAttachmentImporter.cleanupTemporaryAttachment(attachment)
         }
@@ -196,18 +204,14 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
   }
 
   func tearDown() {
-    guard isActive else { return }
-    isActive = false
     draftLoadTask?.cancel()
+    draftLoadTask = nil
     draftSaveTask?.cancel()
+    draftSaveTask = nil
     editorSession.tearDown()
     actionTasks.values.forEach { $0.cancel() }
     actionTasks.removeAll()
     closePreview()
-    container.dropDestination.enabled = false
-    container.dropDestination.onDrop = nil
-    container.dropDestination.onHighlight?(false)
-    container.editor.delegate = nil
   }
 
   @available(*, unavailable)
@@ -216,7 +220,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
 extension ChatInputViewController: @preconcurrency QLPreviewPanelDataSource {
   func showPreview(id: ComposerAttachment.ID) {
-    guard isActive, let index = composer.attachments.firstIndex(where: { $0.id == id }),
+    guard let index = composer.attachments.firstIndex(where: { $0.id == id }),
       let window = container.window, let panel = QLPreviewPanel.shared()
     else { return }
     previewAttachments = composer.attachments
@@ -265,7 +269,7 @@ extension ChatInputViewController: @preconcurrency QLPreviewPanelDataSource {
   }
 
   override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
-    MainActor.assumeIsolated { isActive && !previewAttachments.isEmpty }
+    MainActor.assumeIsolated { !previewAttachments.isEmpty }
   }
 
   override func beginPreviewPanelControl(_ panel: QLPreviewPanel!) {

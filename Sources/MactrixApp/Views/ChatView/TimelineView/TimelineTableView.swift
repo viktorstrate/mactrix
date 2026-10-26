@@ -92,7 +92,9 @@ extension TimelineItemRowInfo: Identifiable {
 
 class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveTimelineDiffDelegate
 {
-  let coordinator: TimelineViewRepresentable.Coordinator
+  let appState: AppState
+  let windowState: WindowState
+  private var actionTasks: [UUID: Task<Void, Never>] = [:]
 
   private var dataSource: NSTableViewDiffableDataSource<TimelineSection, TimelineUniqueId>?
 
@@ -128,14 +130,48 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   init(
-    coordinator: TimelineViewRepresentable.Coordinator, timeline: LiveTimeline,
+    appState: AppState, windowState: WindowState, timeline: LiveTimeline,
     composer: ChatComposerState
   ) {
-    self.coordinator = coordinator
+    self.appState = appState
+    self.windowState = windowState
     self.timeline = timeline
     self.composer = composer
     self.projection = TimelineRowProjection(items: timeline.timelineItems)
     super.init(nibName: nil, bundle: nil)
+  }
+
+  func tearDown() {
+    NotificationCenter.default.removeObserver(self)
+
+    if timeline.focusDelegate === self {
+      timeline.focusDelegate = nil
+    }
+
+    if timeline.diffDelegate === self {
+      timeline.diffDelegate = nil
+    }
+
+    timelineFetchTask?.cancel()
+    timelineFetchTask = nil
+
+    for task in actionTasks.values {
+      task.cancel()
+    }
+    actionTasks.removeAll()
+  }
+
+  private func startActionTask(_ operation: @escaping @MainActor () async -> Void) {
+    let id = UUID()
+    actionTasks[id] = Task { @MainActor [weak self] in
+      defer { self?.actionTasks[id] = nil }
+      guard !Task.isCancelled else { return }
+      await operation()
+    }
+  }
+
+  override func loadView() {
+    view = scrollView
   }
 
   override func viewDidLoad() {
@@ -179,9 +215,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         } else {
           let view = MessageProfileRowView()
           view.initialize(
-            imageLoader: coordinator.appState.matrixClient,
+            imageLoader: appState.matrixClient,
             focusUser: { [weak self] in
-              self?.coordinator.windowState.focusUser(userId: $0)
+              self?.windowState.focusUser(userId: $0)
             })
           view.configure(event: event)
           view.identifier = item.reuseIdentifier
@@ -243,14 +279,14 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
           replyDetails: self.replyDetails(for: content),
           onReplyClick: self.replyClick(for: content),
           onThreadClick: { [weak self] in
-            self?.coordinator.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
+            self?.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
           },
-          ownUserId: try? self.coordinator.appState.matrixClient?.client.userId(),
+          ownUserId: try? self.appState.matrixClient?.client.userId(),
           onReactionClick: { [weak self] key in
             self?.toggleReaction(key, for: event)
           },
           roomMembers: self.timeline.room.members,
-          matrixClient: self.coordinator.appState.matrixClient,
+          matrixClient: self.appState.matrixClient,
           handleMatrixUri: { [weak self] matrixUri in
             guard let self else { return false }
             self.handleMatrixUri(matrixUri)
@@ -281,7 +317,6 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
     scrollView.drawsBackground = false
     tableView.backgroundColor = .clear
-    view = scrollView
 
     // Subscribe to view resize notifications
     scrollView.contentView.postsBoundsChangedNotifications = true
@@ -365,7 +400,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private func replyClick(for content: MatrixRustSDK.MsgLikeContent) -> (() -> Void)? {
     guard let replyId = content.inReplyTo?.eventId() else { return nil }
     return { [weak self] in
-      self?.timeline.focusEvent(id: .eventId(eventId: replyId))
+      guard let self else { return }
+      self.timeline.focusEvent(id: .eventId(eventId: replyId))
     }
   }
 
@@ -494,11 +530,12 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func toggleReaction(_ key: String, for event: MatrixRustSDK.EventTimelineItem) {
-    Task {
+    startActionTask { [weak self] in
       do {
-        _ = try await timeline.timeline?.toggleReaction(
-          itemId: event.eventOrTransactionId, key: key)
+        _ = try await self?.timeline.timeline?
+          .toggleReaction(itemId: event.eventOrTransactionId, key: key)
       } catch {
+        guard !Task.isCancelled else { return }
         Logger.timelineTableView.error("Failed to toggle reaction: \(error)")
       }
     }
@@ -525,13 +562,14 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     case .reply:
       composer.beginReply(to: event)
     case .replyInThread:
-      coordinator.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
+      windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
     case .pin:
       guard case .eventId(eventId: let eventId) = event.eventOrTransactionId else { return }
-      Task {
+      startActionTask { [weak self] in
         do {
-          _ = try await timeline.timeline?.pinEvent(eventId: eventId)
+          _ = try await self?.timeline.timeline?.pinEvent(eventId: eventId)
         } catch {
+          guard !Task.isCancelled else { return }
           Logger.timelineTableView.error("Failed to pin message: \(error)")
         }
       }
@@ -580,10 +618,10 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   private func handleMatrixUri(_ matrixUri: MatrixUriScheme) {
     if case .user(let userID) = matrixUri.kind, matrixUri.action == nil {
-      self.coordinator.windowState.focusUser(userId: userID)
+      self.windowState.focusUser(userId: userID)
       return
     }
-    self.coordinator.windowState.selectedScreen = .loadMatrixUrl(matrixUri)
+    self.windowState.selectedScreen = .loadMatrixUrl(matrixUri)
   }
 
   private func toggleStateRow(id: String) {
@@ -629,9 +667,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
     if distanceFromTop <= threshold, timelineFetchTask == nil {
       Logger.timelineTableView.info("Fetching older messages (scroll near top)")
-      timelineFetchTask = Task {
-        await timeline.fetchOlderMessages()
-        timelineFetchTask = nil
+      timelineFetchTask = Task { [weak self] in
+        await self?.timeline.fetchOlderMessages()
+        self?.timelineFetchTask = nil
       }
     }
   }
@@ -1080,7 +1118,7 @@ extension TimelineViewController {
     state.isSaving = true
     state.error = nil
     refreshEditingRows(events: [event.eventOrTransactionId])
-    Task { [weak self] in
+    startActionTask { [weak self] in
       do {
         try await sdkTimeline.edit(
           eventOrTransactionId: event.eventOrTransactionId, newContent: editedContent)

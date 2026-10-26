@@ -199,7 +199,7 @@ final class ChatComposerContainer: NSView {
     updateSectionHeights(for: bounds.width)
     needsLayout = true
     invalidateIntrinsicContentSize()
-    superview?.invalidateIntrinsicContentSize()
+    superview?.needsLayout = true
   }
 
   override var intrinsicContentSize: NSSize {
@@ -218,7 +218,10 @@ final class ChatComposerContainer: NSView {
   override func setFrameSize(_ newSize: NSSize) {
     let changed = frame.width != newSize.width
     super.setFrameSize(newSize)
-    if changed { invalidateSizing() }
+    if changed {
+      needsLayout = true
+      invalidateIntrinsicContentSize()
+    }
   }
 
   override func viewDidMoveToWindow() {

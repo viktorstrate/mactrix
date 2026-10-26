@@ -1,6 +1,5 @@
 import AppKit
 import MatrixRustSDK
-import SwiftUI
 import Testing
 import UniformTypeIdentifiers
 
@@ -133,50 +132,6 @@ struct ChatComposerContainerTests {
     }
   }
 
-  @Test(arguments: [false, true], [false, true])
-  func hostedComposerShrinksWithParent(hasReply: Bool, hasAttachments: Bool) {
-    let container = makeContainer()
-    container.editor.string = String(repeating: "Wrapping editor text. ", count: 30)
-    container.setReply(
-      details: hasReply
-        ? .error(message: String(repeating: "Long reply content. ", count: 20)) : nil)
-    container.setAttachments(hasAttachments ? (0..<8).map { _ in attachment() } : [])
-    let host = NSHostingView(
-      rootView:
-        Color.clear.safeAreaInset(edge: .bottom, spacing: 8) {
-          ComposerBridge(container: container)
-        }.frame(minWidth: 250, minHeight: 200))
-    for width: CGFloat in [800, 400, 250, 600, 250] {
-      host.setFrameSize(NSSize(width: width, height: 2000))
-      host.layoutSubtreeIfNeeded()
-      container.layoutSubtreeIfNeeded()
-
-      #expect(abs(container.frame.width - width) < 0.01)
-      #expect(abs(container.editor.frame.width - (width - 32)) < 0.01)
-      #expect(abs(container.frame.height - container.height(for: width)) < 0.01)
-      #expect(abs(container.editor.frame.height - container.editor.height(for: width - 32)) < 0.01)
-      let rect = container.convert(container.bounds, to: host)
-      #expect(abs(rect.minX) < 0.01)
-      #expect(abs(rect.maxX - width) < 0.01)
-    }
-  }
-
-  // Exercise ChatInputView's sizing contract without needing a live Matrix room.
-  private struct ComposerBridge: NSViewControllerRepresentable {
-    let container: ChatComposerContainer
-    func makeNSViewController(context: Context) -> NSViewController {
-      let controller = NSViewController()
-      controller.view = container
-      return controller
-    }
-    func updateNSViewController(_ controller: NSViewController, context: Context) {}
-    func sizeThatFits(
-      _ proposal: ProposedViewSize, nsViewController: NSViewController, context: Context
-    ) -> CGSize? {
-      let width = proposal.width ?? 400
-      return CGSize(width: width, height: container.height(for: width))
-    }
-  }
 
   private func makeContainer() -> ChatComposerContainer {
     let container = ChatComposerContainer()
