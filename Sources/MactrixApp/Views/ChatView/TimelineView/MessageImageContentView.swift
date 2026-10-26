@@ -19,6 +19,7 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
   }
 
   private let imageButton = NSButton()
+  private let imageView = MessageImageView(frame: .zero)
   private let spinner = NSProgressIndicator()
   private let errorLabel = NSTextField(labelWithString: "")
   private let captionView = MessageTextContentView()
@@ -37,12 +38,23 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
 
     imageButton.isBordered = false
     imageButton.imagePosition = .imageOnly
-    imageButton.imageScaling = .scaleProportionallyDown
+    imageButton.title = ""
     imageButton.target = self
     imageButton.action = #selector(previewImage)
     imageButton.wantsLayer = true
     imageButton.layer?.cornerRadius = 6
     imageButton.layer?.masksToBounds = true
+
+    imageView.imageScaling = .scaleProportionallyDown
+
+    imageView.translatesAutoresizingMaskIntoConstraints = false
+    imageButton.addSubview(imageView)
+    NSLayoutConstraint.activate([
+      imageView.leadingAnchor.constraint(equalTo: imageButton.leadingAnchor),
+      imageView.trailingAnchor.constraint(equalTo: imageButton.trailingAnchor),
+      imageView.topAnchor.constraint(equalTo: imageButton.topAnchor),
+      imageView.bottomAnchor.constraint(equalTo: imageButton.bottomAnchor),
+    ])
 
     spinner.style = .spinning
     spinner.controlSize = .small
@@ -116,9 +128,9 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
     sourceURL = url
     errorLabel.isHidden = true
     imageButton.toolTip = image.filename
-    imageButton.image = MatrixClient.imageCache.object(forKey: NSString(string: url))
-    imageButton.isEnabled = imageButton.image != nil
-    if imageButton.image == nil {
+    imageView.image = MatrixClient.imageCache.object(forKey: NSString(string: url))
+    imageButton.isEnabled = imageView.image != nil
+    if imageView.image == nil {
       spinner.startAnimation(nil)
       loadImage(image, from: matrixClient)
     } else {
@@ -202,7 +214,7 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
         try Task.checkCancellation()
         MatrixClient.setCachedImage(decoded, forKey: cacheKey)
         guard let self, self.sourceURL == url else { return }
-        self.imageButton.image = decoded
+        self.imageView.image = decoded
         self.imageButton.isEnabled = true
         self.spinner.stopAnimation(nil)
         self.loadTask = nil
@@ -261,13 +273,108 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
     sourceURL = nil
     imageContent = nil
     matrixClient = nil
-    imageButton.image = nil
+    imageView.image = nil
+    imageButton.isEnabled = false
     spinner.stopAnimation(nil)
   }
 
   deinit {
     loadTask?.cancel()
     previewTask?.cancel()
+  }
+
+  @available(*, unavailable)
+  required init?(coder: NSCoder) {
+    fatalError("init(coder:) has not been implemented")
+  }
+}
+
+/// An image view that respects user preference for animated GIFs.
+final class MessageImageView: NSImageView {
+  private let defaults: UserDefaults
+  private var hoverTrackingArea: NSTrackingArea?
+  private var isHovered = false
+
+  init(frame: NSRect, defaults: UserDefaults = .standard) {
+    self.defaults = defaults
+    super.init(frame: frame)
+    animates = false
+
+    let center = NotificationCenter.default
+    center.addObserver(
+      self, selector: #selector(animationPolicyChanged),
+      name: UserDefaults.didChangeNotification, object: defaults)
+    for name in [NSWindow.didBecomeKeyNotification, NSWindow.didResignKeyNotification] {
+      center.addObserver(self, selector: #selector(windowActivityChanged), name: name, object: nil)
+    }
+    for name in [
+      NSApplication.didBecomeActiveNotification, NSApplication.didResignActiveNotification,
+    ] {
+      center.addObserver(self, selector: #selector(animationPolicyChanged), name: name, object: nil)
+    }
+  }
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    refreshHoverState()
+    updateAnimation()
+  }
+
+  override func updateTrackingAreas() {
+    super.updateTrackingAreas()
+    if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
+    let area = NSTrackingArea(
+      rect: .zero, options: [.mouseEnteredAndExited, .activeAlways, .inVisibleRect],
+      owner: self, userInfo: nil)
+    addTrackingArea(area)
+    hoverTrackingArea = area
+    refreshHoverState()
+    updateAnimation()
+  }
+
+  override func mouseEntered(with event: NSEvent) {
+    isHovered = true
+    updateAnimation()
+  }
+
+  override func mouseExited(with event: NSEvent) {
+    isHovered = false
+    updateAnimation()
+  }
+
+  private func refreshHoverState() {
+    guard let window else {
+      isHovered = false
+      return
+    }
+    let point = convert(window.mouseLocationOutsideOfEventStream, from: nil)
+    isHovered = !isHiddenOrHasHiddenAncestor && visibleRect.contains(point)
+  }
+
+  @objc private func animationPolicyChanged() {
+    refreshHoverState()
+    updateAnimation()
+  }
+
+  @objc private func windowActivityChanged(_ notification: Notification) {
+    guard let changedWindow = notification.object as? NSWindow, changedWindow === window else {
+      return
+    }
+    refreshHoverState()
+    updateAnimation()
+  }
+
+  private func updateAnimation() {
+    let policy =
+      defaults.string(forKey: ImageAnimationPolicy.defaultsKey)
+      .flatMap(ImageAnimationPolicy.init(rawValue:)) ?? .always
+    self.animates = policy.shouldAnimate(
+      isKeyWindow: window?.isKeyWindow == true,
+      isApplicationActive: NSApplication.shared.isActive, isHovered: isHovered)
+  }
+
+  override func hitTest(_ point: NSPoint) -> NSView? {
+    nil
   }
 
   @available(*, unavailable)

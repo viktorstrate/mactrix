@@ -30,11 +30,17 @@ extension Data {
 
   struct ImageDecodeError: Error {}
 
-  /// Decode image data into an NSImage, applying EXIF orientation.
+  /// Decode image data into an NSImage, preserving GIF frames and applying EXIF orientation.
   /// `Image(importing:contentType:)` on macOS does not apply EXIF orientation,
   /// so we route through CIImage which handles it correctly.
   @MainActor
   func toOrientedImage(contentType: UTType? = nil) async throws -> NSImage {
+    try Task.checkCancellation()
+    if (contentType ?? computeMimeType()) == .gif {
+      // The oriented bitmap path only decodes frame zero. Keep AppKit's animated representation.
+      guard let image = NSImage(data: self) else { throw ImageDecodeError() }
+      return image
+    }
     let task = Task.detached(priority: .utility) {
       try Task.checkCancellation()
       return try self.orientedBitmap(contentType: contentType)

@@ -55,7 +55,8 @@ extension MatrixClient: MactrixUI.ImageLoader {
   static func setCachedImage(_ image: NSImage, forKey key: NSString) {
     // NSImage.size is in points; account for the actual stored bitmap pixels.
     let cost = image.representations.reduce(0) { total, rep in
-      total + max(rep.pixelsWide, 0) * max(rep.pixelsHigh, 0) * 4
+      let frameCount = (rep as? NSBitmapImageRep)?.value(forProperty: .frameCount) as? Int ?? 1
+      return total + max(rep.pixelsWide, 0) * max(rep.pixelsHigh, 0) * 4 * max(frameCount, 1)
     }
     guard cost <= imageCacheMaxObjectCost else { return }
     imageCache.setObject(image, forKey: key, cost: cost)
