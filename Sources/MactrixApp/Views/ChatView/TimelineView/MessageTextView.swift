@@ -3,8 +3,27 @@ import Utils
 
 /// Read-only TextKit 2 host for message text and view-backed mentions.
 /// Handles Matrix links in the originating window.
-class MessageTextView: NSTextView, NSTextViewDelegate {
+class MessageTextView: NSTextView, NSTextViewDelegate, MentionAttachmentHost {
   var handleMatrixUri: ((MatrixUriScheme) -> Bool)?
+  var onMouseDown: (() -> Void)?
+
+  var allowsMentionInteraction: Bool {
+    !isEditable && isSelectable && handleMatrixUri != nil
+  }
+
+  func mentionInteractionBegan() {
+    onMouseDown?()
+  }
+
+  func activateMention(_ attachment: MentionAttachment) {
+    guard allowsMentionInteraction else { return }
+    _ = handleMatrixUri?(MatrixUriScheme(kind: .user(attachment.payload.userID)))
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    onMouseDown?()
+    super.mouseDown(with: event)
+  }
 
   private let content = NSTextContentStorage()
 

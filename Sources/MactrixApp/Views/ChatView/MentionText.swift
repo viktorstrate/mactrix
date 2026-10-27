@@ -39,7 +39,7 @@ enum MentionText {
     let result = NSMutableAttributedString(attributedString: text)
     for (range, payload, url) in mentions.reversed() {
       var attributes = text.attributes(at: range.location, effectiveRange: nil)
-      // Navigation belongs to the host. Pills are intentionally non-interactive for now.
+      // The attachment view handles interaction through its host, not a text link.
       attributes.removeValue(forKey: .link)
       attributes.removeValue(forKey: .attachment)
       attributes.removeValue(forKey: .underlineStyle)

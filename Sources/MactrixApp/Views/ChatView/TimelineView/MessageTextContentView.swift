@@ -216,9 +216,8 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   }
 }
 
-/// Lets a view drawn above the text own the cursor without knowing what that view is.
+/// Lets overlays and embedded controls own the cursor without knowing their implementation.
 private final class OcclusionAwareTextView: MessageTextView {
-  var onMouseDown: (() -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?
 
   override func keyDown(with event: NSEvent) {
@@ -227,11 +226,6 @@ private final class OcclusionAwareTextView: MessageTextView {
     } else {
       super.keyDown(with: event)
     }
-  }
-
-  override func mouseDown(with event: NSEvent) {
-    onMouseDown?()
-    super.mouseDown(with: event)
   }
 
   override func cursorUpdate(with event: NSEvent) {
@@ -255,6 +249,6 @@ private final class OcclusionAwareTextView: MessageTextView {
       return true
     }
 
-    return hitView === self || hitView.isDescendant(of: self)
+    return hitView === self || (hitView.isDescendant(of: self) && !(hitView is NSControl))
   }
 }

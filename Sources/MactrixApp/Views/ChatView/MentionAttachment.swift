@@ -1,12 +1,20 @@
 import AppKit
 import MactrixUI
 
+/// Hosts opt in explicitly so a temporarily disabled composer remains noninteractive.
+@MainActor
+protocol MentionAttachmentHost: NSTextView {
+  var allowsMentionInteraction: Bool { get }
+  func mentionInteractionBegan()
+  func activateMention(_ attachment: MentionAttachment)
+}
+
 final class MentionAttachment: NSTextAttachment {
   fileprivate static let avatarDidChangeNotification = Notification.Name(
     "MentionAttachment.avatarDidChange")
 
   let payload: UserDragPayload
-  /// Retained for future host-controlled navigation; not applied as a clickable text attribute.
+  /// Preserved for clipboard export, independently of the host's activation behavior.
   let navigationURL: URL?
 
   @MainActor private(set) var avatarUrl: String?
@@ -102,7 +110,14 @@ private final class MentionViewProvider: NSTextAttachmentViewProvider {
   }
 }
 
-private final class MentionView: NSView {
+private final class MentionButtonCell: NSButtonCell {
+  override func highlight(_ flag: Bool, withFrame cellFrame: NSRect, in controlView: NSView) {
+    super.highlight(flag, withFrame: cellFrame, in: controlView)
+    controlView.alphaValue = flag ? 0.6 : 1
+  }
+}
+
+private final class MentionView: NSButton {
   private let attachment: MentionAttachment
   private let avatar = AvatarView()
   private let label = NSTextField(labelWithString: "")
@@ -111,6 +126,12 @@ private final class MentionView: NSView {
   init(attachment: MentionAttachment) {
     self.attachment = attachment
     super.init(frame: .zero)
+    cell = MentionButtonCell(textCell: "")
+    setButtonType(.momentaryChange)
+    isBordered = false
+    title = ""
+    target = self
+    action = #selector(activate)
     let payload = attachment.payload
     configureAvatar()
     label.stringValue = payload.username
@@ -119,6 +140,7 @@ private final class MentionView: NSView {
     addSubview(avatar)
     addSubview(label)
     setAccessibilityLabel(payload.username + " (" + payload.userID + ")")
+    setAccessibilityChildren([])
     NotificationCenter.default.addObserver(
       self, selector: #selector(avatarChanged),
       name: MentionAttachment.avatarDidChangeNotification, object: attachment)
@@ -129,7 +151,65 @@ private final class MentionView: NSView {
 
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
-  override func hitTest(_ point: NSPoint) -> NSView? { nil }
+  private var interactionHost: (any MentionAttachmentHost)? {
+    guard let editor, !editor.isEditable,
+      let host = editor as? any MentionAttachmentHost, host.allowsMentionInteraction
+    else { return nil }
+    return host
+  }
+
+  override var acceptsFirstResponder: Bool {
+    interactionHost != nil && super.acceptsFirstResponder
+  }
+
+  override func hitTest(_ point: NSPoint) -> NSView? {
+    guard interactionHost != nil, super.hitTest(point) != nil else { return nil }
+    return self
+  }
+
+  override func resetCursorRects() {
+    if interactionHost != nil { addCursorRect(bounds, cursor: .pointingHand) }
+  }
+
+  override func mouseDown(with event: NSEvent) {
+    guard let host = interactionHost else { return }
+    if event.modifierFlags.contains(.control) {
+      editor?.rightMouseDown(with: event)
+      return
+    }
+    host.mentionInteractionBegan()
+    defer { cell?.highlight(false, withFrame: bounds, in: self) }
+    super.mouseDown(with: event)
+  }
+
+  override func rightMouseDown(with event: NSEvent) {
+    editor?.rightMouseDown(with: event)
+  }
+
+  override func viewWillMove(toWindow newWindow: NSWindow?) {
+    if newWindow == nil { cell?.highlight(false, withFrame: bounds, in: self) }
+    super.viewWillMove(toWindow: newWindow)
+  }
+
+  override func accessibilityRole() -> NSAccessibility.Role? {
+    interactionHost == nil ? .staticText : .button
+  }
+
+  override func isAccessibilitySelectorAllowed(_ selector: Selector) -> Bool {
+    if selector == #selector(accessibilityPerformPress), interactionHost == nil { return false }
+    return super.isAccessibilitySelectorAllowed(selector)
+  }
+
+  override func accessibilityPerformPress() -> Bool {
+    guard let host = interactionHost else { return false }
+    host.mentionInteractionBegan()
+    host.activateMention(attachment)
+    return true
+  }
+
+  @objc private func activate() {
+    interactionHost?.activateMention(attachment)
+  }
 
   private func configureAvatar() {
     let payload = attachment.payload
@@ -183,18 +263,10 @@ private final class MentionView: NSView {
       width: max(0, bounds.width - size - 10), height: label.intrinsicContentSize.height)
   }
 
-  private func isSelected() -> Bool {
-    guard let editor, let range = attachmentRange(in: editor.attributedString()) else {
-      return false
-    }
-    return editor.selectedRanges.contains { NSIntersectionRange($0.rangeValue, range).length > 0 }
-  }
-
   override func draw(_ dirtyRect: NSRect) {
-    let selected = isSelected()
     let color = NSColor(userID: attachment.payload.userID)
-    (selected ? NSColor.selectedTextBackgroundColor : color.withAlphaComponent(0.15)).setFill()
+    color.withAlphaComponent(0.15).setFill()
     NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
-    label.textColor = selected ? .selectedTextColor : color
+    label.textColor = color
   }
 }
