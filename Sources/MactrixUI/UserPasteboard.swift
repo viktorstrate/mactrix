@@ -7,13 +7,16 @@ extension NSPasteboard.PasteboardType {
 public struct UserDragPayload: Codable {
   public let userID: String
   public let username: String
+  public let avatarUrl: String?
 
   public init(
     userID: String,
     username: String,
+    avatarUrl: String? = nil,
   ) {
     self.userID = userID
     self.username = username
+    self.avatarUrl = avatarUrl
   }
 
   public var url: String? {

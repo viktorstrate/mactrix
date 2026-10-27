@@ -15,7 +15,7 @@ final class ComposerEditorSession {
   }
 
   func synchronize(text: String, enabled: Bool, placeholder: String, fontSize: Int) {
-    if editor.string != text {
+    if projectedText != text {
       editor.string = text
       editor.invalidateIntrinsicContentSize()
     }
@@ -36,7 +36,11 @@ final class ComposerEditorSession {
 
   func textDidChange() {
     guard editor.isEditable else { return }
-    if composer.text != editor.string { composer.text = editor.string }
+    if composer.text != projectedText { composer.text = projectedText }
+  }
+
+  private var projectedText: String {
+    (editor as? ComposerMentionTextView)?.markdown ?? editor.string
   }
 
   func requestFocus(_ request: Int) {

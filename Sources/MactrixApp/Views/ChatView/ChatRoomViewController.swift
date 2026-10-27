@@ -14,7 +14,8 @@ final class ChatRoomViewController: NSViewController {
     timelineController = TimelineViewController(
       appState: appState, windowState: windowState, timeline: timeline, composer: composer)
     composerController = ChatInputViewController(
-      room: timeline.room.room, timeline: timeline, composer: composer)
+      room: timeline.room.room, timeline: timeline, composer: composer,
+      imageLoader: appState.matrixClient)
     super.init(nibName: nil, bundle: nil)
   }
 

@@ -25,7 +25,8 @@ public struct UserProfileRow<Profile: UserProfile>: View {
       do {
         return try UserDragPayload(
           userID: profile.userId,
-          username: profile.displayName ?? profile.userId
+          username: profile.displayName ?? profile.userId,
+          avatarUrl: profile.avatarUrl
         ).makeItemProvider()
       } catch {
         Logger.viewCycle.error("Failed to prepare user drag: \(error)")
@@ -63,7 +64,8 @@ public struct UserProfileRowLarge<Profile: UserProfile>: View {
       do {
         return try UserDragPayload(
           userID: profile.userId,
-          username: profile.displayName ?? profile.userId
+          username: profile.displayName ?? profile.userId,
+          avatarUrl: profile.avatarUrl
         ).makeItemProvider()
       } catch {
         Logger.viewCycle.error("Failed to prepare user drag: \(error)")

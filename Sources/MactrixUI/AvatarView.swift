@@ -13,7 +13,12 @@ func userAvatarInitial(userID: String, displayName: String?) -> String? {
 
 extension NSColor {
   public convenience init(userID: String) {
-    self.init(named: userAvatarColorName(userID: userID))!
+    let name = userAvatarColorName(userID: userID)
+    // Use fallback color if the asset bundle containing the color isn't included.
+    // For instance in unit tests or previews.
+    self.init(name: nil) { _ in
+      NSColor(named: name) ?? .systemBlue
+    }
   }
 }
 

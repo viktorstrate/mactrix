@@ -1,4 +1,5 @@
 import AppKit
+import MactrixUI
 import MatrixIntegration
 import MatrixRustSDK
 import OSLog
@@ -40,11 +41,15 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
   private var actionTasks: [UUID: Task<Void, Never>] = [:]
 
-  init(room: Room, timeline: LiveTimeline, composer: ChatComposerState) {
+  init(
+    room: Room, timeline: LiveTimeline, composer: ChatComposerState,
+    imageLoader: ImageLoader? = nil
+  ) {
     self.room = room
     self.timeline = timeline
     self.composer = composer
     super.init(nibName: nil, bundle: nil)
+    container.editor.imageLoader = imageLoader
   }
 
   override func loadView() {
