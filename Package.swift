@@ -51,6 +51,8 @@ let package = Package(
         .product(name: "ZMarkupParser", package: "zmarkupparser")
       ]
     ),
+    .testTarget(
+      name: "MessageFormattingTests", dependencies: ["MessageFormatting", "MactrixUI"]),
     .testTarget(name: "MactrixAppTests", dependencies: ["MactrixApp"]),
   ]
 )
