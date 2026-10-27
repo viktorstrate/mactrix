@@ -3,9 +3,15 @@ import MatrixIntegration
 import MatrixRustSDK
 import OSLog
 
+struct ComposerTextContent: Sendable {
+  let markdown: String
+  let mentionedUserIDs: [String]
+}
+
 @MainActor
 struct ComposerSubmissionSnapshot {
   let text: String
+  let mentionedUserIDs: [String]
   let replyTarget: EventTimelineItem?
   let replyEventIdentifier: String?
   let attachments: [ComposerAttachment]
@@ -73,27 +79,30 @@ final class ChatComposerState {
     focusRequest += 1
   }
 
-  func captureSubmission() -> ComposerSubmissionSnapshot {
+  func captureSubmission(content: ComposerTextContent) -> ComposerSubmissionSnapshot {
     ComposerSubmissionSnapshot(
-      text: text,
+      text: content.markdown,
+      mentionedUserIDs: content.mentionedUserIDs,
       replyTarget: replyTarget,
       replyEventIdentifier: replyTarget?.eventOrTransactionId.id,
       attachments: attachments,
     )
   }
 
-  func sendMessage(timeline: Timeline) async {
+  func sendMessage(timeline: Timeline, snapshot: ComposerSubmissionSnapshot) async {
     guard !isSending else { return }
     isSending = true
     defer { isSending = false }
 
-    let snapshot = captureSubmission()
+    let mentions = Mentions(userIds: snapshot.mentionedUserIDs, room: false)
 
     switch snapshot.attachments.count {
     case 0:
       guard !snapshot.text.isEmpty else { return }
       do {
         let message = messageEventContentFromMarkdown(md: snapshot.text)
+          .withMentions(mentions: mentions)
+
         if let replyID = snapshot.replyEventIdentifier {
           _ = try await timeline.sendReply(msg: message, eventId: replyID)
         } else {
@@ -108,7 +117,8 @@ final class ChatComposerState {
       guard let attachment = snapshot.attachments.first else { return }
       do {
         let upload = try await ComposerMediaPreparation.prepare(
-          attachment: attachment, caption: snapshot.text, replyID: snapshot.replyEventIdentifier)
+          attachment: attachment, caption: snapshot.text, replyID: snapshot.replyEventIdentifier,
+          mentions: mentions)
         let joinHandle: SendAttachmentJoinHandle
         switch upload.media {
         case .image(let info, let thumbnailSource):
@@ -154,7 +164,7 @@ final class ChatComposerState {
           params: GalleryUploadParameters(
             caption: snapshot.text,
             formattedCaption: nil,
-            mentions: nil,
+            mentions: mentions,
             inReplyTo: snapshot.replyEventIdentifier,
           ),
           itemInfos: preparedAttachments,

@@ -104,7 +104,8 @@ struct ChatComposerStateTests {
     let later = attachment(filename: "later.txt", identity: .absolutePath("/later.txt"))
     composer.text = "original"
     composer.addAttachments([captured])
-    let snapshot = composer.captureSubmission()
+    let snapshot = composer.captureSubmission(
+      content: ComposerTextContent(markdown: "original", mentionedUserIDs: []))
 
     composer.text = "updated"
     composer.addAttachments([later])
@@ -112,6 +113,35 @@ struct ChatComposerStateTests {
 
     #expect(composer.text == "updated")
     #expect(composer.attachments.map(\.id) == [later.id])
+  }
+
+  @Test func snapshotCapturesProjectedTextAndMentionsBeforeLaterEdits() {
+    let composer = ChatComposerState()
+    composer.text = "previous text"
+    let content = ComposerTextContent(
+      markdown: "Hello [Alice](https://matrix.to/#/@alice:example.org)",
+      mentionedUserIDs: ["@alice:example.org"])
+
+    let snapshot = composer.captureSubmission(content: content)
+    composer.text = "later text"
+
+    #expect(snapshot.text == content.markdown)
+    #expect(snapshot.mentionedUserIDs == ["@alice:example.org"])
+    #expect(composer.text == "later text")
+  }
+
+  @Test func snapshotSuccessClearsUnchangedTextWithMentions() {
+    let composer = ChatComposerState()
+    let content = ComposerTextContent(
+      markdown: "Hello [Alice](https://matrix.to/#/@alice:example.org)",
+      mentionedUserIDs: ["@alice:example.org"])
+    composer.text = content.markdown
+    let snapshot = composer.captureSubmission(content: content)
+
+    composer.finishSending(snapshot: snapshot)
+
+    #expect(composer.text.isEmpty)
+    #expect(snapshot.mentionedUserIDs == ["@alice:example.org"])
   }
 
   private func attachment(

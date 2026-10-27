@@ -45,7 +45,9 @@ final class ComposerMentionTextView: DynamicTextView {
     for task in avatarLookups.values { task.cancel() }
   }
 
-  var markdown: String { Self.markdown(from: attributedString()) }
+  var textContent: ComposerTextContent { Self.textContent(from: attributedString()) }
+
+  var markdown: String { textContent.markdown }
 
   /// Loads draft text without registering user edits or emitting text-change notifications.
   func setMarkdown(_ markdown: String) {
@@ -103,14 +105,27 @@ final class ComposerMentionTextView: DynamicTextView {
   }
 
   static func markdown(from text: NSAttributedString) -> String {
-    project(text, asMarkdown: true)
+    textContent(from: text).markdown
   }
 
-  private static func project(_ text: NSAttributedString, asMarkdown: Bool) -> String {
+  static func textContent(from text: NSAttributedString) -> ComposerTextContent {
+    let projection = project(text, asMarkdown: true)
+    return ComposerTextContent(
+      markdown: projection.text, mentionedUserIDs: projection.mentionedUserIDs)
+  }
+
+  private static func project(_ text: NSAttributedString, asMarkdown: Bool)
+    -> (text: String, mentionedUserIDs: [String])
+  {
     var result = ""
+    var mentionedUserIDs: [String] = []
+    var seenUserIDs: Set<String> = []
     text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length)) {
       attachment, range, _ in
       if let mention = attachment as? ComposerMentionAttachment {
+        if seenUserIDs.insert(mention.payload.userID).inserted {
+          mentionedUserIDs.append(mention.payload.userID)
+        }
         result +=
           asMarkdown
           ? (mention.payload.markdownLink ?? mention.payload.userID) : mention.payload.userID
@@ -118,7 +133,7 @@ final class ComposerMentionTextView: DynamicTextView {
         result += (text.string as NSString).substring(with: range)
       }
     }
-    return result
+    return (result, mentionedUserIDs)
   }
 
   override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
@@ -176,7 +191,7 @@ final class ComposerMentionTextView: DynamicTextView {
 
     switch type {
     case .string:
-      return pasteboard.setString(Self.project(selected, asMarkdown: false), forType: .string)
+      return pasteboard.setString(Self.project(selected, asMarkdown: false).text, forType: .string)
     case .mactrixComposerText:
       var segments: [ComposerClipboardSegment] = []
       selected.enumerateAttribute(.attachment, in: NSRange(location: 0, length: selected.length)) {

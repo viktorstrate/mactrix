@@ -170,10 +170,11 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
   private func submit() {
     guard composer.isDraftLoaded, let inner = timeline.timeline else { return }
+    let snapshot = composer.captureSubmission(content: container.editor.textContent)
     let id = UUID()
     let composer = composer
     actionTasks[id] = Task { [weak self] in
-      await composer.sendMessage(timeline: inner)
+      await composer.sendMessage(timeline: inner, snapshot: snapshot)
       self?.actionTasks[id] = nil
     }
   }

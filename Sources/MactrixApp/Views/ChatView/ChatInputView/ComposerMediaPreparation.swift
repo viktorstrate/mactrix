@@ -52,7 +52,7 @@ struct PreparedMediaUpload {
 enum ComposerMediaPreparation {
   /// Validate the source without discarding the selected representation metadata.
   static func prepare(
-    attachment: ComposerAttachment, caption: String, replyID: String?
+    attachment: ComposerAttachment, caption: String, replyID: String?, mentions: Mentions? = nil
   ) async throws -> PreparedMediaUpload {
     let byteCount = try ComposerAttachmentImporter.validateSource(attachment)
     let source = UploadSource.file(filename: attachment.sourceURL.path)
@@ -60,7 +60,7 @@ enum ComposerMediaPreparation {
       source: source,
       caption: caption.isEmpty ? nil : caption,
       formattedCaption: nil,
-      mentions: nil,
+      mentions: mentions,
       inReplyTo: replyID,
       extraContentJson: nil)
     let size = UInt64(byteCount)
