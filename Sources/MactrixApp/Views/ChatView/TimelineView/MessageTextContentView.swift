@@ -35,11 +35,21 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   }
 
   func configure(content: MatrixRustSDK.MsgLikeContent, matrixClient: MatrixClient?) {
-    bodyText.textStorage?.setAttributedString(Self.attributedBody(for: content))
+    setText(Self.attributedBody(for: content), matrixClient: matrixClient)
   }
 
-  func configureCaption(_ caption: String?, formatted: FormattedBody?) {
-    bodyText.textStorage?.setAttributedString(Self.attributedCaption(caption, formatted: formatted))
+  func configureCaption(
+    _ caption: String?, formatted: FormattedBody?, matrixClient: MatrixClient? = nil
+  ) {
+    setText(Self.attributedCaption(caption, formatted: formatted), matrixClient: matrixClient)
+  }
+
+  private func setText(_ text: NSAttributedString, matrixClient: MatrixClient?) {
+    let text = MentionText.replacingUserLinks(in: text, imageLoader: matrixClient)
+    bodyText.textStorage?.setAttributedString(text)
+    if let matrixClient {
+      MentionAvatarLoader.shared(for: matrixClient).restoreAvatars(in: text)
+    }
   }
 
   func height(forCaption caption: String?, formatted: FormattedBody?, width: CGFloat) -> CGFloat {
@@ -82,16 +92,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   }
 
   private func measure(_ text: NSAttributedString, width: CGFloat) -> CGFloat {
-    guard let textStorage = bodyText.textStorage,
-      let layoutManager = bodyText.layoutManager,
-      let textContainer = bodyText.textContainer
-    else { return 20 }
-
-    textContainer.widthTracksTextView = false
-    textContainer.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
-    textStorage.setAttributedString(text)
-    layoutManager.ensureLayout(for: textContainer)
-    return layoutManager.usedRect(for: textContainer).height
+    MentionTextLayout.height(for: MentionText.replacingUserLinks(in: text), width: width)
   }
 
   private static func attributedCaption(_ caption: String?, formatted: FormattedBody?)
@@ -144,8 +145,19 @@ final class MessageTextContentView: NSView, MessageContentRowView {
       case .notice(let notice):
         return attributedText(for: notice, font: font, color: .secondaryLabelColor)
       case .emote(let emote):
+        if let formatted = emote.formatted, formatted.format == .html {
+          let result = NSMutableAttributedString(attributedString: plain("Emote: "))
+          result.append(attributedText(for: emote, font: font, color: .labelColor))
+          return result
+        }
         return plain("Emote: \(emote.body)")
       case .audio(let audio):
+        if let formatted = audio.formattedCaption, formatted.format == .html {
+          let result = NSMutableAttributedString(attributedString: plain("Audio: "))
+          result.append(attributedCaption(audio.caption, formatted: formatted))
+          result.append(plain(" \(audio.filename)"))
+          return result
+        }
         return plain("Audio: \(audio.caption ?? "no caption") \(audio.filename)")
       case .gallery(let gallery):
         return plain("Gallery: \(gallery.body)")

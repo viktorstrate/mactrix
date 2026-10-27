@@ -126,7 +126,8 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
     let hasCaption =
       captionView.isEditing || video.caption?.isEmpty == false || video.formattedCaption != nil
     captionView.isHidden = !hasCaption
-    captionView.configureCaption(video.caption, formatted: video.formattedCaption)
+    captionView.configureCaption(
+      video.caption, formatted: video.formattedCaption, matrixClient: matrixClient)
     mediaBottomConstraint.isActive = !hasCaption
     captionBottomConstraint.isActive = hasCaption
     if bounds.width > 0 {

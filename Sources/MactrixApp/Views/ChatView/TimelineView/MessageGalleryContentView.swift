@@ -18,6 +18,7 @@ final class MessageGalleryContentView: NSView, MessageMediaPreviewContentView {
   private var attachments: [MessageAttachmentContent] = []
   private var measurementViews: [MessageAttachmentContent.Kind: MessageAttachmentContent] = [:]
   private var gallery: GalleryMessageContent?
+  private weak var matrixClient: MatrixClient?
   private var compositionConstraints: [NSLayoutConstraint] = []
   private var attachmentHeightConstraints: [NSLayoutConstraint] = []
   private var captionHeightConstraint: NSLayoutConstraint?
@@ -37,6 +38,7 @@ final class MessageGalleryContentView: NSView, MessageMediaPreviewContentView {
 
   func configure(gallery: GalleryMessageContent, matrixClient: MatrixClient?) {
     self.gallery = gallery
+    self.matrixClient = matrixClient
     NSLayoutConstraint.deactivate(compositionConstraints)
     compositionConstraints = []
     attachmentHeightConstraints = []
@@ -100,7 +102,8 @@ final class MessageGalleryContentView: NSView, MessageMediaPreviewContentView {
 
     let hasCaption = captionView.isEditing || Self.hasCaption(gallery)
     captionView.isHidden = !hasCaption
-    captionView.configureCaption(gallery.body, formatted: gallery.formatted)
+    captionView.configureCaption(
+      gallery.body, formatted: gallery.formatted, matrixClient: matrixClient)
     if hasCaption {
       let height = captionView.heightAnchor.constraint(equalToConstant: 0)
       captionHeightConstraint = height
