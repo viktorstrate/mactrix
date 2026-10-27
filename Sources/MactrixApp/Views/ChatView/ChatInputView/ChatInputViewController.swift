@@ -1,4 +1,5 @@
 import AppKit
+import MactrixUI
 import MatrixIntegration
 import MatrixRustSDK
 import OSLog
@@ -40,11 +41,17 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
   private var actionTasks: [UUID: Task<Void, Never>] = [:]
 
-  init(room: Room, timeline: LiveTimeline, composer: ChatComposerState) {
+  init(
+    room: Room, timeline: LiveTimeline, composer: ChatComposerState,
+    imageLoader: ImageLoader? = nil,
+    avatarURLLookup: ComposerMentionTextView.AvatarURLLookup? = nil
+  ) {
     self.room = room
     self.timeline = timeline
     self.composer = composer
     super.init(nibName: nil, bundle: nil)
+    container.editor.imageLoader = imageLoader
+    container.editor.avatarURLLookup = avatarURLLookup
   }
 
   override func loadView() {
@@ -163,10 +170,11 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
   private func submit() {
     guard composer.isDraftLoaded, let inner = timeline.timeline else { return }
+    let snapshot = composer.captureSubmission(content: container.editor.textContent)
     let id = UUID()
     let composer = composer
     actionTasks[id] = Task { [weak self] in
-      await composer.sendMessage(timeline: inner)
+      await composer.sendMessage(timeline: inner, snapshot: snapshot)
       self?.actionTasks[id] = nil
     }
   }
@@ -209,6 +217,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     draftSaveTask?.cancel()
     draftSaveTask = nil
     editorSession.tearDown()
+    container.editor.cancelAvatarLookups()
     actionTasks.values.forEach { $0.cancel() }
     actionTasks.removeAll()
     closePreview()

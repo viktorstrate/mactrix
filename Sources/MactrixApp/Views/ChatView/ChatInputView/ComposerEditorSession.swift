@@ -15,12 +15,16 @@ final class ComposerEditorSession {
   }
 
   func synchronize(text: String, enabled: Bool, placeholder: String, fontSize: Int) {
-    if editor.string != text {
-      editor.string = text
-      editor.invalidateIntrinsicContentSize()
-    }
     let font = NSFont.systemFont(ofSize: CGFloat(fontSize))
     if editor.font != font { editor.font = font }
+    if projectedText != text {
+      if let editor = editor as? ComposerMentionTextView {
+        editor.setMarkdown(text)
+      } else {
+        editor.string = text
+        editor.invalidateIntrinsicContentSize()
+      }
+    }
     editor.placeholderAttributedString = NSAttributedString(
       string: placeholder,
       attributes: [.font: font, .foregroundColor: NSColor.secondaryLabelColor])
@@ -36,7 +40,11 @@ final class ComposerEditorSession {
 
   func textDidChange() {
     guard editor.isEditable else { return }
-    if composer.text != editor.string { composer.text = editor.string }
+    if composer.text != projectedText { composer.text = projectedText }
+  }
+
+  private var projectedText: String {
+    (editor as? ComposerMentionTextView)?.markdown ?? editor.string
   }
 
   func requestFocus(_ request: Int) {

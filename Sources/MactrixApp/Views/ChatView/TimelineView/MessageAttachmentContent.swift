@@ -44,7 +44,7 @@ final class MessageAttachmentContent {
         file: Self.fileFallback(for: audio), matrixClient: matrixClient)
     case .other(let itemtype, let body):
       (view as? MessageTextContentView)?.configureCaption(
-        "Unsupported attachment (\(itemtype)): \(body)", formatted: nil)
+        "Unsupported attachment (\(itemtype)): \(body)", formatted: nil, matrixClient: matrixClient)
     }
   }
 

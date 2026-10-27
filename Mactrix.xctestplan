@@ -27,6 +27,13 @@
         "identifier" : "MactrixAppTests",
         "name" : "MactrixAppTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "MessageFormattingTests",
+        "name" : "MessageFormattingTests"
+      }
     }
   ],
   "version" : 1

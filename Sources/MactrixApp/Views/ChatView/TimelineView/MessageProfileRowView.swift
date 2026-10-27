@@ -65,11 +65,14 @@ class MessageProfileRowView: NSView {
     avatarHeightConstraint.constant = Self.avatarSize
     name.font = .boldSystemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
     let username: String
+    let avatarUrl: String?
     switch event.senderProfile {
-    case .ready(let profileDisplayName, _, _, _, _):
+    case .ready(let profileDisplayName, _, let profileAvatarUrl, _, _):
       username = profileDisplayName ?? event.sender
+      avatarUrl = profileAvatarUrl
     default:
       username = event.sender
+      avatarUrl = nil
     }
 
     name.stringValue = username
@@ -78,7 +81,8 @@ class MessageProfileRowView: NSView {
 
     profilePicture.configure(event: event)
 
-    dragPayload = UserDragPayload(userID: event.sender, username: username)
+    dragPayload = UserDragPayload(
+      userID: event.sender, username: username, avatarUrl: avatarUrl)
   }
 
 }

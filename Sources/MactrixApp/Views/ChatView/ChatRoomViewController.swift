@@ -14,7 +14,13 @@ final class ChatRoomViewController: NSViewController {
     timelineController = TimelineViewController(
       appState: appState, windowState: windowState, timeline: timeline, composer: composer)
     composerController = ChatInputViewController(
-      room: timeline.room.room, timeline: timeline, composer: composer)
+      room: timeline.room.room, timeline: timeline, composer: composer,
+      imageLoader: appState.matrixClient,
+      avatarURLLookup: { [weak matrixClient = appState.matrixClient] userID in
+        guard let matrixClient else { return nil }
+        let profile = try await matrixClient.client.getProfile(userId: userID)
+        return profile.avatarUrl
+      })
     super.init(nibName: nil, bundle: nil)
   }
 

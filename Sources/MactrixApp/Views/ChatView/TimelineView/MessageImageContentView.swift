@@ -114,7 +114,8 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
     let hasCaption =
       captionView.isEditing || image.caption?.isEmpty == false || image.formattedCaption != nil
     captionView.isHidden = !hasCaption
-    captionView.configureCaption(image.caption, formatted: image.formattedCaption)
+    captionView.configureCaption(
+      image.caption, formatted: image.formattedCaption, matrixClient: matrixClient)
     imageBottomConstraint.isActive = !hasCaption
     captionBottomConstraint.isActive = hasCaption
     updateImageSize(for: image, width: bounds.width)

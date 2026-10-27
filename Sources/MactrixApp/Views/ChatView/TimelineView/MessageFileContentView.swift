@@ -87,7 +87,8 @@ final class MessageFileContentView: NSView, MessageMediaPreviewContentView {
     let hasCaption =
       captionView.isEditing || file.caption?.isEmpty == false || file.formattedCaption != nil
     captionView.isHidden = !hasCaption
-    captionView.configureCaption(file.caption, formatted: file.formattedCaption)
+    captionView.configureCaption(
+      file.caption, formatted: file.formattedCaption, matrixClient: matrixClient)
     fileBottomConstraint.isActive = !hasCaption
     captionBottomConstraint.isActive = hasCaption
 

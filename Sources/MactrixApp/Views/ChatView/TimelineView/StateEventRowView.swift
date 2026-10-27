@@ -157,17 +157,8 @@ final class StateEventRowView: NSView {
       1)
   }
 
-  private static let measuringView = makeDescriptionView()
-
   private static func textHeight(_ text: NSAttributedString, width: CGFloat) -> CGFloat {
-    guard let container = measuringView.textContainer,
-      let layoutManager = measuringView.layoutManager
-    else { return Layout.minimumLineHeight }
-    container.widthTracksTextView = false
-    container.containerSize = NSSize(width: width, height: .greatestFiniteMagnitude)
-    measuringView.textStorage?.setAttributedString(text)
-    layoutManager.ensureLayout(for: container)
-    return max(ceil(layoutManager.usedRect(for: container).height), Layout.minimumLineHeight)
+    MentionTextLayout.height(for: text, width: width, minimumLineHeight: Layout.minimumLineHeight)
   }
 
   private static func makeDescriptionView() -> MessageTextView {

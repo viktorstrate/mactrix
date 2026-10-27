@@ -16,7 +16,7 @@ final class ChatComposerContainer: NSView {
   private static let replyInset: CGFloat = 10
   private static let bottomSpacing: CGFloat = 10
 
-  let editor = DynamicTextView()
+  let editor = ComposerMentionTextView()
   let reply = MessageReplyPreviewView()
   let attachments = ComposerAttachmentPreviewStrip()
   let dropDestination = ComposerAttachmentDropDestination()
