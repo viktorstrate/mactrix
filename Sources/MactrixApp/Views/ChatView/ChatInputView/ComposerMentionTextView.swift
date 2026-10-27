@@ -1,5 +1,6 @@
 import AppKit
 import MactrixUI
+import MessageFormatting
 
 extension NSPasteboard.PasteboardType {
   static let mactrixComposerText = Self("org.mactrix.composer-text")
@@ -19,8 +20,14 @@ private enum ComposerClipboardSegment: Codable {
 }
 
 final class ComposerMentionTextView: DynamicTextView {
+  typealias AvatarURLLookup = @MainActor (String) async throws -> String?
+
   private let content = NSTextContentStorage()
+  private var avatarURLs: [String: String] = [:]
+  // Keep completed attempts too, so missing profiles and failures aren't retried on every edit.
+  private var avatarLookups: [String: Task<Void, Never>] = [:]
   weak var imageLoader: ImageLoader?
+  var avatarURLLookup: AvatarURLLookup?
 
   init() {
     let manager = NSTextLayoutManager()
@@ -34,7 +41,66 @@ final class ComposerMentionTextView: DynamicTextView {
 
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
+  deinit {
+    for task in avatarLookups.values { task.cancel() }
+  }
+
   var markdown: String { Self.markdown(from: attributedString()) }
+
+  /// Loads draft text without registering user edits or emitting text-change notifications.
+  func setMarkdown(_ markdown: String) {
+    let attributes = typingAttributes.filter { $0.key != .attachment }
+    let text = NSMutableAttributedString(string: markdown, attributes: attributes)
+    for mention in parseMarkdownMentions(markdown).reversed() {
+      let payload = UserDragPayload(userID: mention.userID, username: mention.username)
+      let attachment = ComposerMentionAttachment(payload: payload, imageLoader: imageLoader)
+      text.replaceCharacters(
+        in: mention.range,
+        with: NSAttributedString(attachment: attachment, attributes: attributes))
+    }
+    content.textStorage?.setAttributedString(text)
+    typingAttributes = attributes
+    restoreMentionAvatars()
+    invalidateIntrinsicContentSize()
+    needsDisplay = true
+  }
+
+  override func didChangeText() {
+    super.didChangeText()
+    restoreMentionAvatars()
+  }
+
+  func cancelAvatarLookups() {
+    for task in avatarLookups.values { task.cancel() }
+    avatarLookups.removeAll()
+  }
+
+  private func restoreMentionAvatars() {
+    guard let avatarURLLookup else { return }
+    let text = attributedString()
+    var missingUserIDs: Set<String> = []
+    text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length)) {
+      value, _, _ in
+      guard let mention = value as? ComposerMentionAttachment, mention.avatarUrl == nil else {
+        return
+      }
+      if let avatarUrl = avatarURLs[mention.payload.userID] {
+        mention.setAvatarUrl(avatarUrl)
+      } else {
+        missingUserIDs.insert(mention.payload.userID)
+      }
+    }
+    for userID in missingUserIDs where avatarLookups[userID] == nil {
+      avatarLookups[userID] = Task { [weak self] in
+        guard let avatarUrl = try? await avatarURLLookup(userID),
+          !Task.isCancelled, let self
+        else { return }
+
+        self.avatarURLs[userID] = avatarUrl
+        self.restoreMentionAvatars()
+      }
+    }
+  }
 
   static func markdown(from text: NSAttributedString) -> String {
     project(text, asMarkdown: true)
@@ -116,7 +182,7 @@ final class ComposerMentionTextView: DynamicTextView {
       selected.enumerateAttribute(.attachment, in: NSRange(location: 0, length: selected.length)) {
         attachment, range, _ in
         if let mention = attachment as? ComposerMentionAttachment {
-          segments.append(.mention(mention.payload))
+          segments.append(.mention(mention.pasteboardPayload))
         } else {
           segments.append(.text((selected.string as NSString).substring(with: range)))
         }
@@ -154,13 +220,28 @@ final class ComposerMentionTextView: DynamicTextView {
 }
 
 final class ComposerMentionAttachment: NSTextAttachment {
+  fileprivate static let avatarDidChangeNotification = Notification.Name(
+    "ComposerMentionAttachment.avatarDidChange")
+
   let payload: UserDragPayload
 
+  @MainActor private(set) var avatarUrl: String?
   @MainActor weak var imageLoader: ImageLoader?
+
+  @MainActor var pasteboardPayload: UserDragPayload {
+    UserDragPayload(userID: payload.userID, username: payload.username, avatarUrl: avatarUrl)
+  }
+
+  @MainActor func setAvatarUrl(_ avatarUrl: String) {
+    guard self.avatarUrl != avatarUrl else { return }
+    self.avatarUrl = avatarUrl
+    NotificationCenter.default.post(name: Self.avatarDidChangeNotification, object: self)
+  }
 
   @MainActor
   init(payload: UserDragPayload, imageLoader: ImageLoader? = nil) {
     self.payload = payload
+    self.avatarUrl = payload.avatarUrl
     self.imageLoader = imageLoader
     super.init(data: nil, ofType: nil)
   }
@@ -244,15 +325,16 @@ private final class ComposerMentionView: NSView {
     self.attachment = attachment
     super.init(frame: .zero)
     let payload = attachment.payload
-    avatar.configure(
-      userID: payload.userID, displayName: payload.username,
-      avatarUrl: payload.avatarUrl, kind: .user, imageLoader: attachment.imageLoader)
+    configureAvatar()
     label.stringValue = payload.username
     label.lineBreakMode = .byTruncatingTail
     label.maximumNumberOfLines = 1
     addSubview(avatar)
     addSubview(label)
     setAccessibilityLabel(payload.username + " (" + payload.userID + ")")
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(avatarChanged),
+      name: ComposerMentionAttachment.avatarDidChangeNotification, object: attachment)
     NotificationCenter.default.addObserver(
       self, selector: #selector(selectionChanged),
       name: NSTextView.didChangeSelectionNotification, object: nil)
@@ -261,6 +343,17 @@ private final class ComposerMentionView: NSView {
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
 
   override func hitTest(_ point: NSPoint) -> NSView? { nil }
+
+  private func configureAvatar() {
+    let payload = attachment.payload
+    avatar.configure(
+      userID: payload.userID, displayName: payload.username,
+      avatarUrl: attachment.avatarUrl, kind: .user, imageLoader: attachment.imageLoader)
+  }
+
+  @objc private func avatarChanged(_ notification: Notification) {
+    configureAvatar()
+  }
 
   @objc private func selectionChanged(_ notification: Notification) {
     needsDisplay = true

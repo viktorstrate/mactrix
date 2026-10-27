@@ -43,13 +43,15 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
 
   init(
     room: Room, timeline: LiveTimeline, composer: ChatComposerState,
-    imageLoader: ImageLoader? = nil
+    imageLoader: ImageLoader? = nil,
+    avatarURLLookup: ComposerMentionTextView.AvatarURLLookup? = nil
   ) {
     self.room = room
     self.timeline = timeline
     self.composer = composer
     super.init(nibName: nil, bundle: nil)
     container.editor.imageLoader = imageLoader
+    container.editor.avatarURLLookup = avatarURLLookup
   }
 
   override func loadView() {
@@ -214,6 +216,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     draftSaveTask?.cancel()
     draftSaveTask = nil
     editorSession.tearDown()
+    container.editor.cancelAvatarLookups()
     actionTasks.values.forEach { $0.cancel() }
     actionTasks.removeAll()
     closePreview()
