@@ -1,6 +1,23 @@
 import AppKit
 import MactrixUI
 
+extension NSPasteboard.PasteboardType {
+  static let mactrixComposerText = Self("org.mactrix.composer-text")
+}
+
+private enum ComposerClipboardSegment: Codable {
+  case text(String)
+  case mention(UserDragPayload)
+
+  static func encode(segments: [ComposerClipboardSegment]) -> Data? {
+    try? JSONEncoder().encode(segments)
+  }
+
+  static func decode(data: Data) -> [ComposerClipboardSegment]? {
+    try? JSONDecoder().decode([ComposerClipboardSegment].self, from: data)
+  }
+}
+
 final class ComposerMentionTextView: DynamicTextView {
   private let content = NSTextContentStorage()
   weak var imageLoader: ImageLoader?
@@ -38,28 +55,77 @@ final class ComposerMentionTextView: DynamicTextView {
     return result
   }
 
+  override var readablePasteboardTypes: [NSPasteboard.PasteboardType] {
+    [.mactrixComposerText] + super.readablePasteboardTypes
+  }
+
   override func readSelection(from pasteboard: NSPasteboard, type: NSPasteboard.PasteboardType)
     -> Bool
   {
-    guard type == .mactrixUser else { return super.readSelection(from: pasteboard, type: type) }
-    guard isEditable, let payload = UserDragPayload.read(from: pasteboard) else { return false }
+    guard isEditable else { return false }
+
+    let segments: [ComposerClipboardSegment]
+    switch type {
+    case .mactrixComposerText:
+      guard
+        let data = pasteboard.data(forType: type),
+        let decoded = ComposerClipboardSegment.decode(data: data)
+      else {
+        return super.readSelection(from: pasteboard, type: .string)
+      }
+      segments = decoded
+    case .mactrixUser:
+      guard let payload = UserDragPayload.read(from: pasteboard) else { return false }
+      segments = [.mention(payload)]
+    default:
+      return super.readSelection(from: pasteboard, type: type)
+    }
+
     let attributes = typingAttributes.filter { $0.key != .attachment }
-    let text = NSAttributedString(
-      attachment: ComposerMentionAttachment(payload: payload, imageLoader: imageLoader),
-      attributes: attributes)
+    let text = NSMutableAttributedString(string: "")
+    for segment in segments {
+      switch segment {
+      case .text(let string):
+        text.append(NSAttributedString(string: string, attributes: attributes))
+      case .mention(let payload):
+        text.append(
+          NSAttributedString(
+            attachment: ComposerMentionAttachment(payload: payload, imageLoader: imageLoader),
+            attributes: attributes))
+      }
+    }
     insertText(text, replacementRange: selectedRange())
     typingAttributes = attributes
     return true
   }
 
-  override var writablePasteboardTypes: [NSPasteboard.PasteboardType] { [.string] }
+  override var writablePasteboardTypes: [NSPasteboard.PasteboardType] {
+    [.mactrixComposerText, .string]
+  }
 
   override func writeSelection(to pasteboard: NSPasteboard, type: NSPasteboard.PasteboardType)
     -> Bool
   {
-    guard type == .string else { return false }
     let selected = attributedString().attributedSubstring(from: selectedRange())
-    return pasteboard.setString(Self.project(selected, asMarkdown: false), forType: .string)
+
+    switch type {
+    case .string:
+      return pasteboard.setString(Self.project(selected, asMarkdown: false), forType: .string)
+    case .mactrixComposerText:
+      var segments: [ComposerClipboardSegment] = []
+      selected.enumerateAttribute(.attachment, in: NSRange(location: 0, length: selected.length)) {
+        attachment, range, _ in
+        if let mention = attachment as? ComposerMentionAttachment {
+          segments.append(.mention(mention.payload))
+        } else {
+          segments.append(.text((selected.string as NSString).substring(with: range)))
+        }
+      }
+      guard let data = ComposerClipboardSegment.encode(segments: segments) else { return false }
+      return pasteboard.setData(data, forType: .mactrixComposerText)
+    default:
+      return false
+    }
   }
 
   override func height(for width: CGFloat) -> CGFloat {
