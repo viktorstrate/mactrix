@@ -4,7 +4,7 @@ import MatrixRustSDK
 import MessageFormatting
 
 final class MessageEditingView: NSView, NSTextViewDelegate {
-  private let editor = DynamicTextView(frame: .zero)
+  private let editor = ComposerMentionTextView()
 
   private let saveButton = NSButton(title: "Save", target: nil, action: nil)
   private let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
@@ -18,7 +18,7 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
     super.init(frame: frameRect)
 
     editor.onSubmit = self.saveEdit
-    editor.isRichText = false
+
     updateFonts()
     editor.isHorizontallyResizable = false
     editor.isVerticallyResizable = true
@@ -109,10 +109,9 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
     editState = state
     guard let state else { return }
 
-    if editor.string != state.text {
+    if editor.markdown != state.text {
       restoringEditor = true
-      editor.string = state.text
-      editor.invalidateIntrinsicContentSize()
+      editor.setMarkdown(state.text)
       restoringEditor = false
     }
 
@@ -126,12 +125,13 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
 
   func textDidChange(_ notification: Notification) {
     guard !restoringEditor, let state = editState else { return }
-    state.text = editor.string
+    state.text = editor.markdown
     state.onChange?()
   }
 
   @objc private func saveEdit() {
     guard let state = editState, !state.isSaving else { return }
+    state.text = editor.markdown
     state.onSave?()
   }
 

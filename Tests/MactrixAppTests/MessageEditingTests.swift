@@ -30,6 +30,60 @@ struct MessageEditingTests {
     #expect(!reconstructed.isEditing)
   }
 
+  @Test func mentionDraftSurvivesViewReconstruction() throws {
+    let markdown = "Hello [Alice](https://matrix.to/#/@alice:example.org)!"
+    let state = MessageEditState(
+      id: MatrixRustSDK.EventOrTransactionId.eventId(eventId: "event"), text: markdown)
+    var changeCount = 0
+    state.onChange = { changeCount += 1 }
+    let view = MessageEditingView()
+    view.configureEditing(state)
+    let editor = try #require(findEditor(in: view) as? ComposerMentionTextView)
+
+    #expect(editor.isRichText)
+    #expect(editor.markdown == markdown)
+    #expect(editor.string == "Hello \u{fffc}!")
+    #expect(editor.textContent.mentionedUserIDs == ["@alice:example.org"])
+    #expect(changeCount == 0)
+
+    let updatedMarkdown = markdown + " Updated draft"
+    editor.setMarkdown(updatedMarkdown)
+    editor.setSelectedRange(NSRange(location: 2, length: 1))
+    view.textDidChange(Notification(name: NSText.didChangeNotification, object: editor))
+    #expect(state.text == updatedMarkdown)
+    #expect(changeCount == 1)
+
+    view.configureEditing(state)
+    #expect(editor.selectedRange() == NSRange(location: 2, length: 1))
+    view.configureEditing(nil)
+
+    let reconstructed = MessageEditingView()
+    reconstructed.configureEditing(state)
+    let restored = try #require(findEditor(in: reconstructed) as? ComposerMentionTextView)
+    #expect(restored.markdown == updatedMarkdown)
+    #expect(restored.textContent.mentionedUserIDs == ["@alice:example.org"])
+    #expect(changeCount == 1)
+  }
+
+  @Test func savingProjectsMentionMarkdownBeforeCallback() throws {
+    let state = MessageEditState(
+      id: MatrixRustSDK.EventOrTransactionId.eventId(eventId: "event"), text: "Original")
+    let view = MessageEditingView()
+    view.configureEditing(state)
+    let editor = try #require(findEditor(in: view) as? ComposerMentionTextView)
+    let markdown = "Hello [Alice](https://matrix.to/#/@alice:example.org)!"
+    editor.setMarkdown(markdown)
+    var savedText: String?
+    state.onSave = { savedText = state.text }
+    let saveButton = try #require(
+      view.subviews.compactMap { $0 as? NSButton }.first { $0.title == "Save" })
+
+    saveButton.performClick(nil)
+
+    #expect(savedText == markdown)
+    #expect(state.text == markdown)
+  }
+
   @Test func emptyMediaCaptionGetsEditorHeight() throws {
     let source = try MediaSource.fromUrl(url: "mxc://example.org/file")
     let file = FileMessageContent(
