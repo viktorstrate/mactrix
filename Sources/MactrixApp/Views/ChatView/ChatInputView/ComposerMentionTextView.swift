@@ -1,9 +1,14 @@
 import AppKit
 import MactrixUI
+import MatrixProtocols
+import MatrixRustSDK
 import MessageFormatting
 
 final class ComposerMentionTextView: DynamicTextView {
   typealias AvatarURLLookup = MentionAvatarLoader.AvatarURLLookup
+
+  let mentionAutocomplete = ComposerMentionAutocompleteSession<MatrixRustSDK.RoomMember>()
+  var mentionCandidateProvider: (() -> [MatrixRustSDK.RoomMember])?
 
   private let content = NSTextContentStorage()
   private var avatarLoader: MentionAvatarLoader?
@@ -33,10 +38,11 @@ final class ComposerMentionTextView: DynamicTextView {
 
   /// Loads draft text without registering user edits or emitting text-change notifications.
   func setMarkdown(_ markdown: String) {
+    mentionAutocomplete.reset()
     let attributes = typingAttributes.filter { $0.key != .attachment }
     let text = NSMutableAttributedString(string: markdown, attributes: attributes)
     for mention in parseMarkdownMentions(markdown).reversed() {
-      let payload = UserDragPayload(userID: mention.userID, username: mention.username)
+      let payload = UserDragPayload(userId: mention.userID, username: mention.username)
       let attachment = MentionAttachment(payload: payload, imageLoader: imageLoader)
       text.replaceCharacters(
         in: mention.range,

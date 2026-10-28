@@ -24,7 +24,7 @@ final class MentionAttachment: NSTextAttachment {
   weak var imageLoader: ImageLoader?
 
   var pasteboardPayload: UserDragPayload {
-    UserDragPayload(userID: payload.userID, username: payload.username, avatarUrl: avatarUrl)
+    UserDragPayload(userId: payload.userId, username: payload.username, avatarUrl: avatarUrl)
   }
 
   func setAvatarUrl(_ avatarUrl: String) {
@@ -157,7 +157,7 @@ private final class MentionView: NSButton {
     label.maximumNumberOfLines = 1
     addSubview(avatar)
     addSubview(label)
-    setAccessibilityLabel(payload.username + " (" + payload.userID + ")")
+    setAccessibilityLabel(payload.username + " (" + payload.userId + ")")
     setAccessibilityChildren([])
     NotificationCenter.default.addObserver(
       self, selector: #selector(avatarChanged),
@@ -232,7 +232,7 @@ private final class MentionView: NSButton {
   private func configureAvatar() {
     let payload = attachment.payload
     avatar.configure(
-      userID: payload.userID, displayName: payload.username,
+      userID: payload.userId, displayName: payload.username,
       avatarUrl: attachment.avatarUrl, kind: .user, imageLoader: attachment.imageLoader)
   }
 
@@ -282,7 +282,7 @@ private final class MentionView: NSButton {
   }
 
   override func draw(_ dirtyRect: NSRect) {
-    let color = NSColor(userID: attachment.payload.userID)
+    let color = NSColor(userID: attachment.payload.userId)
     color.withAlphaComponent(0.15).setFill()
     NSBezierPath(roundedRect: bounds, xRadius: bounds.height / 2, yRadius: bounds.height / 2).fill()
     label.textColor = color

@@ -86,7 +86,7 @@ class DynamicTextView: SubmitableTextView {
       return false
     }
 
-    insertText(payload.markdownLink ?? payload.userID, replacementRange: selectedRange())
+    insertText(payload.markdownLink ?? payload.userId, replacementRange: selectedRange())
     return true
   }
 

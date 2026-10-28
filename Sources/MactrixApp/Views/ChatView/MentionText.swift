@@ -33,7 +33,7 @@ enum MentionText {
       let name = (text.string as NSString).substring(with: range)
       // A single-line pill must not swallow structural breaks in linked HTML content.
       guard name.rangeOfCharacter(from: .newlines) == nil else { return }
-      mentions.append((range, UserDragPayload(userID: userID, username: name), url))
+      mentions.append((range, UserDragPayload(userId: userID, username: name), url))
     }
 
     let result = NSMutableAttributedString(attributedString: text)
@@ -82,12 +82,12 @@ enum MentionText {
     text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length)) {
       attachment, range, _ in
       if let mention = attachment as? MentionAttachment {
-        if seenUserIDs.insert(mention.payload.userID).inserted {
-          mentionedUserIDs.append(mention.payload.userID)
+        if seenUserIDs.insert(mention.payload.userId).inserted {
+          mentionedUserIDs.append(mention.payload.userId)
         }
         result +=
           asMarkdown
-          ? (mention.payload.markdownLink ?? mention.payload.userID) : mention.payload.userID
+          ? (mention.payload.markdownLink ?? mention.payload.userId) : mention.payload.userId
       } else {
         result += (text.string as NSString).substring(with: range)
       }
