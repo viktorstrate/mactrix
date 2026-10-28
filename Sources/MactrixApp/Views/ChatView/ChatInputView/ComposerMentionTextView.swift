@@ -11,6 +11,7 @@ final class ComposerMentionTextView: DynamicTextView {
   var mentionCandidateProvider: (() -> [MatrixRustSDK.RoomMember])?
 
   private let content = NSTextContentStorage()
+  private var mentionInputChangeDepth = 0
   private var avatarLoader: MentionAvatarLoader?
   weak var imageLoader: ImageLoader?
   var avatarURLLookup: AvatarURLLookup? {
@@ -28,6 +29,9 @@ final class ComposerMentionTextView: DynamicTextView {
     super.init(frame: .zero, textContainer: container)
     isRichText = true
     importsGraphics = false
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(mentionSelectionDidChange),
+      name: NSTextView.didChangeSelectionNotification, object: self)
   }
 
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -39,6 +43,8 @@ final class ComposerMentionTextView: DynamicTextView {
   /// Loads draft text without registering user edits or emitting text-change notifications.
   func setMarkdown(_ markdown: String) {
     mentionAutocomplete.reset()
+    mentionInputChangeDepth += 1
+    defer { mentionInputChangeDepth -= 1 }
     let attributes = typingAttributes.filter { $0.key != .attachment }
     let text = NSMutableAttributedString(string: markdown, attributes: attributes)
     for mention in parseMarkdownMentions(markdown).reversed() {
@@ -58,6 +64,56 @@ final class ComposerMentionTextView: DynamicTextView {
   override func didChangeText() {
     super.didChangeText()
     restoreMentionAvatars()
+    updateMentionAutocomplete()
+  }
+
+  @objc private func mentionSelectionDidChange() {
+    updateMentionAutocomplete()
+  }
+
+  func updateMentionAutocomplete() {
+    guard mentionInputChangeDepth == 0 else { return }
+    guard isEditable else {
+      mentionAutocomplete.reset()
+      return
+    }
+    mentionAutocomplete.update(
+      in: attributedString(), selectedRange: selectedRange(), hasMarkedText: hasMarkedText(),
+      candidates: mentionCandidateProvider?() ?? [])
+  }
+
+  func validatedMentionReplacementRange() -> NSRange? {
+    guard isEditable, mentionInputChangeDepth == 0 else { return nil }
+    return mentionAutocomplete.validatedReplacementRange(
+      in: attributedString(), selectedRange: selectedRange(), hasMarkedText: hasMarkedText())
+  }
+
+  override func insertText(_ insertString: Any, replacementRange: NSRange) {
+    performMentionInputChange {
+      super.insertText(insertString, replacementRange: replacementRange)
+    }
+  }
+
+  override func setMarkedText(
+    _ string: Any, selectedRange: NSRange, replacementRange: NSRange
+  ) {
+    performMentionInputChange {
+      super.setMarkedText(string, selectedRange: selectedRange, replacementRange: replacementRange)
+    }
+  }
+
+  override func unmarkText() {
+    performMentionInputChange { super.unmarkText() }
+  }
+
+  private func performMentionInputChange(_ change: () -> Void) {
+    // AppKit may emit selection/text notifications before a composition edit has finished.
+    mentionInputChangeDepth += 1
+    defer {
+      mentionInputChangeDepth -= 1
+      updateMentionAutocomplete()
+    }
+    change()
   }
 
   func cancelAvatarLookups() {

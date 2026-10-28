@@ -9,133 +9,137 @@ struct ComposerMentionAutocompleteSessionTests {
   private struct Profile: UserProfile {
     let userId: String
     let displayName: String?
-    var avatarUrl: String? = nil
+    var avatarUrl: String? { nil }
   }
 
-  private let alice = Profile(userId: "@alice:example.org", displayName: "Alice")
-  private let bob = Profile(userId: "@bob:example.org", displayName: "Bob")
+  private typealias Session = ComposerMentionAutocompleteSession<Profile>
 
-  @Test func startsInactive() {
-    let session = ComposerMentionAutocompleteSession<Profile>()
+  private let alice = Profile(userId: "@alice:example.org", displayName: "Alice Wonderland")
+  private let bob = Profile(userId: "@bob:example.org", displayName: nil)
 
-    #expect(session.query == nil)
+  @Test func detectsMentionsOnlyAtValidCaretPositions() {
+    #expect(detect("@") == query(""))
+    #expect(detect("Hi @alice") == query("alice", location: 3))
+    #expect(detect("Hi\n@alice") == query("alice", location: 3))
+    #expect(detect("email@alice") == nil)
+    #expect(detect("@alice ") == nil)
+    #expect(detect("@alice", caret: 0) == nil)
+    #expect(
+      Session.Query.detect(
+        in: NSAttributedString(string: "@alice"), selectedRange: NSRange(location: 1, length: 2))
+        == nil)
+  }
+
+  @Test func includesWholeTokenUsingUTF16Ranges() {
+    let text = "😀 @a😀 later"
+
+    #expect(detect(text, caret: 5) == query("a😀", location: 3))
+    #expect(detect(text, caret: 6) == nil)
+  }
+
+  @Test func attachmentsStopQueryScanning() {
+    let text = NSMutableAttributedString(string: "@al")
+    text.append(NSAttributedString(attachment: NSTextAttachment()))
+    text.append(NSAttributedString(string: "ice"))
+
+    #expect(Session.Query.detect(in: text, selectedRange: caret(3)) == query("al"))
+    #expect(Session.Query.detect(in: text, selectedRange: caret(text.length)) == nil)
+  }
+
+  @Test func filtersNamesAndUserIDsCaseInsensitively() {
+    let session = Session()
+    update(session, "@")
+    #expect(session.suggestions.map(\.userId) == [alice.userId, bob.userId])
+    #expect(session.highlightedSuggestion?.userId == alice.userId)
+
+    update(session, "@WONDER")
+    #expect(session.suggestions.map(\.userId) == [alice.userId])
+
+    update(session, "@BOB:EXAMPLE")
+    #expect(session.suggestions.map(\.userId) == [bob.userId])
+
+    update(session, "@nobody")
+    #expect(session.query == query("nobody"))
     #expect(session.suggestions.isEmpty)
     #expect(session.highlightedSuggestion == nil)
-    #expect(session.dismissedTriggerLocation == nil)
   }
 
-  @Test func queryTracksRangeAndHighlightsFirstSuggestion() {
-    let session = ComposerMentionAutocompleteSession<Profile>()
-    let query = query("a", location: 3)
+  @Test func preservesHighlightWhileUserRemainsSuggested() {
+    let session = Session()
+    update(session, "@")
+    session.highlight(userID: bob.userId)
 
-    session.update(query: query, suggestions: [alice, bob])
+    update(session, "@EXAMPLE")
+    #expect(session.highlightedUserID == bob.userId)
 
-    #expect(session.query == query)
-    #expect(session.suggestions.map(\.userId) == [alice.userId, bob.userId])
+    update(session, "@ali")
+    #expect(session.highlightedUserID == alice.userId)
+  }
+
+  @Test func dismissalSuppressesTokenUntilItEnds() {
+    let session = Session()
+    update(session, "@a")
+    session.dismiss()
+
+    update(session, "@alice")
+    #expect(session.query == nil)
+    #expect(session.suggestions.isEmpty)
+
+    update(session, "@alice ")
+    update(session, "@alice")
     #expect(session.highlightedSuggestion?.userId == alice.userId)
   }
 
-  @Test func highlightFollowsUserIdentityAcrossUpdates() {
-    let session = ComposerMentionAutocompleteSession<Profile>()
-    session.update(query: query(""), suggestions: [alice, bob])
-    session.highlight(userID: bob.userId)
+  @Test func suspendsAutocompleteDuringComposition() {
+    let session = Session()
+    update(session, "@ali")
 
-    session.update(query: query("b"), suggestions: [bob, alice])
-
-    #expect(session.highlightedUserID == bob.userId)
-
-    session.update(query: query("a"), suggestions: [alice])
-
-    #expect(session.highlightedUserID == alice.userId)
-    session.highlight(userID: "@unknown:example.org")
-    #expect(session.highlightedUserID == alice.userId)
-  }
-
-  @Test func profilesPreserveOptionalNamesAndAvatars() {
-    let session = ComposerMentionAutocompleteSession<Profile>()
-    let profile = Profile(
-      userId: "@unnamed:example.org", displayName: nil, avatarUrl: "mxc://example.org/avatar")
-    let profile2 = Profile(
-      userId: "@another:example.org", displayName: nil, avatarUrl: "mxc://test.org/avatar")
-
-    session.update(query: query(""), suggestions: [profile, profile2])
-
-    #expect(session.highlightedSuggestion?.userId == profile.userId)
-    #expect(session.highlightedSuggestion?.displayName == nil)
-    #expect(session.highlightedSuggestion?.avatarUrl == profile.avatarUrl)
-    #expect(session.suggestions.count == 2)
-  }
-
-  @Test func emptySuggestionsHaveNoHighlight() {
-    let session = ComposerMentionAutocompleteSession<Profile>()
-    session.update(query: query(""), suggestions: [alice])
-
-    session.update(query: query("unknown"), suggestions: [])
-
-    #expect(session.query != nil)
-    #expect(session.highlightedUserID == nil)
-    #expect(session.highlightedSuggestion == nil)
-  }
-
-  @Test func newTriggerStartsWithFirstSuggestion() {
-    let session = ComposerMentionAutocompleteSession<Profile>()
-    session.update(query: query(""), suggestions: [alice, bob])
-    session.highlight(userID: bob.userId)
-
-    session.update(query: query("", location: 10), suggestions: [alice, bob])
-
-    #expect(session.highlightedUserID == alice.userId)
-  }
-
-  @Test func dismissalSuppressesSameTokenUntilItEnds() {
-    let session = ComposerMentionAutocompleteSession<Profile>()
-    session.update(query: query("a"), suggestions: [alice])
-
-    session.dismiss()
-    session.dismiss()
-    session.update(query: query("al"), suggestions: [alice])
-
+    update(session, "@ali", hasMarkedText: true)
     #expect(session.query == nil)
     #expect(session.suggestions.isEmpty)
-    #expect(session.highlightedUserID == nil)
-    #expect(session.dismissedTriggerLocation == 0)
 
-    session.update(query: nil, suggestions: [])
-    session.update(query: query("a"), suggestions: [alice])
-
-    #expect(session.query == query("a"))
-    #expect(session.highlightedUserID == alice.userId)
-    #expect(session.dismissedTriggerLocation == nil)
+    update(session, "@ali")
+    #expect(session.highlightedSuggestion?.userId == alice.userId)
   }
 
-  @Test func differentTriggerIsNotSuppressed() {
-    let session = ComposerMentionAutocompleteSession<Profile>()
-    session.update(query: query("a"), suggestions: [alice])
-    session.dismiss()
+  @Test func validatesReplacementAgainstCurrentTextAndSelection() {
+    let session = Session()
+    let text = NSAttributedString(string: "@alice")
+    update(session, text.string)
 
-    session.update(query: query("b", location: 10), suggestions: [bob])
-
-    #expect(session.query == query("b", location: 10))
-    #expect(session.highlightedUserID == bob.userId)
-    #expect(session.dismissedTriggerLocation == nil)
+    #expect(
+      session.validatedReplacementRange(in: text, selectedRange: caret(3), hasMarkedText: false)
+        == NSRange(location: 0, length: 6))
+    #expect(
+      session.validatedReplacementRange(
+        in: NSAttributedString(string: "@alina"), selectedRange: caret(3), hasMarkedText: false)
+        == nil)
+    #expect(
+      session.validatedReplacementRange(in: text, selectedRange: caret(0), hasMarkedText: false)
+        == nil)
+    #expect(
+      session.validatedReplacementRange(in: text, selectedRange: caret(6), hasMarkedText: true)
+        == nil)
   }
 
-  @Test func resetClearsDismissal() {
-    let session = ComposerMentionAutocompleteSession<Profile>()
-    session.update(query: query("a"), suggestions: [alice])
-    session.dismiss()
-
-    session.reset()
-
-    #expect(session.query == nil)
-    #expect(session.suggestions.isEmpty)
-    #expect(session.highlightedUserID == nil)
-    #expect(session.dismissedTriggerLocation == nil)
+  private func update(_ session: Session, _ text: String, hasMarkedText: Bool = false) {
+    let attributed = NSAttributedString(string: text)
+    session.update(
+      in: attributed, selectedRange: caret(attributed.length), hasMarkedText: hasMarkedText,
+      candidates: [alice, bob])
   }
 
-  private func query(
-    _ text: String, location: Int = 0
-  ) -> ComposerMentionAutocompleteSession<Profile>.Query {
+  private func detect(_ text: String, caret position: Int? = nil) -> Session.Query? {
+    let attributed = NSAttributedString(string: text)
+    return Session.Query.detect(
+      in: attributed, selectedRange: caret(position ?? attributed.length))
+  }
+
+  private func caret(_ location: Int) -> NSRange {
+    NSRange(location: location, length: 0)
+  }
+
+  private func query(_ text: String, location: Int = 0) -> Session.Query {
     .init(range: NSRange(location: location, length: 1 + text.utf16.count), text: text)
   }
 }
