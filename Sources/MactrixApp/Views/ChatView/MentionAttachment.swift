@@ -9,6 +9,9 @@ protocol MentionAttachmentHost: NSTextView {
   func activateMention(_ attachment: MentionAttachment)
 }
 
+/// A custom NSTextAttachment that renders a mention "pill" inside an NSAttributedString.
+/// This subclass assumes that the superclass is only ever accessed from the main thread.
+@MainActor
 final class MentionAttachment: NSTextAttachment {
   fileprivate static let avatarDidChangeNotification = Notification.Name(
     "MentionAttachment.avatarDidChange")
@@ -17,20 +20,19 @@ final class MentionAttachment: NSTextAttachment {
   /// Preserved for clipboard export, independently of the host's activation behavior.
   let navigationURL: URL?
 
-  @MainActor private(set) var avatarUrl: String?
-  @MainActor weak var imageLoader: ImageLoader?
+  private(set) var avatarUrl: String?
+  weak var imageLoader: ImageLoader?
 
-  @MainActor var pasteboardPayload: UserDragPayload {
+  var pasteboardPayload: UserDragPayload {
     UserDragPayload(userID: payload.userID, username: payload.username, avatarUrl: avatarUrl)
   }
 
-  @MainActor func setAvatarUrl(_ avatarUrl: String) {
+  func setAvatarUrl(_ avatarUrl: String) {
     guard self.avatarUrl != avatarUrl else { return }
     self.avatarUrl = avatarUrl
     NotificationCenter.default.post(name: Self.avatarDidChangeNotification, object: self)
   }
 
-  @MainActor
   init(payload: UserDragPayload, imageLoader: ImageLoader? = nil, navigationURL: URL? = nil) {
     self.payload = payload
     self.navigationURL = navigationURL ?? payload.url.flatMap(URL.init(string:))
@@ -41,9 +43,9 @@ final class MentionAttachment: NSTextAttachment {
 
   required init?(coder: NSCoder) { return nil }
 
-  override var usesTextAttachmentView: Bool { true }
+  nonisolated override var usesTextAttachmentView: Bool { true }
 
-  override func viewProvider(
+  nonisolated override func viewProvider(
     for parentView: NSView?, location: any NSTextLocation, textContainer: NSTextContainer?
   ) -> NSTextAttachmentViewProvider? {
     MentionViewProvider(
@@ -51,7 +53,7 @@ final class MentionAttachment: NSTextAttachment {
       textLayoutManager: textContainer?.textLayoutManager, location: location)
   }
 
-  override func image(
+  nonisolated override func image(
     for bounds: CGRect, attributes: [NSAttributedString.Key: Any] = [:],
     location: any NSTextLocation, textContainer: NSTextContainer?
   ) -> NSImage? {
@@ -77,7 +79,7 @@ final class MentionAttachment: NSTextAttachment {
     }
   }
 
-  override func attachmentBounds(
+  nonisolated override func attachmentBounds(
     for attributes: [NSAttributedString.Key: Any], location: any NSTextLocation,
     textContainer: NSTextContainer?, proposedLineFragment: CGRect, position: CGPoint
   ) -> CGRect {
@@ -85,27 +87,34 @@ final class MentionAttachment: NSTextAttachment {
       for: attributes, location: location, textContainer: textContainer,
       proposedLineFragment: proposedLineFragment, position: position)
 
-    let font = attributes[.font] as? NSFont ?? .systemFont(ofSize: 13)
-    let height = ceil(font.ascender - font.descender) + 6
-    let labelWidth = (payload.username as NSString).size(withAttributes: [.font: font]).width
-    let available = max(
-      1,
-      (textContainer?.size.width ?? proposedLineFragment.width) - 2
-        * (textContainer?.lineFragmentPadding ?? 5))
+    nonisolated(unsafe) let attachment = self
+    nonisolated(unsafe) let font = attributes[.font] as? NSFont ?? .systemFont(ofSize: 13)
+    nonisolated(unsafe) let container = textContainer
+    return MainActor.assumeIsolated {
+      let height = ceil(font.ascender - font.descender) + 6
+      let baselineOffset = MentionView.baselineOffset(for: font, height: height)
+      let labelWidth = (attachment.payload.username as NSString).size(withAttributes: [.font: font])
+        .width
+      let available = max(
+        1,
+        (container?.size.width ?? proposedLineFragment.width) - 2
+          * (container?.lineFragmentPadding ?? 5))
 
-    return CGRect(
-      x: 0, y: font.descender - 3, width: min(available, ceil(labelWidth) + height + 12),
-      height: height)
+      return CGRect(
+        x: 0, y: -baselineOffset, width: min(available, ceil(labelWidth) + height + 12),
+        height: height)
+    }
   }
 }
 
+@MainActor
 private final class MentionViewProvider: NSTextAttachmentViewProvider {
-  override func loadView() {
-    guard let mention = textAttachment as? MentionAttachment else { return }
-    // AppKit loads attachment views on the UI thread but its provider API is preconcurrency.
-    nonisolated(unsafe) let uiAttachment = mention
-    view = MainActor.assumeIsolated {
-      MentionView(attachment: uiAttachment)
+  nonisolated override func loadView() {
+    // Assume that the superclass is only used on the main thread
+    nonisolated(unsafe) let provider = self
+    MainActor.assumeIsolated {
+      guard let mention = provider.textAttachment as? MentionAttachment else { return }
+      provider.view = MentionView(attachment: mention)
     }
   }
 }
@@ -118,6 +127,15 @@ private final class MentionButtonCell: NSButtonCell {
 }
 
 private final class MentionView: NSButton {
+  private static let measurementLabel = NSTextField(labelWithString: "")
+
+  static func baselineOffset(for font: NSFont, height: CGFloat) -> CGFloat {
+    measurementLabel.font = font
+    // Match the centered label's actual baseline, including AppKit's rounded text metrics.
+    return (height - measurementLabel.intrinsicContentSize.height) / 2
+      + measurementLabel.lastBaselineOffsetFromBottom
+  }
+
   private let attachment: MentionAttachment
   private let avatar = AvatarView()
   private let label = NSTextField(labelWithString: "")
