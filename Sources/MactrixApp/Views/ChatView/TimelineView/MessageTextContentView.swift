@@ -12,7 +12,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   var onSelectRequest: (() -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?
 
-  private let bodyText = OcclusionAwareTextView(frame: .zero)
+  private let bodyText = MessageTextView(frame: .zero)
 
   var cachedEditingView: MessageEditingView? = nil
   public var isEditing: Bool { cachedEditingView?.isEditing ?? false }
@@ -213,42 +213,5 @@ final class MessageTextContentView: NSView, MessageContentRowView {
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
-  }
-}
-
-/// Lets overlays and embedded controls own the cursor without knowing their implementation.
-private final class OcclusionAwareTextView: MessageTextView {
-  var onArrowKey: ((TimelineSelectionDirection) -> Void)?
-
-  override func keyDown(with event: NSEvent) {
-    if let direction = TimelineSelectionDirection(event: event), let onArrowKey {
-      onArrowKey(direction)
-    } else {
-      super.keyDown(with: event)
-    }
-  }
-
-  override func cursorUpdate(with event: NSEvent) {
-    guard shouldHandlePointerEvent(event) else { return }
-    super.cursorUpdate(with: event)
-  }
-
-  override func mouseMoved(with event: NSEvent) {
-    // NSTextView also sets its cursor during mouse movement, independently
-    // of cursorUpdate. Covered text must yield to the view above it here too.
-    guard shouldHandlePointerEvent(event) else { return }
-    super.mouseMoved(with: event)
-  }
-
-  private func shouldHandlePointerEvent(_ event: NSEvent) -> Bool {
-    guard let window,
-      let contentView = window.contentView,
-      let contentSuperview = contentView.superview,
-      let hitView = contentView.hitTest(contentSuperview.convert(event.locationInWindow, from: nil))
-    else {
-      return true
-    }
-
-    return hitView === self || (hitView.isDescendant(of: self) && !(hitView is NSControl))
   }
 }

@@ -6,6 +6,7 @@ import Utils
 class MessageTextView: NSTextView, NSTextViewDelegate, MentionAttachmentHost {
   var handleMatrixUri: ((MatrixUriScheme) -> Bool)?
   var onMouseDown: (() -> Void)?
+  var onArrowKey: ((TimelineSelectionDirection) -> Void)?
 
   var allowsMentionInteraction: Bool {
     !isEditable && isSelectable && handleMatrixUri != nil
@@ -79,5 +80,13 @@ class MessageTextView: NSTextView, NSTextViewDelegate, MentionAttachmentHost {
     else { return false }
 
     return handleMatrixUri?(uri) ?? false
+  }
+
+  override func keyDown(with event: NSEvent) {
+    if let direction = TimelineSelectionDirection(event: event), let onArrowKey {
+      onArrowKey(direction)
+    } else {
+      super.keyDown(with: event)
+    }
   }
 }
