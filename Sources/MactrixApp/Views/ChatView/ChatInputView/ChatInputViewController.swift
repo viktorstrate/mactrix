@@ -224,7 +224,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     draftSaveTask?.cancel()
     draftSaveTask = nil
     editorSession.tearDown()
-    container.editor.mentionAutocomplete.reset()
+    container.editor.endMentionAutocomplete()
     container.editor.mentionCandidateProvider = nil
     container.editor.cancelAvatarLookups()
     actionTasks.values.forEach { $0.cancel() }

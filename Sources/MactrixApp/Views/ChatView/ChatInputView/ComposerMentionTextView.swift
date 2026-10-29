@@ -3,13 +3,18 @@ import MactrixUI
 import MatrixProtocols
 import MatrixRustSDK
 import MessageFormatting
+import Observation
 
 final class ComposerMentionTextView: DynamicTextView {
   typealias AvatarURLLookup = MentionAvatarLoader.AvatarURLLookup
 
   let mentionAutocomplete = ComposerMentionAutocompleteSession<MatrixRustSDK.RoomMember>()
   var mentionCandidateProvider: (() -> [MatrixRustSDK.RoomMember])?
+  private(set) var mentionAutocompleteWindow: ComposerMentionAutocompleteWindow?
 
+  private let mentionGeometryViews = NSHashTable<NSView>.weakObjects()
+  private weak var mentionObservedWindow: NSWindow?
+  private var isUpdatingMentionPresentation = false
   private let content = NSTextContentStorage()
   private var mentionInputChangeDepth = 0
   private var avatarLoader: MentionAvatarLoader?
@@ -32,6 +37,17 @@ final class ComposerMentionTextView: DynamicTextView {
     NotificationCenter.default.addObserver(
       self, selector: #selector(mentionSelectionDidChange),
       name: NSTextView.didChangeSelectionNotification, object: self)
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(mentionFocusDidEnd),
+      name: NSApplication.didResignActiveNotification, object: nil)
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(synchronizeMentionAutocompleteWindow),
+      name: NSApplication.didChangeScreenParametersNotification, object: nil)
+    observeMentionAutocomplete()
+  }
+
+  isolated deinit {
+    closeMentionAutocompleteWindow()
   }
 
   required init?(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
@@ -42,7 +58,7 @@ final class ComposerMentionTextView: DynamicTextView {
 
   /// Loads draft text without registering user edits or emitting text-change notifications.
   func setMarkdown(_ markdown: String) {
-    mentionAutocomplete.reset()
+    endMentionAutocomplete()
     mentionInputChangeDepth += 1
     defer { mentionInputChangeDepth -= 1 }
     let attributes = typingAttributes.filter { $0.key != .attachment }
@@ -114,6 +130,158 @@ final class ComposerMentionTextView: DynamicTextView {
       updateMentionAutocomplete()
     }
     change()
+  }
+
+  private func observeMentionAutocomplete() {
+    withObservationTracking {
+      _ = mentionAutocomplete.query
+      _ = mentionAutocomplete.suggestions
+      _ = mentionAutocomplete.highlightedUserID
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.observeMentionAutocomplete()
+      }
+    }
+    synchronizeMentionAutocompleteWindow()
+  }
+
+  @objc private func synchronizeMentionAutocompleteWindow() {
+    guard mentionInputChangeDepth == 0, !isUpdatingMentionPresentation else { return }
+    isUpdatingMentionPresentation = true
+    defer { isUpdatingMentionPresentation = false }
+    guard !mentionAutocomplete.suggestions.isEmpty, let parent = window,
+      let anchor = mentionAnchorRect(),
+      let screen = NSScreen.screens.first(where: {
+        $0.frame.contains(NSPoint(x: anchor.midX, y: anchor.midY))
+      }) ?? parent.screen
+    else {
+      closeMentionAutocompleteWindow()
+      return
+    }
+
+    let popup = mentionAutocompleteWindow ?? ComposerMentionAutocompleteWindow()
+    mentionAutocompleteWindow = popup
+    popup.imageLoader = self.imageLoader
+    popup.onHighlight = { [weak self] userID in
+      self?.mentionAutocomplete.highlight(userID: userID)
+    }
+    popup.update(
+      suggestions: mentionAutocomplete.suggestions,
+      highlightedUserID: mentionAutocomplete.highlightedUserID)
+    let frame = ComposerMentionAutocompleteWindow.frame(
+      anchoredTo: anchor, preferredSize: popup.preferredSize, visibleFrame: screen.visibleFrame)
+    if popup.frame != frame { popup.setFrame(frame, display: true) }
+    if popup.parent !== parent { parent.addChildWindow(popup, ordered: .above) }
+    if !popup.isVisible { popup.orderFront(nil) }
+  }
+
+  private func mentionAnchorRect() -> NSRect? {
+    guard isEditable, !isHiddenOrHasHiddenAncestor, let window, window.isKeyWindow,
+      window.firstResponder === self, let range = validatedMentionReplacementRange()
+    else { return nil }
+    // NSTextInputClient returns screen coordinates and supports the live TextKit 2 layout.
+    let anchor = firstRect(
+      forCharacterRange: NSRange(location: range.location, length: 1), actualRange: nil)
+    let visible = window.convertToScreen(convert(visibleRect, to: nil))
+    guard anchor.height > 0, anchor.intersects(visible) else { return nil }
+    return anchor
+  }
+
+  func endMentionAutocomplete() {
+    mentionAutocomplete.reset()
+    closeMentionAutocompleteWindow()
+  }
+
+  private func closeMentionAutocompleteWindow() {
+    guard let popup = mentionAutocompleteWindow else { return }
+    popup.parent?.removeChildWindow(popup)
+    popup.orderOut(nil)
+    popup.close()
+    mentionAutocompleteWindow = nil
+  }
+
+  @objc private func mentionFocusDidEnd() {
+    endMentionAutocomplete()
+  }
+
+  private func observeMentionGeometry() {
+    let center = NotificationCenter.default
+    for view in mentionGeometryViews.allObjects {
+      center.removeObserver(self, name: NSView.frameDidChangeNotification, object: view)
+      center.removeObserver(self, name: NSView.boundsDidChangeNotification, object: view)
+    }
+    mentionGeometryViews.removeAllObjects()
+    if let oldWindow = mentionObservedWindow {
+      for name in Self.mentionWindowGeometryNotifications + Self.mentionWindowDismissNotifications {
+        center.removeObserver(self, name: name, object: oldWindow)
+      }
+    }
+    mentionObservedWindow = window
+    guard let window else { return }
+    var ancestor: NSView? = self
+    while let view = ancestor {
+      mentionGeometryViews.add(view)
+      view.postsFrameChangedNotifications = true
+      view.postsBoundsChangedNotifications = true
+      for name in [NSView.frameDidChangeNotification, NSView.boundsDidChangeNotification] {
+        center.addObserver(
+          self, selector: #selector(synchronizeMentionAutocompleteWindow), name: name, object: view)
+      }
+      ancestor = view.superview
+    }
+    for name in Self.mentionWindowGeometryNotifications {
+      center.addObserver(
+        self, selector: #selector(synchronizeMentionAutocompleteWindow), name: name, object: window)
+    }
+    for name in Self.mentionWindowDismissNotifications {
+      center.addObserver(
+        self, selector: #selector(mentionFocusDidEnd), name: name, object: window)
+    }
+  }
+
+  private static let mentionWindowGeometryNotifications = [
+    NSWindow.didMoveNotification, NSWindow.didResizeNotification,
+    NSWindow.didChangeScreenNotification, NSWindow.didChangeBackingPropertiesNotification,
+  ]
+  private static let mentionWindowDismissNotifications = [
+    NSWindow.didResignKeyNotification, NSWindow.willCloseNotification,
+  ]
+
+  override func viewWillMove(toWindow newWindow: NSWindow?) {
+    if window !== newWindow { endMentionAutocomplete() }
+    super.viewWillMove(toWindow: newWindow)
+  }
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    observeMentionGeometry()
+  }
+
+  override func viewDidMoveToSuperview() {
+    super.viewDidMoveToSuperview()
+    observeMentionGeometry()
+  }
+
+  override func layout() {
+    super.layout()
+    synchronizeMentionAutocompleteWindow()
+  }
+
+  override func becomeFirstResponder() -> Bool {
+    let becameResponder = super.becomeFirstResponder()
+    if becameResponder { updateMentionAutocomplete() }
+    return becameResponder
+  }
+
+  override func resignFirstResponder() -> Bool {
+    let resigned = super.resignFirstResponder()
+    if resigned { endMentionAutocomplete() }
+    return resigned
+  }
+
+  override func viewDidHide() {
+    super.viewDidHide()
+    endMentionAutocomplete()
   }
 
   func cancelAvatarLookups() {
