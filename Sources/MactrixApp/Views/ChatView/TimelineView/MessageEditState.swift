@@ -1,4 +1,5 @@
 import Foundation
+import MactrixUI
 import MatrixRustSDK
 
 @MainActor final class MessageEditState {
@@ -6,6 +7,8 @@ import MatrixRustSDK
   var text: String
   var isSaving = false
   var error: String?
+  var mentionCandidateProvider: (() -> [RoomMember])?
+  weak var imageLoader: ImageLoader?
   var onChange: (() -> Void)?
   var onSave: (() -> Void)?
   var onCancel: (() -> Void)?
