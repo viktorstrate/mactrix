@@ -81,8 +81,7 @@ class MessageProfileRowView: NSView {
 
     profilePicture.configure(event: event)
 
-    dragPayload = UserDragPayload(
-      userID: event.sender, username: username, avatarUrl: avatarUrl)
+    dragPayload = UserDragPayload(userId: event.sender, username: username, avatarUrl: avatarUrl)
   }
 
 }

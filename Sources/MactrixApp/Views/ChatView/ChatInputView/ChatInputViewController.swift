@@ -52,6 +52,9 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     super.init(nibName: nil, bundle: nil)
     container.editor.imageLoader = imageLoader
     container.editor.avatarURLLookup = avatarURLLookup
+    container.editor.mentionCandidateProvider = { [weak self] in
+      self?.timeline.room.members ?? []
+    }
   }
 
   override func loadView() {
@@ -103,6 +106,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
       _ = composer.focusRequest
       _ = composer.draftRevision
       _ = timeline.timeline
+      _ = timeline.room.members
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
         self?.observeState()
@@ -140,6 +144,9 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     }
     synchronizePreviewAttachments()
     container.setAttachments(composer.attachments)
+    if container.editor.mentionAutocomplete.query != nil {
+      container.editor.updateMentionAutocomplete()
+    }
     requestFocus()
   }
 
@@ -217,6 +224,8 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     draftSaveTask?.cancel()
     draftSaveTask = nil
     editorSession.tearDown()
+    container.editor.endMentionAutocomplete()
+    container.editor.mentionCandidateProvider = nil
     container.editor.cancelAvatarLookups()
     actionTasks.values.forEach { $0.cancel() }
     actionTasks.removeAll()

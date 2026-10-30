@@ -86,7 +86,7 @@ class DynamicTextView: SubmitableTextView {
       return false
     }
 
-    insertText(payload.markdownLink ?? payload.userID, replacementRange: selectedRange())
+    insertText(payload.markdownLink ?? payload.userId, replacementRange: selectedRange())
     return true
   }
 
@@ -158,9 +158,10 @@ class SubmitableTextView: NSTextView {
   var onSubmit: (() -> Void)?
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
-    // Always submit on cmd+enter
-    if (event.specialKey == .enter || event.specialKey == .carriageReturn)
-      && event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command]
+    let modifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
+    if !hasMarkedText(),
+      (event.specialKey == .enter || event.specialKey == .carriageReturn)
+        && modifiers == [.command]
     {
       onSubmit?()
       return true
@@ -171,8 +172,9 @@ class SubmitableTextView: NSTextView {
 
   override func keyDown(with event: NSEvent) {
     // Handle enter as submit instead of newline
-    if event.specialKey == .enter || event.specialKey == .carriageReturn,
-      event.modifierFlags.intersection(.deviceIndependentFlagsMask) == []
+    let modifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
+    if !hasMarkedText(), event.specialKey == .enter || event.specialKey == .carriageReturn,
+      modifiers.isEmpty
     {
       onSubmit?()
       return

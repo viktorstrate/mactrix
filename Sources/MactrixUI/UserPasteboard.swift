@@ -1,20 +1,25 @@
 import AppKit
+import MatrixProtocols
 
 extension NSPasteboard.PasteboardType {
   public static let mactrixUser = Self("org.mactrix.user")
 }
 
-public struct UserDragPayload: Codable {
-  public let userID: String
+public struct UserDragPayload: Codable, MatrixProtocols.UserProfile {
+  public let userId: String
   public let username: String
   public let avatarUrl: String?
 
+  public var displayName: String? {
+    username
+  }
+
   public init(
-    userID: String,
+    userId: String,
     username: String,
     avatarUrl: String? = nil,
   ) {
-    self.userID = userID
+    self.userId = userId
     self.username = username
     self.avatarUrl = avatarUrl
   }
@@ -26,7 +31,7 @@ public struct UserDragPayload: Codable {
     components.path = "/"
 
     guard
-      let encodedUserID = userID.addingPercentEncoding(
+      let encodedUserID = userId.addingPercentEncoding(
         withAllowedCharacters: CharacterSet.urlFragmentAllowed)
     else { return nil }
     components.percentEncodedFragment = "/" + encodedUserID
@@ -60,7 +65,7 @@ public struct UserDragPayload: Codable {
       item.setString(htmlLink, forType: .html)
     }
 
-    item.setString(userID, forType: .string)
+    item.setString(userId, forType: .string)
     return item
   }
 

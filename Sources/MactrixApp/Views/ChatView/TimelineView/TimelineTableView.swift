@@ -1045,6 +1045,8 @@ extension TimelineViewController {
     }
 
     let state = MessageEditState(id: event.eventOrTransactionId, text: text)
+    state.mentionCandidateProvider = { [weak room = timeline.room] in room?.members ?? [] }
+    state.imageLoader = appState.matrixClient
     state.onChange = { [weak self, weak state] in
       guard let self, let state, self.messageEdit === state,
         let row = self.rowForEventId(id: state.id)

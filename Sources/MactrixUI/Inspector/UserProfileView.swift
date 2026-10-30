@@ -54,7 +54,7 @@ public struct UserProfileView<Profile: UserProfile>: View {
     .onDrag {
       do {
         return try UserDragPayload(
-          userID: profile.userId,
+          userId: profile.userId,
           username: profile.displayName ?? profile.userId,
           avatarUrl: profile.avatarUrl
         ).makeItemProvider()

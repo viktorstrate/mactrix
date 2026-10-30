@@ -2,6 +2,7 @@ import AppKit
 import MatrixIntegration
 import MatrixRustSDK
 import MessageFormatting
+import Observation
 
 final class MessageEditingView: NSView, NSTextViewDelegate {
   private let editor = ComposerMentionTextView()
@@ -11,13 +12,14 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
   private let editErrorLabel = NSTextField(labelWithString: "")
   private var editState: MessageEditState?
   private var restoringEditor = false
+  private var mentionObservationGeneration = 0
 
   public var isEditing: Bool { editState != nil }
 
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
 
-    editor.onSubmit = self.saveEdit
+    editor.onSubmit = { [weak self] in self?.saveEdit() }
 
     updateFonts()
     editor.isHorizontallyResizable = false
@@ -42,6 +44,7 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
     cancelButton.target = self
     cancelButton.action = #selector(cancelEdit)
     cancelButton.keyEquivalent = "\u{1b}"  // escape button
+    cancelButton.keyEquivalentModifierMask = []
 
     editErrorLabel.textColor = .systemRed
     editErrorLabel.lineBreakMode = .byTruncatingTail
@@ -106,21 +109,67 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
 
   func configureEditing(_ state: MessageEditState?) {
     updateFonts()
+    let stateChanged = editState !== state
+    if stateChanged {
+      mentionObservationGeneration += 1
+      editor.endMentionAutocomplete()
+      editor.cancelAvatarLookups()
+    }
     editState = state
-    guard let state else { return }
+    editor.mentionCandidateProvider = state?.mentionCandidateProvider
+    editor.imageLoader = state?.imageLoader
+    guard let state else {
+      editor.isEditable = false
+      return
+    }
 
-    if editor.markdown != state.text {
+    if stateChanged || editor.markdown != state.text {
       restoringEditor = true
       editor.setMarkdown(state.text)
       restoringEditor = false
     }
 
     editor.isEditable = !state.isSaving
+    if state.isSaving { editor.endMentionAutocomplete() }
+    if stateChanged {
+      observeMentionCandidates(for: state, generation: mentionObservationGeneration)
+    }
+    if editor.mentionAutocomplete.query != nil { editor.updateMentionAutocomplete() }
     saveButton.isEnabled = !state.isSaving
     cancelButton.isEnabled = !state.isSaving
     saveButton.title = state.isSaving ? "Saving…" : "Save"
     editErrorLabel.stringValue = state.error ?? ""
     editErrorLabel.toolTip = state.error
+  }
+
+  private func observeMentionCandidates(for state: MessageEditState, generation: Int) {
+    withObservationTracking {
+      _ = state.mentionCandidateProvider?()
+    } onChange: { [weak self, weak state] in
+      Task { @MainActor [weak self, weak state] in
+        guard let self, let state, editState === state,
+          mentionObservationGeneration == generation
+        else { return }
+        observeMentionCandidates(for: state, generation: generation)
+        if editor.mentionAutocomplete.query != nil { editor.updateMentionAutocomplete() }
+      }
+    }
+  }
+
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    guard window?.firstResponder === editor else { return super.performKeyEquivalent(with: event) }
+    let modifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
+    let isEscape = modifiers.isEmpty && event.charactersIgnoringModifiers == "\u{1b}"
+    let isSave =
+      modifiers == [.command]
+      && (event.specialKey == .enter || event.specialKey == .carriageReturn)
+    if editor.hasMarkedText(), isEscape || isSave { return false }
+    // Button shortcuts are checked before keyDown; let autocomplete consume Escape first.
+    if isEscape, editor.mentionAutocomplete.query != nil {
+      editor.keyDown(with: event)
+      return true
+    }
+    return super.performKeyEquivalent(with: event)
   }
 
   func textDidChange(_ notification: Notification) {
@@ -131,12 +180,14 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
 
   @objc private func saveEdit() {
     guard let state = editState, !state.isSaving else { return }
+    editor.endMentionAutocomplete()
     state.text = editor.markdown
     state.onSave?()
   }
 
   @objc private func cancelEdit() {
     guard let state = editState, !state.isSaving else { return }
+    editor.endMentionAutocomplete()
     state.onCancel?()
   }
 }

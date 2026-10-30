@@ -18,7 +18,7 @@ enum UserDragging {
 
     let sourceAvatarFrame = avatarView.convert(avatarView.bounds, to: view)
     let preview = UserDragPreviewView(
-      userID: payload.userID,
+      userID: payload.userId,
       username: payload.username,
       avatarView: avatarView,
       avatarSize: sourceAvatarFrame.height,

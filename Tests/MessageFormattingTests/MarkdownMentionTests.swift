@@ -23,11 +23,11 @@ struct MarkdownMentionTests {
     "🧑🏽‍💻 Zoë 東京 e\u{301}",
   ])
   func roundTripsDragPayloadLabels(username: String) throws {
-    let payload = UserDragPayload(userID: "@alice:example.org", username: username)
+    let payload = UserDragPayload(userId: "@alice:example.org", username: username)
     let link = try #require(payload.markdownLink)
 
     try expectSingleMention(
-      in: link, link: link, userID: payload.userID, username: payload.username)
+      in: link, link: link, userID: payload.userId, username: payload.username)
   }
 
   @Test(arguments: [
@@ -41,11 +41,11 @@ struct MarkdownMentionTests {
     "@alice%41:example.org",
   ])
   func roundTripsDragPayloadUserIDs(userID: String) throws {
-    let payload = UserDragPayload(userID: userID, username: "Alice [mobile] & friends")
+    let payload = UserDragPayload(userId: userID, username: "Alice [mobile] & friends")
     let link = try #require(payload.markdownLink)
 
     try expectSingleMention(
-      in: link, link: link, userID: payload.userID, username: payload.username)
+      in: link, link: link, userID: payload.userId, username: payload.username)
   }
 
   @Test func decodesSupportedHTMLEntitiesInLabel() throws {
@@ -87,8 +87,8 @@ struct MarkdownMentionTests {
   }
 
   @Test func reportsEntireOriginalLinksInUTF16Order() throws {
-    let alice = UserDragPayload(userID: "@alice:example.org", username: "👩🏽‍💻 [Alice]")
-    let bob = UserDragPayload(userID: "@bob:example.org", username: "東京 & Bob")
+    let alice = UserDragPayload(userId: "@alice:example.org", username: "👩🏽‍💻 [Alice]")
+    let bob = UserDragPayload(userId: "@bob:example.org", username: "東京 & Bob")
     let aliceLink = try #require(alice.markdownLink)
     let bobLink = try #require(bob.markdownLink)
     let prefix = "🧭 e\u{301} Hello "
@@ -100,10 +100,10 @@ struct MarkdownMentionTests {
     #expect(mentions.count == 2)
     let first = try #require(mentions.first)
     let second = try #require(mentions.dropFirst().first)
-    #expect(first.userID == alice.userID)
+    #expect(first.userID == alice.userId)
     #expect(first.username == alice.username)
     #expect(first.range == NSRange(location: prefix.utf16.count, length: aliceLink.utf16.count))
-    #expect(second.userID == bob.userID)
+    #expect(second.userID == bob.userId)
     #expect(second.username == bob.username)
     #expect(
       second.range
@@ -294,7 +294,7 @@ struct MarkdownMentionTests {
 
   @Test(arguments: ["\n", "\r\n", "\r"])
   func preservesUTF16RangesAfterUnicodeCodeAndEscapes(newline: String) throws {
-    let payload = UserDragPayload(userID: "@alice:example.org", username: "👩🏽‍💻 [Alice]")
+    let payload = UserDragPayload(userId: "@alice:example.org", username: "👩🏽‍💻 [Alice]")
     let visible = try #require(payload.markdownLink)
     let hidden = "[Hidden](https://matrix.to/#/@hidden:example.org)"
     let prefix =
@@ -302,7 +302,7 @@ struct MarkdownMentionTests {
       + newline + "``code 👩🏽‍💻`` " + #"\[escaped] "#
 
     try expectSingleMention(
-      in: prefix + visible + "\\", link: visible, userID: payload.userID, username: payload.username
+      in: prefix + visible + "\\", link: visible, userID: payload.userId, username: payload.username
     )
   }
 

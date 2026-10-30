@@ -18,7 +18,7 @@ class MessageTextView: NSTextView, NSTextViewDelegate, MentionAttachmentHost {
 
   func activateMention(_ attachment: MentionAttachment) {
     guard allowsMentionInteraction else { return }
-    _ = handleMatrixUri?(MatrixUriScheme(kind: .user(attachment.payload.userID)))
+    _ = handleMatrixUri?(MatrixUriScheme(kind: .user(attachment.payload.userId)))
   }
 
   override func mouseDown(with event: NSEvent) {

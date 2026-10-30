@@ -44,7 +44,7 @@ final class MentionAvatarLoader {
     text.enumerateAttribute(.attachment, in: NSRange(location: 0, length: text.length)) {
       value, _, _ in
       guard let mention = value as? MentionAttachment, mention.avatarUrl == nil else { return }
-      let userID = mention.payload.userID
+      let userID = mention.payload.userId
       if let url = avatarURLs[userID] {
         mention.setAvatarUrl(url)
         return
