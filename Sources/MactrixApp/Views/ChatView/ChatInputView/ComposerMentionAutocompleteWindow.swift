@@ -217,7 +217,7 @@ private final class MentionCellView: NSView {
     ])
   }
 
-  func configure(profile: some UserProfile, imageLoader: any ImageLoader?) {
+  func configure(profile: some UserProfile, imageLoader: (any ImageLoader)?) {
     avatar.configure(
       userID: profile.userId, displayName: profile.displayName, avatarUrl: profile.avatarUrl,
       kind: .user, imageLoader: imageLoader)
