@@ -8,7 +8,7 @@ A native macOS client for [Matrix](https://matrix.org) – an open protocol for 
 
 ## Overview
 
-Mactrix is built with Apple's [SwiftUI](https://developer.apple.com/swiftui/) framework to provide seamless native integration with macOS. It leverages the robust [matrix-rust-sdk](https://github.com/matrix-org/matrix-rust-sdk) for stability and performance.
+Mactrix is built with Apple's native [AppKit](https://developer.apple.com/documentation/appkit) and [SwiftUI](https://developer.apple.com/swiftui/) frameworks to provide seamless native integration with macOS. It leverages the robust [matrix-rust-sdk](https://github.com/matrix-org/matrix-rust-sdk) for stability and performance.
 
 Feel free to join our Matrix room at [#mactrix:qpqp.dk](https://matrix.to/#/#mactrix:qpqp.dk).
 
@@ -16,7 +16,18 @@ Feel free to join our Matrix room at [#mactrix:qpqp.dk](https://matrix.to/#/#mac
 
 ## Installation
 
-Mactrix is currently in early development, which means that distribution with auto-updates does not exist yet. However, the latest version is built automatically and can be [downloaded here](https://github.com/viktorstrate/mactrix/actions/workflows/xcode-build.yml?query=branch%3Amain+event%3Apush). Simply select the latest build and download `Mactrix.app` under Artifacts.
+You can download the latest stable release from the [releases page](https://github.com/viktorstrate/mactrix/releases/download/latest/Mactrix.app.zip) under Assets.
+Keep in mind that Mactrix does not have an auto-updating system yet, so you will have to download updates manually. You can subscribe to Github releases to stay notified for new releases.
+
+If you want to test out unreleased features, you can download automatically built versions of every commit to the main branch from the [actions page](https://github.com/viktorstrate/mactrix/actions/workflows/xcode-build.yml?query=branch%3Amain+event%3Apush) under Artifacts.
+
+> [!NOTE]
+> Mactrix is not notarized by Apple, so macOS may block it the first time you open it. If you get a popup stating that Apple could not verify the program, go to **System Settings → Privacy & Security** and click **Open Anyway**.
+> Alternatively, run this command in the terminal:
+>
+> ```bash
+> xattr -d com.apple.quarantine /Applications/Mactrix.app
+> ```
 
 ## Build From Source
 
@@ -32,7 +43,7 @@ Xcode will automatically download all dependencies when building the project for
 ```bash
 git clone https://github.com/viktorstrate/mactrix.git
 cd mactrix
-xed .
+xed Mactrix.xcworkspace
 ```
 
 Then open the project in Xcode and build using `Cmd+B`.
@@ -48,6 +59,7 @@ Then open the project in Xcode and build using `Cmd+B`.
   - [x] Messages
     - [x] Send attachments
     - [x] Markdown formatting
+    - [x] Mention users
   - [ ] Message actions
     - [x] Add reactions, Reply to, Pin, Edit
     - [ ] Delete
@@ -121,6 +133,6 @@ Creation
 
 ### Search
 
-Find specific rooms, users, and public communities directly from the search bar.
+Find specific rooms, users, and public communities from the search bar.
 
 ![Screenshot of search for specific room](docs/screenshot-search.png)
