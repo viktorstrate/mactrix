@@ -104,6 +104,85 @@ final class ComposerMentionTextView: DynamicTextView {
       in: attributedString(), selectedRange: selectedRange(), hasMarkedText: hasMarkedText())
   }
 
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    let modifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
+    if !hasMarkedText(), modifiers == [.command],
+      event.specialKey == .enter || event.specialKey == .carriageReturn
+    {
+      endMentionAutocomplete()
+    }
+    return super.performKeyEquivalent(with: event)
+  }
+
+  override func keyDown(with event: NSEvent) {
+    let modifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
+    guard isEditable, !hasMarkedText(), modifiers.isEmpty else {
+      super.keyDown(with: event)
+      return
+    }
+
+    // U+001B is ASCII ESC, produced by the Escape key.
+    if event.charactersIgnoringModifiers == "\u{1b}", mentionAutocomplete.query != nil {
+      mentionAutocomplete.dismiss()
+      closeMentionAutocompleteWindow()
+      return
+    }
+
+    switch event.specialKey {
+    case .upArrow, .downArrow:
+      let suggestions = mentionAutocomplete.suggestions
+      if !suggestions.isEmpty, validatedMentionReplacementRange() != nil {
+        let current =
+          suggestions.firstIndex {
+            $0.userId == mentionAutocomplete.highlightedUserID
+          } ?? 0
+        let offset = event.specialKey == .downArrow ? 1 : -1
+        let next = min(max(current + offset, 0), suggestions.count - 1)
+        mentionAutocomplete.highlight(userID: suggestions[next].userId)
+        return
+      }
+    case .enter, .carriageReturn:
+      if mentionAutocomplete.query != nil, !mentionAutocomplete.suggestions.isEmpty {
+        acceptHighlightedMention()
+        return
+      }
+      endMentionAutocomplete()
+
+    default:
+      break
+    }
+    super.keyDown(with: event)
+  }
+
+  @discardableResult
+  func acceptHighlightedMention() -> Bool {
+    guard let profile = mentionAutocomplete.highlightedSuggestion,
+      var range = validatedMentionReplacementRange()
+    else {
+      endMentionAutocomplete()
+      return false
+    }
+    let attributes = typingAttributes.filter { $0.key != .attachment }
+    let payload = UserDragPayload(
+      userId: profile.userId,
+      username: profile.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? profile.userId,
+      avatarUrl: profile.avatarUrl)
+    let replacement = NSMutableAttributedString(
+      attachment: MentionAttachment(payload: payload, imageLoader: imageLoader),
+      attributes: attributes)
+    replacement.append(NSAttributedString(string: " ", attributes: attributes))
+    // Reuse an existing separator so accepting in the middle of a sentence does not double it.
+    if (string as NSString).substring(from: NSMaxRange(range)).hasPrefix(" ") {
+      range.length += 1
+    }
+    breakUndoCoalescing()
+    insertText(replacement, replacementRange: range)
+    breakUndoCoalescing()
+    typingAttributes = attributes
+    endMentionAutocomplete()
+    return true
+  }
+
   override func insertText(_ insertString: Any, replacementRange: NSRange) {
     performMentionInputChange {
       super.insertText(insertString, replacementRange: replacementRange)

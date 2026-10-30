@@ -158,10 +158,10 @@ class SubmitableTextView: NSTextView {
   var onSubmit: (() -> Void)?
 
   override func performKeyEquivalent(with event: NSEvent) -> Bool {
-    // Always submit on cmd+enter
+    let modifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
     if !hasMarkedText(),
       (event.specialKey == .enter || event.specialKey == .carriageReturn)
-        && event.modifierFlags.intersection(.deviceIndependentFlagsMask) == [.command]
+        && modifiers == [.command]
     {
       onSubmit?()
       return true
@@ -172,8 +172,9 @@ class SubmitableTextView: NSTextView {
 
   override func keyDown(with event: NSEvent) {
     // Handle enter as submit instead of newline
+    let modifiers = event.modifierFlags.intersection([.shift, .control, .option, .command])
     if !hasMarkedText(), event.specialKey == .enter || event.specialKey == .carriageReturn,
-      event.modifierFlags.intersection(.deviceIndependentFlagsMask) == []
+      modifiers.isEmpty
     {
       onSubmit?()
       return
