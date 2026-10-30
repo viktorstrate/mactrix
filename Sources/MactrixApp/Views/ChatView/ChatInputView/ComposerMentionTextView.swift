@@ -40,9 +40,7 @@ final class ComposerMentionTextView: DynamicTextView {
     NotificationCenter.default.addObserver(
       self, selector: #selector(mentionFocusDidEnd),
       name: NSApplication.didResignActiveNotification, object: nil)
-    NotificationCenter.default.addObserver(
-      self, selector: #selector(synchronizeMentionAutocompleteWindow),
-      name: NSApplication.didChangeScreenParametersNotification, object: nil)
+
     observeMentionAutocomplete()
   }
 
@@ -229,10 +227,7 @@ final class ComposerMentionTextView: DynamicTextView {
     isUpdatingMentionPresentation = true
     defer { isUpdatingMentionPresentation = false }
     guard !mentionAutocomplete.suggestions.isEmpty, let parent = window,
-      let anchor = mentionAnchorRect(),
-      let screen = NSScreen.screens.first(where: {
-        $0.frame.contains(NSPoint(x: anchor.midX, y: anchor.midY))
-      }) ?? parent.screen
+      let anchor = mentionAnchorRect()
     else {
       closeMentionAutocompleteWindow()
       return
@@ -251,7 +246,7 @@ final class ComposerMentionTextView: DynamicTextView {
       suggestions: mentionAutocomplete.suggestions,
       highlightedUserID: mentionAutocomplete.highlightedUserID)
     let frame = ComposerMentionAutocompleteWindow.frame(
-      anchoredTo: anchor, preferredSize: popup.preferredSize, visibleFrame: screen.visibleFrame)
+      anchoredTo: anchor, preferredSize: popup.preferredSize)
     if popup.frame != frame { popup.setFrame(frame, display: true) }
     if popup.parent !== parent { parent.addChildWindow(popup, ordered: .above) }
     if !popup.isVisible { popup.orderFront(nil) }

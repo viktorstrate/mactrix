@@ -69,7 +69,7 @@ final class ComposerMentionAutocompleteWindow: NSWindow {
     let sizeChanged = frame.size != frameRect.size
     super.setFrame(frameRect, display: flag)
     guard sizeChanged else { return }
-    // The owner can cap the viewport after update, so reveal the highlight again after resizing.
+    // Keep the highlight visible when the number of suggestions changes the window's height.
     scrollView.layoutSubtreeIfNeeded()
     if tableView.selectedRow >= 0 {
       tableView.scrollRowToVisible(tableView.selectedRow)
@@ -98,23 +98,9 @@ final class ComposerMentionAutocompleteWindow: NSWindow {
     }
   }
 
-  /// Screen coordinates. If neither side fits, clamping can overlap the anchor.
-  static func frame(anchoredTo anchor: NSRect, preferredSize: NSSize, visibleFrame: NSRect)
-    -> NSRect
-  {
-    let bounds = visibleFrame.insetBy(
-      dx: min(8, visibleFrame.width / 2), dy: min(8, visibleFrame.height / 2))
-    let size = NSSize(
-      width: min(max(0, preferredSize.width), bounds.width),
-      height: min(max(0, preferredSize.height), bounds.height))
-    let aboveY = anchor.maxY + 4
-    let belowY = anchor.minY - 4 - size.height
-    let belowFits = belowY >= bounds.minY && belowY + size.height <= bounds.maxY
-    let y = aboveY + size.height > bounds.maxY && belowFits ? belowY : aboveY
-    return NSRect(
-      x: min(max(anchor.minX, bounds.minX), bounds.maxX - size.width),
-      y: min(max(y, bounds.minY), bounds.maxY - size.height),
-      width: size.width, height: size.height)
+  /// Screen coordinates, always aligned above the mention regardless of screen edges.
+  static func frame(anchoredTo anchor: NSRect, preferredSize: NSSize) -> NSRect {
+    NSRect(origin: NSPoint(x: anchor.minX, y: anchor.maxY + 4), size: preferredSize)
   }
 }
 

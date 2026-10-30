@@ -183,6 +183,28 @@ struct ComposerMentionTextViewTests {
     #expect(editor.validatedMentionReplacementRange() == nil)
   }
 
+  @Test func popupStaysAlignedAndFullSizedBeyondScreenEdges() throws {
+    _ = NSApplication.shared
+    let screen = try #require(NSScreen.screens.first)
+    let anchor = NSRect(
+      x: screen.visibleFrame.maxX - 20, y: screen.visibleFrame.maxY - 20,
+      width: 10, height: 16)
+    let size = NSSize(width: 320, height: 264)
+    let frame = ComposerMentionAutocompleteWindow.frame(anchoredTo: anchor, preferredSize: size)
+    let popup = ComposerMentionAutocompleteWindow()
+    defer { popup.close() }
+
+    popup.setFrame(frame, display: false)
+
+    #expect(popup.frame == NSRect(x: anchor.minX, y: anchor.maxY + 4, width: 320, height: 264))
+    #expect(popup.frame.maxX > screen.visibleFrame.maxX)
+    #expect(popup.frame.maxY > screen.visibleFrame.maxY)
+    #expect(
+      ComposerMentionAutocompleteWindow.frame(
+        anchoredTo: anchor.offsetBy(dx: 40, dy: 30), preferredSize: size)
+        == frame.offsetBy(dx: 40, dy: 30))
+  }
+
   @Test func editorsKeepTheirQueriesIndependent() {
     let first = editor()
     let second = editor()
