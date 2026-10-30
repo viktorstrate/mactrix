@@ -6,6 +6,7 @@ import MatrixProtocols
 @MainActor
 final class ComposerMentionAutocompleteWindow: NSWindow {
   var onHighlight: ((String) -> Void)?
+  var onSubmit: (() -> Void)?
   weak var imageLoader: ImageLoader?
 
   private static let rowHeight: CGFloat = 44
@@ -38,9 +39,12 @@ final class ComposerMentionAutocompleteWindow: NSWindow {
     tableView.addTableColumn(column)
     tableView.delegate = self
     tableView.dataSource = self
-    tableView.onRowClick = { [weak self] row in
+    tableView.onRowSelect = { [weak self] row in
       guard let self, suggestions.indices.contains(row) else { return }
       onHighlight?(suggestions[row].userId)
+    }
+    tableView.onRowClickUp = { [weak self] row in
+      self?.onSubmit?()
     }
 
     scrollView.borderType = .noBorder
@@ -138,7 +142,10 @@ extension ComposerMentionAutocompleteWindow: NSTableViewDataSource, NSTableViewD
 
 /// Clicks request a highlight; only the next owner-driven update changes selection.
 private final class MentionTableView: NSTableView {
-  var onRowClick: ((Int) -> Void)?
+  var onRowSelect: ((Int) -> Void)?
+  var onRowClickUp: ((Int) -> Void)?
+
+  private var mouseDownOnRow: Int?
 
   override var acceptsFirstResponder: Bool { false }
   override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -146,8 +153,29 @@ private final class MentionTableView: NSTableView {
   override func mouseDown(with event: NSEvent) {
     let row = row(at: convert(event.locationInWindow, from: nil))
     guard row >= 0 else { return }
+    mouseDownOnRow = row
     // Do not call super: native table tracking would change selection and request focus.
-    onRowClick?(row)
+    onRowSelect?(row)
+  }
+
+  override func mouseDragged(with event: NSEvent) {
+    let row = row(at: convert(event.locationInWindow, from: nil))
+    if row >= 0 && mouseDownOnRow != row {
+      mouseDownOnRow = row
+      onRowSelect?(row)
+    }
+
+    super.mouseDragged(with: event)
+  }
+
+  override func mouseUp(with event: NSEvent) {
+    let row = row(at: convert(event.locationInWindow, from: nil))
+    if row >= 0 && mouseDownOnRow == row {
+      onRowClickUp?(row)
+    }
+    mouseDownOnRow = nil
+
+    super.mouseUp(with: event)
   }
 }
 

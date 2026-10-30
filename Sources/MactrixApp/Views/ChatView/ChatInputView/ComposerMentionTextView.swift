@@ -244,6 +244,9 @@ final class ComposerMentionTextView: DynamicTextView {
     popup.onHighlight = { [weak self] userID in
       self?.mentionAutocomplete.highlight(userID: userID)
     }
+    popup.onSubmit = { [weak self] in
+      self?.acceptHighlightedMention()
+    }
     popup.update(
       suggestions: mentionAutocomplete.suggestions,
       highlightedUserID: mentionAutocomplete.highlightedUserID)
