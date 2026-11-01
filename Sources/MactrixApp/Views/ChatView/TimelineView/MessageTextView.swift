@@ -89,4 +89,10 @@ class MessageTextView: NSTextView, NSTextViewDelegate, MentionAttachmentHost {
       super.keyDown(with: event)
     }
   }
+
+  override func resignFirstResponder() -> Bool {
+    let didResign = super.resignFirstResponder()
+    if didResign { setSelectedRange(NSRange()) }
+    return didResign
+  }
 }
