@@ -91,7 +91,8 @@ final class MessageReplyPreviewView: NSButton {
   }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
-    bounds.contains(convert(point, from: superview)) ? self : nil
+    // Prevent hit testing from returning a child view to let this button handle all events.
+    super.hitTest(point) == nil ? nil : self
   }
 
   override func mouseDown(with event: NSEvent) {
