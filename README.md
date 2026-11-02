@@ -16,7 +16,7 @@ Feel free to join our Matrix room at [#mactrix:qpqp.dk](https://matrix.to/#/#mac
 
 ## Installation
 
-You can download the latest stable release from the [releases page](https://github.com/viktorstrate/mactrix/releases/download/latest/Mactrix.app.zip) under Assets.
+You can download the latest stable release from the [releases page](https://github.com/viktorstrate/mactrix/releases) under Assets.
 Keep in mind that Mactrix does not have an auto-updating system yet, so you will have to download updates manually. You can subscribe to Github releases to stay notified for new releases.
 
 If you want to test out unreleased features, you can download automatically built versions of every commit to the main branch from the [actions page](https://github.com/viktorstrate/mactrix/actions/workflows/xcode-build.yml?query=branch%3Amain+event%3Apush) under Artifacts.

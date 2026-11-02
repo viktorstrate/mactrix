@@ -88,7 +88,7 @@ final class MessageHoverOverlayView: NSView {
       NSTrackingArea(
         rect: .zero,
         options: [
-          .mouseEnteredAndExited, .mouseMoved, .cursorUpdate, .activeInKeyWindow, .inVisibleRect,
+          .mouseEnteredAndExited, .cursorUpdate, .activeInKeyWindow, .inVisibleRect,
         ],
         owner: self,
         userInfo: nil
@@ -106,26 +106,6 @@ final class MessageHoverOverlayView: NSView {
 
   override func cursorUpdate(with event: NSEvent) {
     NSCursor.arrow.set()
-    restoreArrowCursorAfterMouseMovement()
-  }
-
-  override func mouseMoved(with event: NSEvent) {
-    restoreArrowCursorAfterMouseMovement()
-  }
-
-  private func restoreArrowCursorAfterMouseMovement() {
-    // Covered NSTextViews can set their cursor in mouseMoved, after cursorUpdate.
-    // Reassert ours after synchronous tracking callbacks, regardless of their order.
-    DispatchQueue.main.async { [weak self] in
-      guard let self, let window = self.window,
-        window.isKeyWindow, !self.isHiddenOrHasHiddenAncestor
-      else { return }
-
-      // Use the current position: the overlay may have moved or disappeared since the event.
-      let point = self.convert(window.mouseLocationOutsideOfEventStream, from: nil)
-      guard self.visibleRect.contains(point) else { return }
-      NSCursor.arrow.set()
-    }
   }
 
   override func viewDidChangeEffectiveAppearance() {

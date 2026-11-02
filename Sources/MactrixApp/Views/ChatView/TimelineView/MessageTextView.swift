@@ -26,6 +26,32 @@ class MessageTextView: NSTextView, NSTextViewDelegate, MentionAttachmentHost {
     super.mouseDown(with: event)
   }
 
+  // Text-view tracking can run even when an attachment or sibling overlay is the mouse target.
+  // Yield to that view instead of replacing its cursor with the text cursor.
+  private func isMouseOverTextView(_ event: NSEvent) -> Bool {
+    guard let contentView = window?.contentView else { return false }
+    // hitTest expects coordinates in the receiver's superview.
+    let point =
+      contentView.superview?.convert(event.locationInWindow, from: nil)
+      ?? event.locationInWindow
+    return contentView.hitTest(point) === self
+  }
+
+  override func mouseEntered(with event: NSEvent) {
+    guard isMouseOverTextView(event) else { return }
+    super.mouseEntered(with: event)
+  }
+
+  override func mouseMoved(with event: NSEvent) {
+    guard isMouseOverTextView(event) else { return }
+    super.mouseMoved(with: event)
+  }
+
+  override func cursorUpdate(with event: NSEvent) {
+    guard isMouseOverTextView(event) else { return }
+    super.cursorUpdate(with: event)
+  }
+
   private let content = NSTextContentStorage()
 
   override init(frame frameRect: NSRect) {

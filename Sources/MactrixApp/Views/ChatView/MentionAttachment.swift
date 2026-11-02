@@ -159,6 +159,13 @@ private final class MentionView: NSButton {
     addSubview(label)
     setAccessibilityLabel(payload.username + " (" + payload.userId + ")")
     setAccessibilityChildren([])
+    addTrackingArea(
+      NSTrackingArea(
+        rect: .zero,
+        options: [.cursorUpdate, .activeInKeyWindow, .inVisibleRect],
+        owner: self,
+        userInfo: nil
+      ))
     NotificationCenter.default.addObserver(
       self, selector: #selector(avatarChanged),
       name: MentionAttachment.avatarDidChangeNotification, object: attachment)
@@ -185,8 +192,9 @@ private final class MentionView: NSButton {
     return self
   }
 
-  override func resetCursorRects() {
-    if interactionHost != nil { addCursorRect(bounds, cursor: .pointingHand) }
+  override func cursorUpdate(with event: NSEvent) {
+    guard interactionHost != nil else { return }
+    NSCursor.arrow.set()
   }
 
   override func mouseDown(with event: NSEvent) {
