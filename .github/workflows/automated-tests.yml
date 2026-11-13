@@ -7,21 +7,33 @@ on:
 jobs:
   build:
     name: Launch matrix server and tests
-    # TODO: run on macos
-    runs-on: ubuntu-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
-      - uses: cachix/install-nix-action@v31
-      - name: Get Nixpkgs path
+      
+      - name: Build Docker image
+        run: docker build -t mactrix-test-server scripts/test-server
+      
+      - name: Start container
         run: |
-          nixpkgs_path=$(nix eval --raw -f scripts/test-server/npins/default.nix nixpkgs)
-          echo "NIX_PATH=nixpkgs=$nixpkgs_path" >> "$GITHUB_ENV"
+          docker run -d --name test-server \
+            mactrix-test-server \
+            tail -f /dev/null
+      
       - name: Start Matrix server
         run: |
-          nix-shell --run "MATRIX_PID_FILE=./matrix-server.pid MATRIX_LOG_FILE=./matrix-server.log ./scripts/test-server/run-matrix-server.sh" ./scripts/test-server > ./matrix-startup.log 2>&1 &
-      - run: nix-shell --run "./scripts/test-server/populate-matrix-server.py" ./scripts/test-server
+          docker exec -w /test-server test-server nix-shell --run "MATRIX_PID_FILE=./matrix-server.pid MATRIX_LOG_FILE=./matrix-server.log ./run-matrix-server.sh" > ./matrix-startup.log 2>&1 &
+      
+      - name: Populate Matrix server
+        run: docker exec -w /test-server test-server nix-shell --run "./populate-matrix-server.py"
+      
       # TODO: run tests here
-      - run: kill $(cat ./matrix-server.pid)
+      
+      - name: Stop Matrix server
+        if: always()
+        run: |
+          docker exec -w /test-server test-server sh -c 'if [ -f ./matrix-server.pid ]; then kill $(cat ./matrix-server.pid); fi' || true
+      
       - name: Dump logs on failure
         if: failure()
         run: |
@@ -29,4 +41,11 @@ jobs:
           cat ./matrix-startup.log 2>/dev/null || echo "No startup log found"
           echo ""
           echo "=== Server log (conduwuit) ==="
-          cat ./matrix-server.log 2>/dev/null || echo "No server log found"
+          docker exec -w /test-server test-server cat ./matrix-server.log 2>/dev/null || echo "No server log found"
+          echo ""
+          echo "=== Container logs ==="
+          docker logs test-server 2>&1 || echo "No container logs"
+      
+      - name: Cleanup container
+        if: always()
+        run: docker rm -f test-server || true
