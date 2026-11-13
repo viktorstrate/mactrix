@@ -13,7 +13,6 @@ BOB_USER="${MATRIX_USER_BOB:-bob}"
 BOB_PASS="${MATRIX_PASS_BOB:-bob-password}"
 
 mkdir -p "$STATE_DIR"
-echo "[info] using state directory: $STATE_DIR"
 
 if ! command -v conduwuit >/dev/null 2>&1; then
   echo "[error] conduwuit not found in PATH. A nix-shell provides matrix-continuwuity if needed." >&2
@@ -31,12 +30,14 @@ conduwuit \
   > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 
-print_server_info() {
-  if [ -n "${SERVER_PID:-}" ]; then
-    echo "[info] Continuwuity still running (pid $SERVER_PID, state dir $STATE_DIR)"
+cleanup() {
+  if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+    echo "[info] stopping Continuwuity (pid $SERVER_PID)"
+    kill "$SERVER_PID" 2>/dev/null || true
+    wait "$SERVER_PID" 2>/dev/null || true
   fi
 }
-trap print_server_info EXIT
+trap cleanup EXIT
 
 # Wait for the server to finish executing admin commands and start listening.
 for _ in $(seq 1 60); do
@@ -52,10 +53,6 @@ if ! curl -fs "$SERVER/_matrix/client/versions" >/dev/null 2>&1; then
   exit 1
 fi
 
-# Run the QA scenario.
-MATRIX_SERVER="$SERVER" \
-MATRIX_SERVER_NAME="$SERVER_NAME" \
-  python3 "$(dirname "$0")/matrix-qa.py"
-QA_EXIT=$?
+echo "[info] press Ctrl-C to stop the server"
 
-exit "$QA_EXIT"
+wait "$SERVER_PID"
