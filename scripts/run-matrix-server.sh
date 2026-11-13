@@ -8,10 +8,20 @@ SERVER="${MATRIX_SERVER:-http://127.0.0.1:${PORT}}"
 STATE_DIR="${STATE_DIR:-$(mktemp -d -t continuwuity-qa-XXXXXX)}"
 PID_FILE="${MATRIX_PID_FILE:-$STATE_DIR/conduwuit.pid}"
 
-ALICE_USER="${MATRIX_USER_ALICE:-alice}"
-ALICE_PASS="${MATRIX_PASS_ALICE:-alice-password}"
-BOB_USER="${MATRIX_USER_BOB:-bob}"
-BOB_PASS="${MATRIX_PASS_BOB:-bob-password}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+USERS_CSV="${MATRIX_USERS_CSV:-$SCRIPT_DIR/users.csv}"
+
+# Build --execute arguments for each user declared in users.csv.
+CREATE_USER_ARGS=()
+while IFS=',' read -r username password display_name; do
+  [[ "$username" == "username" ]] && continue
+  CREATE_USER_ARGS+=("--execute" "users create-user $username $password")
+done < "$USERS_CSV"
+
+if [ ${#CREATE_USER_ARGS[@]} -eq 0 ]; then
+  echo "[error] no users found in $USERS_CSV" >&2
+  exit 1
+fi
 
 mkdir -p "$STATE_DIR"
 
@@ -26,8 +36,8 @@ conduwuit \
   -O "server_name=\"$SERVER_NAME\"" \
   -O "database_path=\"$STATE_DIR/db\"" \
   -O "allow_registration=true" \
-  --execute "users create-user $ALICE_USER $ALICE_PASS" \
-  --execute "users create-user $BOB_USER $BOB_PASS" \
+  -O 'new_user_displayname_suffix=""' \
+  "${CREATE_USER_ARGS[@]}" \
   > "$LOG_FILE" 2>&1 &
 SERVER_PID=$!
 

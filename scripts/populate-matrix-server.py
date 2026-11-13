@@ -1,26 +1,48 @@
 #!/usr/bin/env python3
 
 import asyncio
+import csv
 import os
 import sys
 import time
+from dataclasses import dataclass
+from pathlib import Path
 
 import aiohttp
 from nio import AsyncClient, RoomVisibility
 
+
+@dataclass(frozen=True)
+class User:
+    username: str
+    password: str
+    display_name: str | None = None
+
+
+SCRIPT_DIR = Path(__file__).resolve().parent
+USERS_CSV = Path(os.environ.get("MATRIX_USERS_CSV", SCRIPT_DIR / "users.csv"))
+
+
+def load_users(csv_path: Path) -> dict[str, User]:
+    users: dict[str, User] = {}
+    with open(csv_path, newline="") as f:
+        for row in csv.DictReader(f):
+            display_name = row.get("display_name", "").strip() or None
+            users[row["username"]] = User(
+                username=row["username"],
+                password=row["password"],
+                display_name=display_name,
+            )
+    return users
+
+
+USERS: dict[str, User] = load_users(USERS_CSV)
+
 SERVER = os.environ.get("MATRIX_SERVER", "http://localhost:8008").rstrip("/")
-ALICE_USER = os.environ.get("MATRIX_USER_ALICE", "alice")
-ALICE_PASS = os.environ.get("MATRIX_PASS_ALICE", "alice-password")
-BOB_USER = os.environ.get("MATRIX_USER_BOB", "bob")
-BOB_PASS = os.environ.get("MATRIX_PASS_BOB", "bob-password")
 ROOM_NAME = os.environ.get("MATRIX_ROOM_NAME", "Mactrix Quality Assurance")
 ROOM_ALIAS = os.environ.get("MATRIX_ROOM_ALIAS", "mactrix-qa")
 SERVER_NAME = os.environ.get("MATRIX_SERVER_NAME", "localhost")
 TIMEOUT = int(os.environ.get("MATRIX_TIMEOUT", "60"))
-
-
-def full_user_id(localpart: str) -> str:
-    return f"@{localpart}:{SERVER_NAME}"
 
 
 async def wait_for_server(session: aiohttp.ClientSession, timeout: int = TIMEOUT) -> None:
@@ -54,9 +76,10 @@ async def main() -> int:
         await wait_for_server(session)
 
         # 1. Log in as alice (created beforehand via the Continuwuity admin CLI).
-        alice = await login_user(ALICE_USER, ALICE_PASS)
-        await alice.set_displayname("Mactrix Alice")
-        print('[ok] alice display name set to "Mactrix Alice"')
+        alice = await login_user(USERS["alice"].username, USERS["alice"].password)
+        if USERS["alice"].display_name:
+            await alice.set_displayname(USERS["alice"].display_name)
+            print(f'[ok] alice display name set to "{USERS["alice"].display_name}"')
 
         # 2. Alice creates the public room.
         create_resp = await alice.room_create(
@@ -77,9 +100,10 @@ async def main() -> int:
         print('[ok] alice: "Welcome to the room!"')
 
         # 4. Log in as bob (created beforehand via the Continuwuity admin CLI).
-        bob = await login_user(BOB_USER, BOB_PASS)
-        await bob.set_displayname("Mactrix Bob")
-        print('[ok] bob display name set to "Mactrix Bob"')
+        bob = await login_user(USERS["bob"].username, USERS["bob"].password)
+        if USERS["bob"].display_name:
+            await bob.set_displayname(USERS["bob"].display_name)
+            print(f'[ok] bob display name set to "{USERS["bob"].display_name}"')
 
         # 5. Bob joins the room.
         # matrix-nio sends an empty body for join, which Continuwuity rejects
