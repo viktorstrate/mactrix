@@ -46,14 +46,13 @@ TIMEOUT = int(os.environ.get("MATRIX_TIMEOUT", "60"))
 
 
 async def wait_for_server(session: aiohttp.ClientSession, timeout: int = TIMEOUT) -> None:
-    """Poll ``/_matrix/client/versions`` until the server responds."""
     url = f"{SERVER}/_matrix/client/versions"
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
             async with session.get(url, timeout=aiohttp.ClientTimeout(total=2)) as resp:
                 if resp.status == 200:
-                    print(f"[ok] server is available at {SERVER}")
+                    print(f"[ok] connected to server {SERVER}")
                     return
         except Exception as exc:
             print(f"[wait] server not ready yet: {exc}")
@@ -62,26 +61,31 @@ async def wait_for_server(session: aiohttp.ClientSession, timeout: int = TIMEOUT
 
 
 async def login_user(localpart: str, password: str) -> AsyncClient:
-    """Log in and return a configured ``AsyncClient``."""
     client = AsyncClient(SERVER, localpart)
     resp = await client.login(password)
     if not getattr(resp, "access_token", None):
         raise RuntimeError(f"login failed for {localpart}: {resp}")
-    print(f"[ok] logged in {localpart}")
+    print(f"[ok] user {localpart} signed in")
     return client
+
+
+async def send_message(client: AsyncClient, room_id: str, body: str) -> None:
+    await client.room_send(
+        room_id,
+        message_type="m.room.message",
+        content={"msgtype": "m.text", "body": body},
+    )
+    print(f"[ok] {client.user_id} sent message in room {room_id}: {body}")
 
 
 async def main() -> int:
     async with aiohttp.ClientSession() as session:
         await wait_for_server(session)
 
-        # 1. Log in as alice (created beforehand via the Continuwuity admin CLI).
         alice = await login_user(USERS["alice"].username, USERS["alice"].password)
         if USERS["alice"].display_name:
             await alice.set_displayname(USERS["alice"].display_name)
-            print(f'[ok] alice display name set to "{USERS["alice"].display_name}"')
 
-        # 2. Alice creates the public room.
         create_resp = await alice.room_create(
             name=ROOM_NAME,
             topic="Quality assurance room for Mactrix",
@@ -89,23 +93,15 @@ async def main() -> int:
             alias=ROOM_ALIAS,
         )
         room_id = create_resp.room_id
-        print(f"[ok] alice created public room '{ROOM_NAME}' ({room_id})")
+        print(f"[ok] room {room_id} created")
 
-        # 3. Alice says "Welcome to the room!".
-        await alice.room_send(
-            room_id,
-            message_type="m.room.message",
-            content={"msgtype": "m.text", "body": "Welcome to the room!"},
-        )
-        print('[ok] alice: "Welcome to the room!"')
+        await send_message(alice, room_id, "Welcome to the room!")
 
-        # 4. Log in as bob (created beforehand via the Continuwuity admin CLI).
         bob = await login_user(USERS["bob"].username, USERS["bob"].password)
         if USERS["bob"].display_name:
             await bob.set_displayname(USERS["bob"].display_name)
-            print(f'[ok] bob display name set to "{USERS["bob"].display_name}"')
 
-        # 5. Bob joins the room.
+        # Bob joins the room
         # matrix-nio sends an empty body for join, which Continuwuity rejects
         # with M_BAD_JSON; send an explicit empty JSON object instead.
         join_url = (
@@ -116,21 +112,12 @@ async def main() -> int:
             join_data = await join_resp_http.json()
             if join_resp_http.status != 200:
                 raise RuntimeError(f"bob failed to join room: {join_data}")
-            join_room_id = join_data["room_id"]
-            print(f"[ok] bob joined {join_room_id}")
 
-        # 6. Bob says "Hello!".
-        await bob.room_send(
-            room_id,
-            message_type="m.room.message",
-            content={"msgtype": "m.text", "body": "Hello!"},
-        )
-        print('[ok] bob: "Hello!"')
+        await send_message(bob, room_id, "Hello!")
 
         await alice.close()
         await bob.close()
 
-    print("[done] Mactrix QA scenario completed successfully")
     return 0
 
 

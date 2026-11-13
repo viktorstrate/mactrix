@@ -1,0 +1,32 @@
+name: Automated tests
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Launch matrix server and tests
+    # TODO: run on macos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: cachix/install-nix-action@v31
+      - name: Get Nixpkgs path
+        run: |
+          nixpkgs_path=$(nix eval --raw -f scripts/test-server/npins/default.nix nixpkgs)
+          echo "NIX_PATH=nixpkgs=$nixpkgs_path" >> "$GITHUB_ENV"
+      - name: Start Matrix server
+        run: |
+          nix-shell --run "MATRIX_PID_FILE=./matrix-server.pid MATRIX_LOG_FILE=./matrix-server.log ./scripts/test-server/run-matrix-server.sh" ./scripts/test-server > ./matrix-startup.log 2>&1 &
+      - run: nix-shell --run "./scripts/test-server/populate-matrix-server.py" ./scripts/test-server
+      # TODO: run tests here
+      - run: kill $(cat ./matrix-server.pid)
+      - name: Dump logs on failure
+        if: failure()
+        run: |
+          echo "=== Server startup log ==="
+          cat ./matrix-startup.log 2>/dev/null || echo "No startup log found"
+          echo ""
+          echo "=== Server log (conduwuit) ==="
+          cat ./matrix-server.log 2>/dev/null || echo "No server log found"

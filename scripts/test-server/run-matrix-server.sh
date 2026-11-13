@@ -30,7 +30,7 @@ if ! command -v conduwuit >/dev/null 2>&1; then
   exit 1
 fi
 
-LOG_FILE="$STATE_DIR/conduwuit.log"
+LOG_FILE="${MATRIX_LOG_FILE:-./matrix-server.log}"
 conduwuit \
   -O "port=$PORT" \
   -O "server_name=\"$SERVER_NAME\"" \
@@ -65,6 +65,8 @@ done
 
 if ! curl -fs "$SERVER/_matrix/client/versions" >/dev/null 2>&1; then
   echo "[error] Continuwuity did not become ready in time" >&2
+  echo "[error] Last 50 lines of conduwuit log:" >&2
+  tail -50 "$LOG_FILE" >&2
   exit 1
 fi
 
