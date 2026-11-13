@@ -439,7 +439,7 @@ private func event(
       status: nil, call: nil),
     forwarder: nil, forwarderProfile: nil, isOwn: false, isEditable: false,
     content: content, reactions: [], eventTypeRaw: nil, timestamp: timestamp,
-    localSendState: nil, editSendState: nil, redactionSendState: nil, localCreatedAt: nil,
-    readReceipts: [:], origin: nil, canBeRepliedTo: false,
+    localSendState: nil, editSendState: nil, redactionSendState: nil, redactionReason: nil,
+    localCreatedAt: nil, readReceipts: [:], origin: nil, canBeRepliedTo: false,
     lazyProvider: LazyTimelineItemProvider(noHandle: .init()))
 }

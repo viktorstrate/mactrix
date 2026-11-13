@@ -295,8 +295,8 @@ private func event(
     senderProfile: .unavailable, forwarder: nil, forwarderProfile: nil,
     isOwn: false, isEditable: false, content: content, reactions: [], eventTypeRaw: nil,
     timestamp: timestamp, localSendState: nil, editSendState: nil, redactionSendState: nil,
-    localCreatedAt: nil, readReceipts: [:], origin: nil, canBeRepliedTo: false,
-    lazyProvider: LazyTimelineItemProvider(noHandle: .init()))
+    redactionReason: nil, localCreatedAt: nil, readReceipts: [:], origin: nil,
+    canBeRepliedTo: false, lazyProvider: LazyTimelineItemProvider(noHandle: .init()))
   return ProjectionTimelineItem(id: "sdk:\(id)", event: value)
 }
 
