@@ -136,12 +136,37 @@ public class MatrixClient {
   @ObservationIgnored fileprivate var syncIndicatorHandle: TaskHandle?
   @ObservationIgnored fileprivate var syncStateHandle: TaskHandle?
   @ObservationIgnored fileprivate var verificationStateHandle: TaskHandle?
+  @ObservationIgnored fileprivate var recoveryStateHandle: TaskHandle?
+  @ObservationIgnored fileprivate var backupStateHandle: TaskHandle?
   @ObservationIgnored fileprivate var ignoredUsersHandle: TaskHandle?
 
   /// The latest session verification request received by another client
   public var sessionVerificationRequest: SessionVerificationRequestDetails?
   public var sessionVerificationData: SessionVerificationData?
   public var verificationState: VerificationState?
+  public internal(set) var recoveryState: RecoveryState?
+  public internal(set) var backupState: BackupState?
+
+  public enum ServerBackupState {
+    case unknown
+    case loading
+    case available(Bool)
+    case failed
+  }
+
+  public private(set) var serverBackupState: ServerBackupState = .unknown
+
+  public func refreshServerBackupState() async {
+    if case .loading = serverBackupState { return }
+    serverBackupState = .loading
+    do {
+      let exists = try await client.encryption().backupExistsOnServer()
+      try Task.checkCancellation()
+      serverBackupState = .available(exists)
+    } catch {
+      serverBackupState = Task.isCancelled ? .unknown : .failed
+    }
+  }
 
   var notificationClient: NotificationClient?
 
@@ -176,7 +201,10 @@ public class MatrixClient {
 
     try await client.getSessionVerificationController().setDelegate(delegate: self)
 
-    verificationStateHandle = client.encryption().verificationStateListener(listener: self)
+    let encryption = client.encryption()
+    verificationStateHandle = encryption.verificationStateListener(listener: self)
+    recoveryStateHandle = encryption.recoveryStateListener(listener: self)
+    backupStateHandle = encryption.backupStateListener(listener: self)
 
     ignoredUsersHandle = client.subscribeToIgnoredUsers(listener: self)
     ignoredUserIds = try await client.ignoredUsers()

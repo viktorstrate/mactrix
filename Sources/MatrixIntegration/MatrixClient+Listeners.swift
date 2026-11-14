@@ -91,6 +91,22 @@ extension MatrixClient: VerificationStateListener {
   }
 }
 
+extension MatrixClient: RecoveryStateListener {
+  nonisolated public func onUpdate(status: MatrixRustSDK.RecoveryState) {
+    Task { @MainActor in
+      recoveryState = status
+    }
+  }
+}
+
+extension MatrixClient: BackupStateListener {
+  nonisolated public func onUpdate(status: MatrixRustSDK.BackupState) {
+    Task { @MainActor in
+      backupState = status
+    }
+  }
+}
+
 extension MatrixClient: RoomListServiceStateListener {
   nonisolated public func onUpdate(state: MatrixRustSDK.RoomListServiceState) {
     Task { @MainActor in
