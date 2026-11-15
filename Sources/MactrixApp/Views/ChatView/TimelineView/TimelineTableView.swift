@@ -310,6 +310,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     hoverOverlay.onAction = { [weak self] action in
       self?.performHoverAction(action)
     }
+    hoverOverlay.onMenuClosed = { [weak self] in
+      self?.hideHoverOverlay()
+    }
     scrollView.contentView.addSubview(hoverOverlay, positioned: .above, relativeTo: documentView)
     scrollView.hasVerticalScroller = true
 
@@ -441,6 +444,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private func updateHoverOverlay(for rowView: MessageRowView, hovering: Bool, event: NSEvent)
     -> Bool
   {
+    guard !hoverOverlay.isPresentingMenu else { return hoveredMessageView === rowView }
     if !hovering {
       if hoveredMessageView === rowView {
         let mousePoint = hoverOverlay.convert(event.locationInWindow, from: nil)
@@ -466,7 +470,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     else { return false }
     hoverOverlay.configure(
       canReply: event.canBeRepliedTo,
-      canEdit: event.isOwn && event.isEditable && editableText(for: event) != nil)
+      canEdit: event.isOwn && event.isEditable && editableText(for: event) != nil,
+      canDelete: canDeleteMessage(event))
     if hoveredMessageView !== rowView {
       hoveredMessageView?.setHoverHighlight(false)
     }
@@ -506,6 +511,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func hoverOverlayDidExit(with event: NSEvent) {
+    guard !hoverOverlay.isPresentingMenu else { return }
     let tablePoint = tableView.convert(event.locationInWindow, from: nil)
     let row = tableView.row(at: tablePoint)
     if row >= 0,
@@ -522,6 +528,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func hideHoverOverlay() {
+    guard !hoverOverlay.isPresentingMenu else { return }
     hoveredMessageView?.setHoverHighlight(false)
     hoveredMessageView = nil
     hoveredMessageId = nil
@@ -541,6 +548,13 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
   }
 
+  private func canDeleteMessage(_ event: MatrixRustSDK.EventTimelineItem) -> Bool {
+    guard let powerLevels = timeline.room.roomInfo?.powerLevels else { return false }
+    return event.isOwn
+      ? powerLevels.canOwnUserRedactOwn()
+      : powerLevels.canOwnUserRedactOther()
+  }
+
   private func performHoverAction(_ action: MessageHoverOverlayView.Action) {
     guard let hoveredMessageView else { return }
     let rowPoint = tableView.convert(
@@ -557,6 +571,29 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       toggleReaction(key, for: event)
     case .reactionPicker:
       break  // The old picker button does not have an action yet.
+    case .delete:
+      guard canDeleteMessage(event), let window = view.window else { return }
+      let alert = NSAlert()
+      alert.alertStyle = .warning
+      alert.messageText = "Delete message?"
+      alert.informativeText =
+        "This will remove the message for everyone in the room. This action cannot be undone."
+      let deleteButton = alert.addButton(withTitle: "Delete")
+      deleteButton.hasDestructiveAction = true
+      alert.addButton(withTitle: "Cancel")
+      startActionTask { [weak self] in
+        let response = await alert.beginSheetModal(for: window)
+        guard response == .alertFirstButtonReturn, !Task.isCancelled,
+          let self, self.canDeleteMessage(event)
+        else { return }
+        do {
+          try await self.timeline.timeline?.redactEvent(
+            eventOrTransactionId: event.eventOrTransactionId, reason: nil)
+        } catch {
+          guard !Task.isCancelled else { return }
+          Logger.timelineTableView.error("Failed to delete message: \(error)")
+        }
+      }
     case .edit:
       beginEditing(event: event)
     case .reply:

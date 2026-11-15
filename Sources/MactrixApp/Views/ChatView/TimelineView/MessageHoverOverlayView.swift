@@ -9,12 +9,18 @@ final class MessageHoverOverlayView: NSView {
     case replyInThread
     case pin
     case edit
+    case delete
   }
 
   var onAction: ((Action) -> Void)?
   var onMouseExited: ((NSEvent) -> Void)?
+  var onMenuClosed: (() -> Void)?
+  private(set) var isPresentingMenu = false
 
   private let stack = NSStackView()
+  private let moreButton = HoverActionButton(symbol: "ellipsis", label: "More actions")
+  private let deleteMenuItem = NSMenuItem(
+    title: "Delete message", action: #selector(deleteMessage), keyEquivalent: "")
   private let editButton = HoverActionButton(symbol: "pencil", label: "Edit message")
   private let replyButton = HoverActionButton(symbol: "arrowshape.turn.up.left", label: "Reply")
   private let threadButton = HoverActionButton(symbol: "ellipsis.message", label: "Reply in thread")
@@ -84,6 +90,16 @@ final class MessageHoverOverlayView: NSView {
     pinButton.onClick = { [weak self] in self?.onAction?(.pin) }
     stack.addArrangedSubview(pinButton)
 
+    let menu = NSMenu()
+    menu.autoenablesItems = false
+    deleteMenuItem.target = self
+    deleteMenuItem.image = NSImage(
+      systemSymbolName: "trash", accessibilityDescription: "Delete message")
+    menu.addItem(deleteMenuItem)
+    moreButton.menu = menu
+    moreButton.onClick = { [weak self] in self?.showMoreActions() }
+    stack.addArrangedSubview(moreButton)
+
     addTrackingArea(
       NSTrackingArea(
         rect: .zero,
@@ -97,11 +113,29 @@ final class MessageHoverOverlayView: NSView {
     configure(canReply: true)
   }
 
-  func configure(canReply: Bool, canEdit: Bool = false) {
+  func configure(canReply: Bool, canEdit: Bool = false, canDelete: Bool = false) {
+    deleteMenuItem.isEnabled = canDelete
     editButton.isHidden = !canEdit
     replyButton.isHidden = !canReply
     threadButton.isHidden = !canReply
     setFrameSize(fittingSize)
+  }
+
+  private func showMoreActions() {
+    guard let menu = moreButton.menu else { return }
+    isPresentingMenu = true
+    defer {
+      isPresentingMenu = false
+      onMenuClosed?()
+    }
+    let menuOrigin = NSPoint(
+      x: moreButton.bounds.minX,
+      y: moreButton.isFlipped ? moreButton.bounds.maxY + 4 : moreButton.bounds.minY - 4)
+    menu.popUp(positioning: nil, at: menuOrigin, in: moreButton)
+  }
+
+  @objc private func deleteMessage() {
+    onAction?(.delete)
   }
 
   override func cursorUpdate(with event: NSEvent) {

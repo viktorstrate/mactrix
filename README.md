@@ -61,8 +61,7 @@ Then open the project in Xcode and build using `Cmd+B`.
     - [x] Markdown formatting
     - [x] Mention users
   - [ ] Message actions
-    - [x] Add reactions, Reply to, Pin, Edit
-    - [ ] Delete
+    - [x] Add reactions, Reply to, Pin, Edit, Delete
     - [ ] Download to file
     - [ ] View source
   - [x] Show reactions
