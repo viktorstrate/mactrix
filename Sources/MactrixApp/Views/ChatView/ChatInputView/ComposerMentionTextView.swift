@@ -34,6 +34,7 @@ final class ComposerMentionTextView: DynamicTextView {
     super.init(frame: .zero, textContainer: container)
     isRichText = true
     importsGraphics = false
+    isContinuousSpellCheckingEnabled = true
     NotificationCenter.default.addObserver(
       self, selector: #selector(mentionSelectionDidChange),
       name: NSTextView.didChangeSelectionNotification, object: self)
