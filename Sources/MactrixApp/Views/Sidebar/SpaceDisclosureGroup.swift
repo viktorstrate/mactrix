@@ -40,9 +40,9 @@ struct SpaceDisclosureGroup: View {
       }
     } label: {
       roomRow
-    }
-    .contextMenu {
-      SpaceContextMenu(space: space)
+        .contextMenu {
+          SpaceContextMenu(space: space)
+        }
     }
     .task(id: isExpanded) {
       if isExpanded {
@@ -79,9 +79,6 @@ struct SpaceDisclosureGroup: View {
         imageLoader: appState.matrixClient,
         joinRoom: nil
       )
-      .contextMenu {
-        RoomContextMenu(room: joinedRoom)
-      }
     } else {
       MactrixUI.RoomRow(
         title: space.spaceRoom.displayName,
@@ -98,6 +95,11 @@ struct SpaceDisclosureGroup: View {
       spaceRow
     } else {
       roomRow
+        .contextMenu {
+          if let joinedRoom {
+            RoomContextMenu(room: joinedRoom)
+          }
+        }
     }
   }
 }
