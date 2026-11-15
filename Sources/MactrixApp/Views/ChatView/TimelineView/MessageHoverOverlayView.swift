@@ -11,6 +11,7 @@ final class MessageHoverOverlayView: NSView {
     case edit
     case delete
     case showSource
+    case downloadToFile(Int)
   }
 
   var onAction: ((Action) -> Void)?
@@ -20,6 +21,8 @@ final class MessageHoverOverlayView: NSView {
 
   private let stack = NSStackView()
   private let moreButton = HoverActionButton(symbol: "ellipsis", label: "More actions")
+  private let downloadMenuItem = NSMenuItem(
+    title: "Download to File", action: #selector(downloadToFile(_:)), keyEquivalent: "")
   private let deleteMenuItem = NSMenuItem(
     title: "Delete message", action: #selector(deleteMessage), keyEquivalent: "")
   private let editButton = HoverActionButton(symbol: "pencil", label: "Edit message")
@@ -96,6 +99,12 @@ final class MessageHoverOverlayView: NSView {
 
     let sourceMenuItem = NSMenuItem(
       title: "Show Source", action: #selector(showSource), keyEquivalent: "")
+
+    downloadMenuItem.target = self
+    downloadMenuItem.image = NSImage(
+      systemSymbolName: "arrow.down.to.line", accessibilityDescription: "Download to File")
+    menu.addItem(downloadMenuItem)
+
     sourceMenuItem.target = self
     sourceMenuItem.image = NSImage(
       systemSymbolName: "chevron.left.forwardslash.chevron.right",
@@ -124,7 +133,24 @@ final class MessageHoverOverlayView: NSView {
     configure(canReply: true)
   }
 
-  func configure(canReply: Bool, canEdit: Bool = false, canDelete: Bool = false) {
+  func configure(
+    canReply: Bool, canEdit: Bool = false, canDelete: Bool = false,
+    downloadFilenames: [String] = []
+  ) {
+    downloadMenuItem.isHidden = downloadFilenames.isEmpty
+    downloadMenuItem.submenu = nil
+    if downloadFilenames.count > 1 {
+      let submenu = NSMenu()
+      submenu.autoenablesItems = false
+      for (index, filename) in downloadFilenames.enumerated() {
+        let item = NSMenuItem(
+          title: filename, action: #selector(downloadToFile(_:)), keyEquivalent: "")
+        item.target = self
+        item.tag = index
+        submenu.addItem(item)
+      }
+      downloadMenuItem.submenu = submenu
+    }
     deleteMenuItem.isEnabled = canDelete
     editButton.isHidden = !canEdit
     replyButton.isHidden = !canReply
@@ -143,6 +169,10 @@ final class MessageHoverOverlayView: NSView {
       x: moreButton.bounds.minX,
       y: moreButton.isFlipped ? moreButton.bounds.maxY + 4 : moreButton.bounds.minY - 4)
     menu.popUp(positioning: nil, at: menuOrigin, in: moreButton)
+  }
+
+  @objc private func downloadToFile(_ sender: NSMenuItem) {
+    onAction?(.downloadToFile(sender.tag))
   }
 
   @objc private func showSource() {

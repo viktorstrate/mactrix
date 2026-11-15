@@ -471,7 +471,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     hoverOverlay.configure(
       canReply: event.canBeRepliedTo,
       canEdit: event.isOwn && event.isEditable && editableText(for: event) != nil,
-      canDelete: canDeleteMessage(event))
+      canDelete: canDeleteMessage(event),
+      downloadFilenames: MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename))
     if hoveredMessageView !== rowView {
       hoveredMessageView?.setHoverHighlight(false)
     }
@@ -573,6 +574,14 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       break  // The old picker button does not have an action yet.
     case .showSource:
       MessageSourceWindowController.show(source: event.lazyProvider.latestJson())
+    case .downloadToFile(let index):
+      let attachments = MessageDownloadAttachment.attachments(for: event)
+      guard attachments.indices.contains(index) else { return }
+      startActionTask { [weak self] in
+        guard let self = self, let matrixClient = appState.matrixClient else { return }
+        await MessageDownloadAttachment.downloadToFile(
+          view: view, matrixClient: matrixClient, attachment: attachments[index])
+      }
     case .delete:
       guard canDeleteMessage(event), let window = view.window else { return }
       let alert = NSAlert()
