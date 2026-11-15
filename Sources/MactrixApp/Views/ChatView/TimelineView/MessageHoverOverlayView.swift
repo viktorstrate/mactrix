@@ -10,6 +10,7 @@ final class MessageHoverOverlayView: NSView {
     case pin
     case edit
     case delete
+    case showSource
   }
 
   var onAction: ((Action) -> Void)?
@@ -92,10 +93,20 @@ final class MessageHoverOverlayView: NSView {
 
     let menu = NSMenu()
     menu.autoenablesItems = false
+
+    let sourceMenuItem = NSMenuItem(
+      title: "Show Source", action: #selector(showSource), keyEquivalent: "")
+    sourceMenuItem.target = self
+    sourceMenuItem.image = NSImage(
+      systemSymbolName: "chevron.left.forwardslash.chevron.right",
+      accessibilityDescription: "Show Source")
+    menu.addItem(sourceMenuItem)
+
     deleteMenuItem.target = self
     deleteMenuItem.image = NSImage(
       systemSymbolName: "trash", accessibilityDescription: "Delete message")
     menu.addItem(deleteMenuItem)
+
     moreButton.menu = menu
     moreButton.onClick = { [weak self] in self?.showMoreActions() }
     stack.addArrangedSubview(moreButton)
@@ -132,6 +143,10 @@ final class MessageHoverOverlayView: NSView {
       x: moreButton.bounds.minX,
       y: moreButton.isFlipped ? moreButton.bounds.maxY + 4 : moreButton.bounds.minY - 4)
     menu.popUp(positioning: nil, at: menuOrigin, in: moreButton)
+  }
+
+  @objc private func showSource() {
+    onAction?(.showSource)
   }
 
   @objc private func deleteMessage() {

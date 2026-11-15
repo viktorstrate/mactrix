@@ -63,7 +63,7 @@ Then open the project in Xcode and build using `Cmd+B`.
   - [ ] Message actions
     - [x] Add reactions, Reply to, Pin, Edit, Delete
     - [ ] Download to file
-    - [ ] View source
+    - [x] View source
   - [x] Show reactions
   - [x] Group timeline state items
   - [x] Show read receipts

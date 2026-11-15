@@ -571,6 +571,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       toggleReaction(key, for: event)
     case .reactionPicker:
       break  // The old picker button does not have an action yet.
+    case .showSource:
+      MessageSourceWindowController.show(source: event.lazyProvider.latestJson())
     case .delete:
       guard canDeleteMessage(event), let window = view.window else { return }
       let alert = NSAlert()
