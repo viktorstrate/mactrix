@@ -13,6 +13,7 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
   private var editState: MessageEditState?
   private var restoringEditor = false
   private var mentionObservationGeneration = 0
+  private var needsInitialFocus = false
 
   public var isEditing: Bool { editState != nil }
 
@@ -20,6 +21,7 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
     super.init(frame: frameRect)
 
     editor.onSubmit = { [weak self] in self?.saveEdit() }
+    editor.onWindowChanged = { [weak self] in self?.requestInitialFocus() }
 
     updateFonts()
     editor.isHorizontallyResizable = false
@@ -111,6 +113,7 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
     updateFonts()
     let stateChanged = editState !== state
     if stateChanged {
+      needsInitialFocus = state != nil
       mentionObservationGeneration += 1
       editor.endMentionAutocomplete()
       editor.cancelAvatarLookups()
@@ -140,6 +143,21 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
     saveButton.title = state.isSaving ? "Saving…" : "Save"
     editErrorLabel.stringValue = state.error ?? ""
     editErrorLabel.toolTip = state.error
+    requestInitialFocus()
+  }
+
+  private func requestInitialFocus() {
+    guard needsInitialFocus, let state = editState else { return }
+    // Configuration happens before the parent unhides the editor and lays out the row.
+    DispatchQueue.main.async { [weak self, weak state] in
+      guard let self, let state, self.editState === state, self.needsInitialFocus,
+        !state.isSaving, !self.isHiddenOrHasHiddenAncestor, let window = self.window,
+        window.makeFirstResponder(self.editor)
+      else { return }
+      self.needsInitialFocus = false
+      self.editor.setSelectedRange(NSRange(location: self.editor.string.utf16.count, length: 0))
+      self.editor.scrollRangeToVisible(self.editor.selectedRange())
+    }
   }
 
   private func observeMentionCandidates(for state: MessageEditState, generation: Int) {

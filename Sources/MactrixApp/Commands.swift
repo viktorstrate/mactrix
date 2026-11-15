@@ -15,6 +15,7 @@ public struct AppCommands: Commands {
     about
     newTab
     fontSizeCommands
+    conversationCommands
   }
 
   var about: some Commands {
@@ -68,6 +69,58 @@ public struct AppCommands: Commands {
     }
     .help("Create a new room")
     .keyboardShortcut("N", modifiers: [.command, .shift])
+  }
+
+  var conversationCommands: some Commands {
+    CommandMenu("Conversation") {
+      let selection = windowState?.conversationSelection
+      let filenames = selection?.downloadFilenames ?? []
+
+      messageActionButton("Reply", action: .reply)
+        .keyboardShortcut("r", modifiers: [.command])
+      messageActionButton("Reply in Thread", action: .replyInThread)
+        .keyboardShortcut("r", modifiers: [.command, .shift])
+      messageActionButton("Edit Message", action: .edit)
+        .keyboardShortcut("e", modifiers: [.command, .shift])
+      messageActionButton("Pin Message", action: .pin)
+        .keyboardShortcut("p", modifiers: [.command, .option])
+
+      Divider()
+
+      if filenames.count > 1 {
+        Menu("Download to File…") {
+          ForEach(filenames.indices, id: \.self) { index in
+            messageActionButton(filenames[index], action: .downloadToFile(index))
+              .keyboardShortcut(
+                index == 0 ? KeyboardShortcut("s", modifiers: [.command, .shift]) : nil)
+          }
+        }
+        .disabled(selection?.canPerform(.downloadToFile(0)) != true)
+      } else {
+        messageActionButton("Download to File…", action: .downloadToFile(0))
+          .keyboardShortcut("s", modifiers: [.command, .shift])
+          .disabled(filenames.isEmpty)
+      }
+      messageActionButton("Show Source", action: .showSource)
+        .keyboardShortcut("u", modifiers: [.command, .option])
+
+      Divider()
+
+      messageActionButton("Delete Message", action: .delete)
+        .keyboardShortcut(.delete, modifiers: [.command, .shift])
+    }
+  }
+
+  @ViewBuilder
+  private func messageActionButton(
+    _ title: String, action: MessageHoverOverlayView.Action
+  ) -> some View {
+    let selection = windowState?.conversationSelection
+
+    Button(title) {
+      selection?.perform(action)
+    }
+    .disabled(selection?.canPerform(action) != true)
   }
 
   var fontSizeCommands: some Commands {

@@ -35,7 +35,18 @@ public enum SelectedScreen {
 
 @MainActor @Observable
 public final class WindowState {
-  public var selectedScreen: SelectedScreen = .none
+  public var selectedScreen: SelectedScreen = .none {
+    didSet {
+      if case .joinedRoom(let previous) = oldValue,
+        case .joinedRoom(let current) = selectedScreen, previous === current
+      {
+        return
+      }
+      conversationSelection = nil
+    }
+  }
+
+  var conversationSelection: ConversationMessageSelection?
 
   public var selectedRoomId: String?
   public var selectedSpaceId: String?

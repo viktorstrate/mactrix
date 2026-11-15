@@ -142,6 +142,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   func tearDown() {
+    clearConversationSelection()
     NotificationCenter.default.removeObserver(self)
 
     if timeline.focusDelegate === self {
@@ -172,6 +173,24 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   override func loadView() {
     view = scrollView
+  }
+
+  override func viewDidAppear() {
+    super.viewDidAppear()
+    if windowState.conversationSelection == nil {
+      updateConversationSelection(makeActive: true)
+    }
+  }
+
+  override func viewWillDisappear() {
+    clearConversationSelection()
+    super.viewWillDisappear()
+  }
+
+  private func clearConversationSelection() {
+    if windowState.conversationSelection?.owner === self {
+      windowState.conversationSelection = nil
+    }
   }
 
   override func viewDidLoad() {
@@ -567,6 +586,40 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       case .message(_, let event, _) = timelineItems[row]
     else { return }
 
+    performMessageAction(action, for: event)
+  }
+
+  func canPerformMessageAction(
+    _ action: MessageHoverOverlayView.Action, for event: MatrixRustSDK.EventTimelineItem
+  ) -> Bool {
+    switch action {
+    case .reaction:
+      return timeline.timeline != nil && event.isRemote
+        && timeline.room.roomInfo?.powerLevels?.canOwnUserSendMessage(message: .reaction) == true
+    case .reactionPicker:
+      return false
+    case .reply, .replyInThread:
+      return event.canBeRepliedTo
+    case .edit:
+      return event.isOwn && event.isEditable && editableText(for: event) != nil
+    case .pin:
+      guard case .eventId = event.eventOrTransactionId else { return false }
+      return timeline.timeline != nil
+        && timeline.room.roomInfo?.powerLevels?.canOwnUserPinUnpin() == true
+    case .delete:
+      return timeline.timeline != nil && canDeleteMessage(event)
+    case .showSource:
+      return true
+    case .downloadToFile(let index):
+      return appState.matrixClient != nil
+        && MessageDownloadAttachment.attachments(for: event).indices.contains(index)
+    }
+  }
+
+  func performMessageAction(
+    _ action: MessageHoverOverlayView.Action, for event: MatrixRustSDK.EventTimelineItem
+  ) {
+    guard canPerformMessageAction(action, for: event) else { return }
     switch action {
     case .reaction(let key):
       toggleReaction(key, for: event)
@@ -737,11 +790,32 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     guard let rowIndex = rowForEventId(id: eventId) else { return }
 
     tableView.selectRowIndexes(IndexSet(integer: rowIndex), byExtendingSelection: false)
-    updateSelectedMessage()
+    updateSelectedMessage(makeActive: true)
     tableView.animateRowToVisible(rowIndex)
   }
 
-  private func updateSelectedMessage() {
+  func selectedMessageEvent(matching messageID: String) -> MatrixRustSDK.EventTimelineItem? {
+    let row = tableView.selectedRow
+    guard timelineItems.indices.contains(row), timelineItems[row].id == messageID,
+      case .message(_, let event, _) = timelineItems[row]
+    else { return nil }
+    return event
+  }
+
+  private func updateConversationSelection(makeActive: Bool) {
+    // Background updates to another timeline must not take over the scene's commands.
+    guard makeActive || windowState.conversationSelection?.owner === self else { return }
+    let row = tableView.selectedRow
+    guard timelineItems.indices.contains(row), case .message = timelineItems[row] else {
+      windowState.conversationSelection = nil
+      return
+    }
+    windowState.conversationSelection = ConversationMessageSelection(
+      owner: self, messageID: timelineItems[row].id)
+  }
+
+  private func updateSelectedMessage(makeActive: Bool = false) {
+    updateConversationSelection(makeActive: makeActive)
     let selectedRow = tableView.selectedRow
 
     let visibleRows = tableView.rows(in: tableView.visibleRect)
@@ -757,7 +831,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     let row = tableView.row(at: point)
     guard timelineItems.indices.contains(row), case .message = timelineItems[row] else { return }
     tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-    updateSelectedMessage()
+    updateSelectedMessage(makeActive: true)
   }
 
   private func moveSelection(_ direction: TimelineSelectionDirection) {
@@ -772,7 +846,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     while timelineItems.indices.contains(row) {
       if case .message = timelineItems[row] {
         tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
-        updateSelectedMessage()
+        updateSelectedMessage(makeActive: true)
         tableView.animateRowToVisible(row)
         tableView.window?.makeFirstResponder(tableView)
         return
@@ -1023,7 +1097,7 @@ extension TimelineViewController: NSTableViewDelegate {
 
   func tableViewSelectionDidChange(_ notification: Notification) {
     guard !updatingTimelineItems else { return }
-    updateSelectedMessage()
+    updateSelectedMessage(makeActive: true)
   }
 
   func tableView(_ tableView: NSTableView, heightOfRow row: Int) -> CGFloat {

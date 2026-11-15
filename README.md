@@ -60,7 +60,7 @@ Then open the project in Xcode and build using `Cmd+B`.
     - [x] Send attachments
     - [x] Markdown formatting
     - [x] Mention users
-  - [ ] Message actions
+  - [x] Message actions
     - [x] Add reactions, Reply to, Pin, Edit, Delete
     - [x] Download to file
     - [x] View source
@@ -94,7 +94,7 @@ Then open the project in Xcode and build using `Cmd+B`.
   - [ ] Sessions
     - [x] Emoji verification
     - [x] See verified / unverified status
-    - [ ] Verify with recovery key
+    - [x] Verify with recovery key
     - [ ] Change recovery key
     - [ ] Rename current and other sessions
     - [ ] Sign out other sessions
