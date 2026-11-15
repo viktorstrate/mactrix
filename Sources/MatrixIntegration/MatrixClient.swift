@@ -115,6 +115,7 @@ public class MatrixClient {
   }
 
   public func reset() async throws {
+    isResettingSession = true
     Logger.matrixClient.debug("matrix client sign out")
     try? await client.logout()
     try? FileManager.default.removeItem(at: .sessionData(for: storeID))
@@ -155,6 +156,32 @@ public class MatrixClient {
   }
 
   public private(set) var serverBackupState: ServerBackupState = .unknown
+  public private(set) var isRecoveringWithRecoveryKey = false
+  @ObservationIgnored private var isResettingSession = false
+
+  public func verifyWithRecoveryKey(_ recoveryKey: String) async throws {
+    guard !isResettingSession else { throw CancellationError() }
+    guard !isRecoveringWithRecoveryKey else {
+      throw RecoveryKeyVerificationError.alreadyInProgress
+    }
+
+    isRecoveringWithRecoveryKey = true
+    let encryption = client.encryption()
+    defer {
+      isRecoveringWithRecoveryKey = false
+      // Recovery can import some secrets before failing. Read the actual SDK state in either case.
+      if !isResettingSession {
+        verificationState = encryption.verificationState()
+        recoveryState = encryption.recoveryState()
+        backupState = encryption.backupState()
+      }
+    }
+
+    try Task.checkCancellation()
+    try await encryption.recover(recoveryKey: recoveryKey)
+    try Task.checkCancellation()
+    guard !isResettingSession else { throw CancellationError() }
+  }
 
   public func refreshServerBackupState() async {
     if case .loading = serverBackupState { return }
@@ -241,6 +268,10 @@ public class MatrixClient {
   public func requestDeviceVerification() async throws {
     try await client.getSessionVerificationController().requestDeviceVerification()
   }
+}
+
+private enum RecoveryKeyVerificationError: Error {
+  case alreadyInProgress
 }
 
 enum MatrixClientRestoreSessionError: Error {

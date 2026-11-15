@@ -5,6 +5,7 @@ import SwiftUI
 struct SessionsSettingsView: View {
   @Environment(AppState.self) var appState
   @Environment(\.colorScheme) var colorScheme
+  @State private var showRecoveryKeyVerification = false
 
   func sessionBadge(systemIcon: String, color: Color) -> some View {
     Image(systemName: systemIcon)
@@ -121,6 +122,12 @@ struct SessionsSettingsView: View {
       Form {
         Section("Device Verification") {
           sessionVerificationView(matrixClient: matrixClient)
+          if matrixClient.verificationState == .unverified {
+            Button("Verify with Recovery Key…") {
+              showRecoveryKeyVerification = true
+            }
+            .disabled(matrixClient.isRecoveringWithRecoveryKey)
+          }
         }
 
         Section {
@@ -145,6 +152,15 @@ struct SessionsSettingsView: View {
         }
       }
       .formStyle(.grouped)
+      .sheet(isPresented: $showRecoveryKeyVerification) {
+        RecoveryKeyVerificationSheet(matrixClient: matrixClient)
+      }
+      .onChange(of: ObjectIdentifier(matrixClient)) {
+        showRecoveryKeyVerification = false
+      }
+      .onDisappear {
+        showRecoveryKeyVerification = false
+      }
       .task(id: matrixClient.storeID) {
         await matrixClient.refreshServerBackupState()
       }
