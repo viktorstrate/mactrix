@@ -142,6 +142,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   func tearDown() {
+    hoverOverlay.closeReactionPicker()
     clearConversationSelection()
     NotificationCenter.default.removeObserver(self)
 
@@ -183,6 +184,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   override func viewWillDisappear() {
+    hoverOverlay.closeReactionPicker()
     clearConversationSelection()
     super.viewWillDisappear()
   }
@@ -329,7 +331,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     hoverOverlay.onAction = { [weak self] action in
       self?.performHoverAction(action)
     }
-    hoverOverlay.onMenuClosed = { [weak self] in
+    hoverOverlay.onInteractionClosed = { [weak self] in
       self?.hideHoverOverlay()
     }
     scrollView.contentView.addSubview(hoverOverlay, positioned: .above, relativeTo: documentView)
@@ -386,6 +388,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     updatingTimelineItems = true
     defer { updatingTimelineItems = wasUpdating }
 
+    hoverOverlay.closeReactionPicker()
     hideHoverOverlay()
     measurementMessageViews.removeAll()
     NSAnimationContext.runAnimationGroup { context in
@@ -463,7 +466,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private func updateHoverOverlay(for rowView: MessageRowView, hovering: Bool, event: NSEvent)
     -> Bool
   {
-    guard !hoverOverlay.isPresentingMenu else { return hoveredMessageView === rowView }
+    guard !hoverOverlay.isPresentingInteraction else {
+      return hoveredMessageView === rowView
+    }
     if !hovering {
       if hoveredMessageView === rowView {
         let mousePoint = hoverOverlay.convert(event.locationInWindow, from: nil)
@@ -491,6 +496,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       canReply: event.canBeRepliedTo,
       canEdit: event.isOwn && event.isEditable && editableText(for: event) != nil,
       canDelete: canDeleteMessage(event),
+      canReact: canPerformMessageAction(.reactionPicker, for: event),
       downloadFilenames: MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename))
     if hoveredMessageView !== rowView {
       hoveredMessageView?.setHoverHighlight(false)
@@ -511,6 +517,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       timelineItems[row].id == hoveredMessageId,
       let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageRowView
     else {
+      hoverOverlay.closeReactionPicker()
       hideHoverOverlay()
       return
     }
@@ -531,7 +538,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func hoverOverlayDidExit(with event: NSEvent) {
-    guard !hoverOverlay.isPresentingMenu else { return }
+    guard !hoverOverlay.isPresentingInteraction else { return }
     let tablePoint = tableView.convert(event.locationInWindow, from: nil)
     let row = tableView.row(at: tablePoint)
     if row >= 0,
@@ -548,7 +555,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func hideHoverOverlay() {
-    guard !hoverOverlay.isPresentingMenu else { return }
+    guard !hoverOverlay.isPresentingInteraction else { return }
     hoveredMessageView?.setHoverHighlight(false)
     hoveredMessageView = nil
     hoveredMessageId = nil
@@ -593,11 +600,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     _ action: MessageHoverOverlayView.Action, for event: MatrixRustSDK.EventTimelineItem
   ) -> Bool {
     switch action {
-    case .reaction:
+    case .reaction, .reactionPicker:
       return timeline.timeline != nil && event.isRemote
         && timeline.room.roomInfo?.powerLevels?.canOwnUserSendMessage(message: .reaction) == true
-    case .reactionPicker:
-      return false
     case .reply, .replyInThread:
       return event.canBeRepliedTo
     case .edit:
@@ -624,7 +629,15 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     case .reaction(let key):
       toggleReaction(key, for: event)
     case .reactionPicker:
-      break  // The old picker button does not have an action yet.
+      do {
+        try hoverOverlay.showReactionPicker { [weak self] key in
+          // Capture this opening's event, independently of subsequent hover changes.
+          guard let self, self.canPerformMessageAction(.reaction(key), for: event) else { return }
+          self.toggleReaction(key, for: event)
+        }
+      } catch {
+        Logger.timelineTableView.error("Failed to load reaction picker: \(error)")
+      }
     case .showSource:
       MessageSourceWindowController.show(source: event.lazyProvider.latestJson())
     case .downloadToFile(let index):
@@ -763,6 +776,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   @objc func viewDidScroll(_ notification: Notification) {
     guard positionedInitially, !updatingTimelineItems else { return }
+    hoverOverlay.closeReactionPicker()
     let distanceFromTop = tableView.visibleRect.minY - tableView.bounds.minY
     let threshold: CGFloat = 200.0  // Pixels from the top to trigger load
 
@@ -999,6 +1013,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     if let hoveredMessageId {
       hoveredRowIndex = newIDs.firstIndex(of: hoveredMessageId)
       if hoveredRowIndex == nil {
+        hoverOverlay.closeReactionPicker()
         hideHoverOverlay()
       } else {
         positionHoverOverlay()

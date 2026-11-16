@@ -16,9 +16,13 @@ final class MessageHoverOverlayView: NSView {
 
   var onAction: ((Action) -> Void)?
   var onMouseExited: ((NSEvent) -> Void)?
-  var onMenuClosed: (() -> Void)?
-  private(set) var isPresentingMenu = false
+  var onInteractionClosed: (() -> Void)?
+  var isPresentingInteraction: Bool { isPresentingMenu || reactionPickerPopover != nil }
 
+  private var isPresentingMenu = false
+  private var reactionPickerPopover: NSPopover?
+
+  private let reactionPickerButton = HoverActionButton(symbol: "face.smiling", label: "React")
   private let stack = NSStackView()
   private let moreButton = HoverActionButton(symbol: "ellipsis", label: "More actions")
   private let downloadMenuItem = NSMenuItem(
@@ -79,9 +83,8 @@ final class MessageHoverOverlayView: NSView {
     ])
     stack.addArrangedSubview(dividerContainer)
 
-    let reactionPicker = HoverActionButton(symbol: "face.smiling", label: "React")
-    reactionPicker.onClick = { [weak self] in self?.onAction?(.reactionPicker) }
-    stack.addArrangedSubview(reactionPicker)
+    reactionPickerButton.onClick = { [weak self] in self?.onAction?(.reactionPicker) }
+    stack.addArrangedSubview(reactionPickerButton)
 
     replyButton.onClick = { [weak self] in self?.onAction?(.reply) }
     threadButton.onClick = { [weak self] in self?.onAction?(.replyInThread) }
@@ -135,8 +138,9 @@ final class MessageHoverOverlayView: NSView {
 
   func configure(
     canReply: Bool, canEdit: Bool = false, canDelete: Bool = false,
-    downloadFilenames: [String] = []
+    canReact: Bool = true, downloadFilenames: [String] = []
   ) {
+    reactionPickerButton.isEnabled = canReact
     downloadMenuItem.isHidden = downloadFilenames.isEmpty
     downloadMenuItem.submenu = nil
     if downloadFilenames.count > 1 {
@@ -158,12 +162,43 @@ final class MessageHoverOverlayView: NSView {
     setFrameSize(fittingSize)
   }
 
+  func showReactionPicker(onSelect: @escaping (String) -> Void) throws {
+    if reactionPickerPopover != nil {
+      closeReactionPicker()
+      return
+    }
+    guard !isHidden, reactionPickerButton.window != nil, !isPresentingMenu else { return }
+
+    let picker = ReactionPickerViewController(model: try ReactionPickerModel.loadBundled())
+    let popover = NSPopover()
+    popover.behavior = .transient
+    popover.contentViewController = picker
+    popover.contentSize = ReactionPickerViewController.contentSize
+    popover.delegate = self
+    picker.onSelect = { [weak self, weak popover] key in
+      guard let self, let popover, self.reactionPickerPopover === popover else { return }
+      self.closeReactionPicker()
+      onSelect(key)
+    }
+    reactionPickerPopover = popover
+    popover.show(
+      relativeTo: reactionPickerButton.bounds, of: reactionPickerButton, preferredEdge: .maxY)
+  }
+
+  func closeReactionPicker() {
+    guard let popover = reactionPickerPopover else { return }
+    reactionPickerPopover = nil
+    popover.delegate = nil
+    popover.close()
+    onInteractionClosed?()
+  }
+
   private func showMoreActions() {
     guard let menu = moreButton.menu else { return }
     isPresentingMenu = true
     defer {
       isPresentingMenu = false
-      onMenuClosed?()
+      onInteractionClosed?()
     }
     let menuOrigin = NSPoint(
       x: moreButton.bounds.minX,
@@ -204,6 +239,16 @@ final class MessageHoverOverlayView: NSView {
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
+  }
+}
+
+extension MessageHoverOverlayView: NSPopoverDelegate {
+  func popoverDidClose(_ notification: Notification) {
+    guard let popover = notification.object as? NSPopover,
+      reactionPickerPopover === popover
+    else { return }
+    reactionPickerPopover = nil
+    onInteractionClosed?()
   }
 }
 
