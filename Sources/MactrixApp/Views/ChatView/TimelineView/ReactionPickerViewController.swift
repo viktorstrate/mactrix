@@ -1,4 +1,5 @@
 import AppKit
+import MatrixIntegration
 
 final class ReactionPickerViewController: NSViewController {
   static let contentSize = NSSize(width: 320, height: 420)
@@ -8,9 +9,20 @@ final class ReactionPickerViewController: NSViewController {
   var onSelect: ((String) -> Void)?
 
   private let model: ReactionPickerModel
-  private let sections: [ReactionPickerModel.Section]
+  private var sections: [ReactionPickerModel.Section]
+  private let recentReactions: RecentReactionsStore?
+  private var recentKeys: [String]
+  private var recentLoadTask: Task<Void, Never>?
+  private var openingID: UUID?
+  private var hasInteracted = false
   private var searchResults: [ReactionPickerModel.Item]?
   private var savedBrowsingOffset: CGFloat?
+  private var savedBrowsingAnchor: BrowsingAnchor?
+
+  private struct BrowsingAnchor {
+    let sectionID: ReactionPickerModel.Section.ID
+    let offsetInSection: CGFloat
+  }
 
   private var isUpdatingContent = false
   private let collectionView = NSCollectionView()
@@ -23,9 +35,12 @@ final class ReactionPickerViewController: NSViewController {
   private static let itemIdentifier = NSUserInterfaceItemIdentifier("reaction-emoji")
   private static let headerIdentifier = NSUserInterfaceItemIdentifier("reaction-category")
 
-  init(model: ReactionPickerModel) {
+  init(model: ReactionPickerModel, recentReactions: RecentReactionsStore? = nil) {
     self.model = model
-    sections = model.sections(recentKeys: [], recentLimit: Self.recentItemLimit)
+    self.recentReactions = recentReactions
+    let keys = recentReactions?.isActive == true ? recentReactions?.cachedKeys ?? [] : []
+    recentKeys = keys
+    sections = model.sections(recentKeys: keys, recentLimit: Self.recentItemLimit)
     super.init(nibName: nil, bundle: nil)
     preferredContentSize = Self.contentSize
   }
@@ -39,7 +54,6 @@ final class ReactionPickerViewController: NSViewController {
     searchField.sendsSearchStringImmediately = true
     searchField.sendsWholeSearchString = false
 
-    categoryControl.segmentCount = sections.count
     categoryControl.segmentStyle = .smallSquare
     categoryControl.trackingMode = .selectOne
     categoryControl.controlSize = .small
@@ -47,16 +61,7 @@ final class ReactionPickerViewController: NSViewController {
     categoryControl.target = self
     categoryControl.action = #selector(categoryClicked(_:))
     categoryControl.setAccessibilityLabel(String(localized: "Emoji categories"))
-    for (index, section) in sections.enumerated() {
-      if let symbol = section.systemSymbolName {
-        categoryControl.setImage(
-          NSImage(systemSymbolName: symbol, accessibilityDescription: section.title),
-          forSegment: index)
-      }
-      categoryControl.setToolTip(section.title, forSegment: index)
-      categoryControl.setWidth(30, forSegment: index)
-    }
-    if !sections.isEmpty { categoryControl.selectedSegment = 0 }
+    updateCategoryControl()
 
     layout.scrollDirection = .vertical
     layout.itemSize = NSSize(width: 38, height: 38)
@@ -137,7 +142,11 @@ final class ReactionPickerViewController: NSViewController {
 
     searchField.stringValue = ""
     savedBrowsingOffset = nil
+    savedBrowsingAnchor = nil
+    hasInteracted = false
+    recentKeys = recentReactions?.isActive == true ? recentReactions?.cachedKeys ?? [] : []
     showBrowsingContent(at: 0)
+    loadRecents()
   }
 
   override func viewDidAppear() {
@@ -149,9 +158,62 @@ final class ReactionPickerViewController: NSViewController {
   }
 
   override func viewWillDisappear() {
+    stopLoadingRecents()
     NotificationCenter.default.removeObserver(
       self, name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
     super.viewWillDisappear()
+  }
+
+  func stopLoadingRecents() {
+    openingID = nil
+    recentLoadTask?.cancel()
+    recentLoadTask = nil
+  }
+
+  private func loadRecents() {
+    stopLoadingRecents()
+    guard let recentReactions, recentReactions.isActive else { return }
+    let id = UUID()
+    openingID = id
+    recentLoadTask = Task { [weak self] in
+      guard let keys = await recentReactions.refresh(), !Task.isCancelled,
+        recentReactions.isActive, let self, self.openingID == id
+      else { return }
+      self.applyRecentKeys(keys)
+      self.recentLoadTask = nil
+    }
+  }
+
+  private func applyRecentKeys(_ keys: [String]) {
+    guard keys != recentKeys else { return }
+    let anchor = hasInteracted ? browsingAnchor(at: scrollView.contentView.bounds.minY) : nil
+    recentKeys = keys
+    // A late refresh must not reorder results under the pointer. The next query
+    // change uses the refreshed keys; clearing search rebuilds browsing sections.
+    if !isSearching {
+      showBrowsingContent(at: 0, anchor: anchor)
+    }
+  }
+
+  private func updateCategoryControl() {
+    categoryControl.segmentCount = sections.count
+    for (index, section) in sections.enumerated() {
+      categoryControl.setImage(
+        section.systemSymbolName.flatMap {
+          NSImage(systemSymbolName: $0, accessibilityDescription: section.title)
+        }, forSegment: index)
+      categoryControl.setToolTip(section.title, forSegment: index)
+      categoryControl.setWidth(30, forSegment: index)
+    }
+    categoryControl.selectedSegment = isSearching || sections.isEmpty ? -1 : 0
+  }
+
+  private func browsingAnchor(at offset: CGFloat) -> BrowsingAnchor? {
+    guard let geometry = scrollGeometry,
+      let section = geometry.activeSection(at: offset)
+    else { return nil }
+    return BrowsingAnchor(
+      sectionID: sections[section].id, offsetInSection: offset - geometry.sectionOffsets[section])
   }
 
   private func items(in section: Int) -> [ReactionPickerModel.Item] {
@@ -173,9 +235,18 @@ final class ReactionPickerViewController: NSViewController {
     noResultsLabel.isHidden = searchResults?.isEmpty != true
   }
 
-  private func showBrowsingContent(at offset: CGFloat) {
+  private func showBrowsingContent(at offset: CGFloat, anchor: BrowsingAnchor? = nil) {
     searchResults = nil
+    sections = model.sections(recentKeys: recentKeys, recentLimit: Self.recentItemLimit)
+    updateCategoryControl()
     reloadContent(at: offset)
+    if let anchor, let section = sections.firstIndex(where: { $0.id == anchor.sectionID }),
+      let geometry = scrollGeometry
+    {
+      isUpdatingContent = true
+      scroll(to: geometry.sectionOffsets[section] + anchor.offsetInSection)
+      isUpdatingContent = false
+    }
     updateActiveCategory()
   }
 
@@ -183,14 +254,19 @@ final class ReactionPickerViewController: NSViewController {
     let query = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !query.isEmpty else {
       if isSearching {
-        showBrowsingContent(at: savedBrowsingOffset ?? 0)
+        showBrowsingContent(at: savedBrowsingOffset ?? 0, anchor: savedBrowsingAnchor)
         savedBrowsingOffset = nil
+        savedBrowsingAnchor = nil
       }
       return
     }
 
-    if !isSearching { savedBrowsingOffset = scrollView.contentView.bounds.minY }
-    searchResults = model.search(query)
+    hasInteracted = true
+    if !isSearching {
+      savedBrowsingOffset = scrollView.contentView.bounds.minY
+      savedBrowsingAnchor = browsingAnchor(at: scrollView.contentView.bounds.minY)
+    }
+    searchResults = model.search(query, recentKeys: recentKeys, recentLimit: Self.recentItemLimit)
     reloadContent(at: 0)
     categoryControl.selectedSegment = -1
   }
@@ -226,6 +302,7 @@ final class ReactionPickerViewController: NSViewController {
 
   @objc private func categoryClicked(_ sender: NSSegmentedControl) {
     guard !isSearching else { return }
+    hasInteracted = true
     collectionView.layoutSubtreeIfNeeded()
     guard let target = scrollGeometry?.targetOffset(forSection: sender.selectedSegment) else {
       return
@@ -235,6 +312,7 @@ final class ReactionPickerViewController: NSViewController {
   }
 
   @objc private func scrollPositionChanged(_ notification: Notification) {
+    if !isUpdatingContent, scrollView.contentView.bounds.minY > 0 { hasInteracted = true }
     updateActiveCategory()
   }
 
@@ -285,7 +363,9 @@ extension ReactionPickerViewController: NSCollectionViewDataSource, NSCollection
   func collectionView(
     _ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>
   ) {
-    guard !isUpdatingContent, let indexPath = indexPaths.first else { return }
+    guard !isUpdatingContent, recentReactions?.isActive != false,
+      let indexPath = indexPaths.first
+    else { return }
     onSelect?(items(in: indexPath.section)[indexPath.item].key)
   }
 }

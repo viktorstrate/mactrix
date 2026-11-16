@@ -1,4 +1,5 @@
 import AppKit
+import MatrixIntegration
 
 /// The action bar shown above the hovered message row.
 final class MessageHoverOverlayView: NSView {
@@ -162,14 +163,17 @@ final class MessageHoverOverlayView: NSView {
     setFrameSize(fittingSize)
   }
 
-  func showReactionPicker(onSelect: @escaping (String) -> Void) throws {
+  func showReactionPicker(
+    recentReactions: RecentReactionsStore?, onSelect: @escaping (String) -> Void
+  ) throws {
     if reactionPickerPopover != nil {
       closeReactionPicker()
       return
     }
     guard !isHidden, reactionPickerButton.window != nil, !isPresentingMenu else { return }
 
-    let picker = ReactionPickerViewController(model: try ReactionPickerModel.loadBundled())
+    let picker = ReactionPickerViewController(
+      model: try ReactionPickerModel.loadBundled(), recentReactions: recentReactions)
     let popover = NSPopover()
     popover.behavior = .transient
     popover.contentViewController = picker
@@ -188,6 +192,7 @@ final class MessageHoverOverlayView: NSView {
   func closeReactionPicker() {
     guard let popover = reactionPickerPopover else { return }
     reactionPickerPopover = nil
+    (popover.contentViewController as? ReactionPickerViewController)?.stopLoadingRecents()
     popover.delegate = nil
     popover.close()
     onInteractionClosed?()
@@ -248,6 +253,7 @@ extension MessageHoverOverlayView: NSPopoverDelegate {
       reactionPickerPopover === popover
     else { return }
     reactionPickerPopover = nil
+    (popover.contentViewController as? ReactionPickerViewController)?.stopLoadingRecents()
     onInteractionClosed?()
   }
 }

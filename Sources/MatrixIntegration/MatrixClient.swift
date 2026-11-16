@@ -11,6 +11,8 @@ import Utils
 @MainActor @Observable
 public class MatrixClient {
   public let storeID: String
+  @ObservationIgnored public private(set) lazy var recentReactions = RecentReactionsStore(
+    client: SDKRecentReactionsClient(client: client))
   private let storePassphrase: String
   public internal(set) var client: ClientProtocol!
 
@@ -115,6 +117,7 @@ public class MatrixClient {
   }
 
   public func reset() async throws {
+    recentReactions.invalidate()
     isResettingSession = true
     Logger.matrixClient.debug("matrix client sign out")
     try? await client.logout()

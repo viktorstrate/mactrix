@@ -564,10 +564,17 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func toggleReaction(_ key: String, for event: MatrixRustSDK.EventTimelineItem) {
-    startActionTask { [weak self] in
+    guard let sdkTimeline = timeline.timeline else { return }
+    let recents = appState.matrixClient?.recentReactions
+    startActionTask {
       do {
-        _ = try await self?.timeline.timeline?
-          .toggleReaction(itemId: event.eventOrTransactionId, key: key)
+        if let recents {
+          try await recents.toggleReaction(key) {
+            try await sdkTimeline.toggleReaction(itemId: event.eventOrTransactionId, key: key)
+          }
+        } else {
+          _ = try await sdkTimeline.toggleReaction(itemId: event.eventOrTransactionId, key: key)
+        }
       } catch {
         guard !Task.isCancelled else { return }
         Logger.timelineTableView.error("Failed to toggle reaction: \(error)")
@@ -630,7 +637,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       toggleReaction(key, for: event)
     case .reactionPicker:
       do {
-        try hoverOverlay.showReactionPicker { [weak self] key in
+        try hoverOverlay.showReactionPicker(recentReactions: appState.matrixClient?.recentReactions)
+        {
+          [weak self] key in
           // Capture this opening's event, independently of subsequent hover changes.
           guard let self, self.canPerformMessageAction(.reaction(key), for: event) else { return }
           self.toggleReaction(key, for: event)
