@@ -7,15 +7,24 @@ final class ReactionPickerViewController: NSViewController {
 
   var onSelect: ((String) -> Void)?
 
+  private let model: ReactionPickerModel
   private let sections: [ReactionPickerModel.Section]
+  private var searchResults: [ReactionPickerModel.Item]?
+  private var savedBrowsingOffset: CGFloat?
+
+  private var isUpdatingContent = false
   private let collectionView = NSCollectionView()
   private let scrollView = NSScrollView()
   private let searchField = NSSearchField()
   private let categoryControl = NSSegmentedControl()
+  private let layout = NSCollectionViewFlowLayout()
+  private let noResultsLabel = NSTextField(labelWithString: String(localized: "No emoji found"))
+  private var isSearching: Bool { searchResults != nil }
   private static let itemIdentifier = NSUserInterfaceItemIdentifier("reaction-emoji")
   private static let headerIdentifier = NSUserInterfaceItemIdentifier("reaction-category")
 
   init(model: ReactionPickerModel) {
+    self.model = model
     sections = model.sections(recentKeys: [], recentLimit: Self.recentItemLimit)
     super.init(nibName: nil, bundle: nil)
     preferredContentSize = Self.contentSize
@@ -26,15 +35,17 @@ final class ReactionPickerViewController: NSViewController {
 
     searchField.placeholderString = String(localized: "Search")
     searchField.setAccessibilityLabel(String(localized: "Search emoji"))
-    // Search and section navigation are connected in the next milestone.
-    searchField.isEnabled = false
-    searchField.toolTip = String(localized: "Emoji search is not available yet")
+    searchField.delegate = self
+    searchField.sendsSearchStringImmediately = true
+    searchField.sendsWholeSearchString = false
 
     categoryControl.segmentCount = sections.count
     categoryControl.segmentStyle = .smallSquare
     categoryControl.trackingMode = .selectOne
     categoryControl.controlSize = .small
-    categoryControl.isEnabled = false
+    categoryControl.isEnabled = !sections.isEmpty
+    categoryControl.target = self
+    categoryControl.action = #selector(categoryClicked(_:))
     categoryControl.setAccessibilityLabel(String(localized: "Emoji categories"))
     for (index, section) in sections.enumerated() {
       if let symbol = section.systemSymbolName {
@@ -47,7 +58,6 @@ final class ReactionPickerViewController: NSViewController {
     }
     if !sections.isEmpty { categoryControl.selectedSegment = 0 }
 
-    let layout = NSCollectionViewFlowLayout()
     layout.scrollDirection = .vertical
     layout.itemSize = NSSize(width: 38, height: 38)
     layout.minimumInteritemSpacing = 4
@@ -77,10 +87,17 @@ final class ReactionPickerViewController: NSViewController {
     scrollView.scrollerStyle = .overlay
     scrollView.horizontalScrollElasticity = .none
     scrollView.documentView = collectionView
+    scrollView.contentView.postsBoundsChangedNotifications = true
+
+    noResultsLabel.textColor = .secondaryLabelColor
+    noResultsLabel.alignment = .center
+    noResultsLabel.isHidden = true
 
     let topSeparator = separator()
     let bottomSeparator = separator()
-    for subview in [searchField, topSeparator, scrollView, bottomSeparator, categoryControl] {
+    for subview in [
+      searchField, topSeparator, scrollView, bottomSeparator, categoryControl, noResultsLabel,
+    ] {
       subview.translatesAutoresizingMaskIntoConstraints = false
       view.addSubview(subview)
     }
@@ -102,12 +119,123 @@ final class ReactionPickerViewController: NSViewController {
       categoryControl.centerXAnchor.constraint(equalTo: view.centerXAnchor),
       categoryControl.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -6),
       categoryControl.heightAnchor.constraint(equalToConstant: 24),
+      noResultsLabel.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
+      noResultsLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
     ])
   }
 
   override func viewDidLoad() {
     super.viewDidLoad()
     collectionView.reloadData()
+  }
+
+  override func viewWillAppear() {
+    super.viewWillAppear()
+    NotificationCenter.default.addObserver(
+      self, selector: #selector(scrollPositionChanged), name: NSView.boundsDidChangeNotification,
+      object: scrollView.contentView)
+
+    searchField.stringValue = ""
+    savedBrowsingOffset = nil
+    showBrowsingContent(at: 0)
+  }
+
+  override func viewDidAppear() {
+    super.viewDidAppear()
+    view.layoutSubtreeIfNeeded()
+    scroll(to: 0)
+    updateActiveCategory()
+    view.window?.makeFirstResponder(searchField)
+  }
+
+  override func viewWillDisappear() {
+    NotificationCenter.default.removeObserver(
+      self, name: NSView.boundsDidChangeNotification, object: scrollView.contentView)
+    super.viewWillDisappear()
+  }
+
+  private func items(in section: Int) -> [ReactionPickerModel.Item] {
+    searchResults ?? sections[section].items
+  }
+
+  private func reloadContent(at offset: CGFloat) {
+    isUpdatingContent = true
+    defer { isUpdatingContent = false }
+    collectionView.selectionIndexPaths = []
+    layout.headerReferenceSize =
+      isSearching ? .zero : NSSize(width: Self.contentSize.width, height: 28)
+    layout.invalidateLayout()
+    collectionView.reloadData()
+    view.layoutSubtreeIfNeeded()
+    collectionView.layoutSubtreeIfNeeded()
+    scroll(to: offset)
+    categoryControl.isEnabled = !isSearching && !sections.isEmpty
+    noResultsLabel.isHidden = searchResults?.isEmpty != true
+  }
+
+  private func showBrowsingContent(at offset: CGFloat) {
+    searchResults = nil
+    reloadContent(at: offset)
+    updateActiveCategory()
+  }
+
+  private func updateSearch() {
+    let query = searchField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !query.isEmpty else {
+      if isSearching {
+        showBrowsingContent(at: savedBrowsingOffset ?? 0)
+        savedBrowsingOffset = nil
+      }
+      return
+    }
+
+    if !isSearching { savedBrowsingOffset = scrollView.contentView.bounds.minY }
+    searchResults = model.search(query)
+    reloadContent(at: 0)
+    categoryControl.selectedSegment = -1
+  }
+
+  private var scrollGeometry: ReactionPickerScrollGeometry? {
+    guard !isSearching else { return nil }
+    let offsets = sections.indices.compactMap { section in
+      layout.layoutAttributesForSupplementaryView(
+        ofKind: NSCollectionView.elementKindSectionHeader,
+        at: IndexPath(item: 0, section: section))?.frame.minY
+    }
+    guard offsets.count == sections.count else { return nil }
+    return ReactionPickerScrollGeometry(
+      sectionOffsets: offsets, contentHeight: layout.collectionViewContentSize.height,
+      viewportHeight: scrollView.contentView.bounds.height)
+  }
+
+  private func updateActiveCategory() {
+    guard !isUpdatingContent, !isSearching,
+      let section = scrollGeometry?.activeSection(at: scrollView.contentView.bounds.minY)
+    else { return }
+
+    categoryControl.selectedSegment = section
+  }
+
+  private func scroll(to offset: CGFloat) {
+    let clipView = scrollView.contentView
+    var bounds = clipView.bounds
+    bounds.origin.y = offset
+    clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
+    scrollView.reflectScrolledClipView(clipView)
+  }
+
+  @objc private func categoryClicked(_ sender: NSSegmentedControl) {
+    guard !isSearching else { return }
+    collectionView.layoutSubtreeIfNeeded()
+    guard let target = scrollGeometry?.targetOffset(forSection: sender.selectedSegment) else {
+      return
+    }
+    scroll(to: target)
+    updateActiveCategory()
+  }
+
+  @objc private func scrollPositionChanged(_ notification: Notification) {
+    updateActiveCategory()
   }
 
   private func separator() -> NSBox {
@@ -124,13 +252,13 @@ final class ReactionPickerViewController: NSViewController {
 
 extension ReactionPickerViewController: NSCollectionViewDataSource, NSCollectionViewDelegate {
   func numberOfSections(in collectionView: NSCollectionView) -> Int {
-    sections.count
+    isSearching ? 1 : sections.count
   }
 
   func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int)
     -> Int
   {
-    sections[section].items.count
+    items(in: section).count
   }
 
   func collectionView(
@@ -138,7 +266,7 @@ extension ReactionPickerViewController: NSCollectionViewDataSource, NSCollection
   ) -> NSCollectionViewItem {
     let item = collectionView.makeItem(withIdentifier: Self.itemIdentifier, for: indexPath)
     if let item = item as? ReactionEmojiItem {
-      item.configure(sections[indexPath.section].items[indexPath.item])
+      item.configure(items(in: indexPath.section)[indexPath.item])
     }
     return item
   }
@@ -147,6 +275,7 @@ extension ReactionPickerViewController: NSCollectionViewDataSource, NSCollection
     _ collectionView: NSCollectionView, viewForSupplementaryElementOfKind kind: String,
     at indexPath: IndexPath
   ) -> NSView {
+    guard !isSearching else { return NSView() }
     let header = collectionView.makeSupplementaryView(
       ofKind: kind, withIdentifier: Self.headerIdentifier, for: indexPath)
     (header as? ReactionCategoryHeader)?.configure(title: sections[indexPath.section].title)
@@ -156,8 +285,14 @@ extension ReactionPickerViewController: NSCollectionViewDataSource, NSCollection
   func collectionView(
     _ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>
   ) {
-    guard let indexPath = indexPaths.first else { return }
-    onSelect?(sections[indexPath.section].items[indexPath.item].key)
+    guard !isUpdatingContent, let indexPath = indexPaths.first else { return }
+    onSelect?(items(in: indexPath.section)[indexPath.item].key)
+  }
+}
+
+extension ReactionPickerViewController: NSSearchFieldDelegate {
+  func controlTextDidChange(_ notification: Notification) {
+    updateSearch()
   }
 }
 
@@ -269,5 +404,35 @@ private final class ReactionCategoryHeader: NSView, NSCollectionViewElement {
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
+  }
+}
+
+extension ReactionPickerViewController {
+  /// Section header positions and scroll limits in the flipped collection view's coordinates.
+  struct ReactionPickerScrollGeometry {
+    let sectionOffsets: [CGFloat]
+    let contentHeight: CGFloat
+    let viewportHeight: CGFloat
+
+    var maximumOffset: CGFloat { max(0, contentHeight - max(0, viewportHeight)) }
+
+    func clampedOffset(_ offset: CGFloat) -> CGFloat {
+      min(maximumOffset, max(0, offset))
+    }
+
+    func targetOffset(forSection section: Int) -> CGFloat? {
+      guard sectionOffsets.indices.contains(section) else { return nil }
+      return clampedOffset(sectionOffsets[section])
+    }
+
+    func activeSection(at offset: CGFloat) -> Int? {
+      guard !sectionOffsets.isEmpty else { return nil }
+      let offset = clampedOffset(offset)
+      // A short final section may never reach the top of the viewport.
+      if maximumOffset > 0, offset >= maximumOffset - 1 {
+        return sectionOffsets.count - 1
+      }
+      return sectionOffsets.lastIndex(where: { $0 <= offset + 1 }) ?? 0
+    }
   }
 }
