@@ -1,4 +1,5 @@
 import AppKit
+import Carbon.HIToolbox
 import MatrixIntegration
 
 final class ReactionPickerViewController: NSViewController {
@@ -7,6 +8,7 @@ final class ReactionPickerViewController: NSViewController {
   static let recentItemLimit = columnCount * 3
 
   var onSelect: ((String) -> Void)?
+  var onDismiss: (() -> Void)?
 
   private let model: ReactionPickerModel
   private var sections: [ReactionPickerModel.Section]
@@ -25,7 +27,7 @@ final class ReactionPickerViewController: NSViewController {
   }
 
   private var isUpdatingContent = false
-  private let collectionView = NSCollectionView()
+  private let collectionView = ReactionCollectionView()
   private let scrollView = NSScrollView()
   private let searchField = NSSearchField()
   private let categoryControl = NSSegmentedControl()
@@ -77,6 +79,20 @@ final class ReactionPickerViewController: NSViewController {
     collectionView.dataSource = self
     collectionView.delegate = self
     collectionView.setAccessibilityLabel(String(localized: "Emoji"))
+    collectionView.setAccessibilityHelp(
+      String(localized: "Use arrow keys to browse emoji, Return to react, or type to search."))
+    collectionView.onMove = { [weak self] direction in self?.moveSelection(direction) }
+    collectionView.onActivate = { [weak self] in self?.activateSelection() }
+    collectionView.onClick = { [weak self] indexPath in self?.activateItem(at: indexPath) }
+    collectionView.onDismiss = { [weak self] in self?.onDismiss?() }
+    collectionView.onType = { [weak self] event in
+      guard let self else { return }
+      self.focusSearch()
+      self.searchField.currentEditor()?.keyDown(with: event)
+    }
+    searchField.nextKeyView = collectionView
+    collectionView.nextKeyView = categoryControl
+    categoryControl.nextKeyView = searchField
     collectionView.register(ReactionEmojiItem.self, forItemWithIdentifier: Self.itemIdentifier)
     collectionView.register(
       ReactionCategoryHeader.self,
@@ -190,7 +206,7 @@ final class ReactionPickerViewController: NSViewController {
     recentKeys = keys
     // A late refresh must not reorder results under the pointer. The next query
     // change uses the refreshed keys; clearing search rebuilds browsing sections.
-    if !isSearching {
+    if !isSearching, collectionView.selectionIndexPaths.isEmpty {
       showBrowsingContent(at: 0, anchor: anchor)
     }
   }
@@ -316,6 +332,53 @@ final class ReactionPickerViewController: NSViewController {
     updateActiveCategory()
   }
 
+  private func focusSearch() {
+    collectionView.selectionIndexPaths = []
+    view.window?.makeFirstResponder(searchField)
+    // Continue the existing query rather than replacing it on focus transfer.
+    if let editor = searchField.currentEditor() {
+      editor.selectedRange = NSRange(
+        location: (searchField.stringValue as NSString).length, length: 0)
+    }
+  }
+
+  private func moveSelection(_ direction: ReactionPickerGridNavigation.Direction) {
+    let counts = isSearching ? [searchResults?.count ?? 0] : sections.map { $0.items.count }
+    let current = collectionView.selectionIndexPaths.first
+    guard
+      let target = ReactionPickerGridNavigation.target(
+        from: current, direction: direction, sectionCounts: counts, columns: Self.columnCount)
+    else {
+      if direction == .up { focusSearch() }
+      return
+    }
+    hasInteracted = true
+    view.window?.makeFirstResponder(collectionView)
+    // Selecting by keyboard highlights an item; only Return (or a click) activates it.
+    collectionView.selectionIndexPaths = [target]
+
+    if let frame = layout.layoutAttributesForItem(at: target)?.frame {
+      collectionView.scrollToVisible(frame)
+    }
+  }
+
+  private func activateSelection() {
+    guard let indexPath = collectionView.selectionIndexPaths.first else { return }
+    activateItem(at: indexPath)
+  }
+
+  private func activateItem(at indexPath: IndexPath) {
+    guard !isUpdatingContent, recentReactions?.isActive != false,
+      indexPath.section < (isSearching ? 1 : sections.count),
+      items(in: indexPath.section).indices.contains(indexPath.item)
+    else { return }
+    onSelect?(items(in: indexPath.section)[indexPath.item].key)
+  }
+
+  override func cancelOperation(_ sender: Any?) {
+    onDismiss?()
+  }
+
   private func separator() -> NSBox {
     let separator = NSBox()
     separator.boxType = .separator
@@ -345,6 +408,9 @@ extension ReactionPickerViewController: NSCollectionViewDataSource, NSCollection
     let item = collectionView.makeItem(withIdentifier: Self.itemIdentifier, for: indexPath)
     if let item = item as? ReactionEmojiItem {
       item.configure(items(in: indexPath.section)[indexPath.item])
+      (item.view as? ReactionEmojiView)?.onPress = { [weak self] in
+        self?.activateItem(at: indexPath)
+      }
     }
     return item
   }
@@ -360,19 +426,114 @@ extension ReactionPickerViewController: NSCollectionViewDataSource, NSCollection
     return header
   }
 
-  func collectionView(
-    _ collectionView: NSCollectionView, didSelectItemsAt indexPaths: Set<IndexPath>
-  ) {
-    guard !isUpdatingContent, recentReactions?.isActive != false,
-      let indexPath = indexPaths.first
-    else { return }
-    onSelect?(items(in: indexPath.section)[indexPath.item].key)
-  }
 }
 
 extension ReactionPickerViewController: NSSearchFieldDelegate {
+  func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector)
+    -> Bool
+  {
+    switch commandSelector {
+    case #selector(NSResponder.moveDown(_:)):
+      moveSelection(.down)
+      return true
+    case #selector(NSResponder.cancelOperation(_:)):
+      onDismiss?()
+      return true
+    default:
+      return false
+    }
+  }
+
   func controlTextDidChange(_ notification: Notification) {
     updateSearch()
+  }
+}
+
+private final class ReactionCollectionView: NSCollectionView {
+  var onMove: ((ReactionPickerGridNavigation.Direction) -> Void)?
+  var onActivate: (() -> Void)?
+  var onClick: ((IndexPath) -> Void)?
+  var onDismiss: (() -> Void)?
+  var onType: ((NSEvent) -> Void)?
+
+  override func mouseDown(with event: NSEvent) {
+    let indexPath = indexPathForItem(at: convert(event.locationInWindow, from: nil))
+    super.mouseDown(with: event)
+    // A click also activates an item that was already highlighted by keyboard.
+    if let indexPath { onClick?(indexPath) }
+  }
+
+  override func keyDown(with event: NSEvent) {
+    if event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty,
+      [
+        kVK_LeftArrow, kVK_RightArrow, kVK_DownArrow, kVK_UpArrow,
+        kVK_Return, kVK_ANSI_KeypadEnter, kVK_Escape,
+      ].contains(Int(event.keyCode))
+    {
+      interpretKeyEvents([event])
+      return
+    }
+    // Leave shortcuts and Tab to AppKit. Forward text to the real field editor so
+    // keyboard layouts, dead keys, and input methods retain their native behavior.
+    if event.modifierFlags.intersection([.command, .control]).isEmpty,
+      let characters = event.characters, !characters.isEmpty,
+      characters.unicodeScalars.allSatisfy({ !CharacterSet.controlCharacters.contains($0) }),
+      !characters.unicodeScalars.contains(where: { (0xF700...0xF8FF).contains($0.value) })
+    {
+      onType?(event)
+      return
+    }
+    super.keyDown(with: event)
+  }
+
+  override func moveLeft(_ sender: Any?) { onMove?(.left) }
+  override func moveRight(_ sender: Any?) { onMove?(.right) }
+  override func moveUp(_ sender: Any?) { onMove?(.up) }
+  override func moveDown(_ sender: Any?) { onMove?(.down) }
+  override func insertNewline(_ sender: Any?) { onActivate?() }
+  override func cancelOperation(_ sender: Any?) { onDismiss?() }
+}
+
+/// Navigation keeps columns across section boundaries, including partial final rows.
+struct ReactionPickerGridNavigation {
+  enum Direction { case left, right, up, down }
+
+  static func target(
+    from current: IndexPath?, direction: Direction, sectionCounts: [Int], columns: Int
+  ) -> IndexPath? {
+    let nonempty = sectionCounts.indices.filter { sectionCounts[$0] > 0 }
+    guard columns > 0, let first = nonempty.first else { return nil }
+    guard let current, nonempty.contains(current.section),
+      (0..<sectionCounts[current.section]).contains(current.item)
+    else { return IndexPath(item: 0, section: first) }
+
+    let section = current.section
+    let item = current.item
+    let count = sectionCounts[section]
+    let previous = nonempty.last { $0 < section }
+    let next = nonempty.first { $0 > section }
+    switch direction {
+    case .left:
+      if item > 0 { return IndexPath(item: item - 1, section: section) }
+      if let previous { return IndexPath(item: sectionCounts[previous] - 1, section: previous) }
+    case .right:
+      if item + 1 < count { return IndexPath(item: item + 1, section: section) }
+      if let next { return IndexPath(item: 0, section: next) }
+    case .up:
+      if item >= columns { return IndexPath(item: item - columns, section: section) }
+      guard let previous else { return nil }
+      let last = sectionCounts[previous] - 1
+      return IndexPath(
+        item: min((last / columns) * columns + item % columns, last), section: previous)
+    case .down:
+      if (item / columns + 1) * columns < count {
+        return IndexPath(item: min(item + columns, count - 1), section: section)
+      }
+      if let next {
+        return IndexPath(item: min(item % columns, sectionCounts[next] - 1), section: next)
+      }
+    }
+    return current
   }
 }
 
@@ -397,6 +558,14 @@ private final class ReactionEmojiItem: NSCollectionViewItem {
 }
 
 private final class ReactionEmojiView: NSView {
+  var onPress: (() -> Void)?
+
+  override func accessibilityPerformPress() -> Bool {
+    guard let onPress else { return false }
+    onPress()
+    return true
+  }
+
   private let label = NSTextField(labelWithString: "")
   private var isHovered = false
   var isSelected = false {
@@ -406,6 +575,9 @@ private final class ReactionEmojiView: NSView {
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
     wantsLayer = true
+    setAccessibilityElement(true)
+    setAccessibilityRole(.button)
+    label.setAccessibilityElement(false)
     layer?.cornerRadius = 6
     label.font = .systemFont(ofSize: 27)
     label.alignment = .center
@@ -431,6 +603,7 @@ private final class ReactionEmojiView: NSView {
   func resetHighlight() {
     isHovered = false
     isSelected = false
+    onPress = nil
   }
 
   override func mouseEntered(with event: NSEvent) {
@@ -449,6 +622,9 @@ private final class ReactionEmojiView: NSView {
   }
 
   private func updateAppearance() {
+    setAccessibilitySelected(isSelected)
+    layer?.borderWidth = isSelected ? 2 : 0
+    layer?.borderColor = NSColor.keyboardFocusIndicatorColor.cgColor
     layer?.backgroundColor =
       isSelected
       ? NSColor.selectedContentBackgroundColor.cgColor
@@ -479,6 +655,7 @@ private final class ReactionCategoryHeader: NSView, NSCollectionViewElement {
 
   func configure(title: String) {
     label.stringValue = title
+    label.setAccessibilityRoleDescription(String(localized: "Emoji category heading"))
   }
 
   @available(*, unavailable)

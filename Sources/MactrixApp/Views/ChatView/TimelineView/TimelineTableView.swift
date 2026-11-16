@@ -641,8 +641,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         {
           [weak self] key in
           // Capture this opening's event, independently of subsequent hover changes.
-          guard let self, self.canPerformMessageAction(.reaction(key), for: event) else { return }
-          self.toggleReaction(key, for: event)
+          self?.toggleReaction(key, for: event)
         }
       } catch {
         Logger.timelineTableView.error("Failed to load reaction picker: \(error)")

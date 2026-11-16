@@ -179,6 +179,10 @@ final class MessageHoverOverlayView: NSView {
     popover.contentViewController = picker
     popover.contentSize = ReactionPickerViewController.contentSize
     popover.delegate = self
+    picker.onDismiss = { [weak self, weak popover] in
+      guard let self, let popover, self.reactionPickerPopover === popover else { return }
+      self.closeReactionPicker()
+    }
     picker.onSelect = { [weak self, weak popover] key in
       guard let self, let popover, self.reactionPickerPopover === popover else { return }
       self.closeReactionPicker()
