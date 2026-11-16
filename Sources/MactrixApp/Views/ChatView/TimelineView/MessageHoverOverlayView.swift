@@ -1,5 +1,4 @@
 import AppKit
-import MatrixIntegration
 
 /// The action bar shown above the hovered message row.
 final class MessageHoverOverlayView: NSView {
@@ -18,10 +17,16 @@ final class MessageHoverOverlayView: NSView {
   var onAction: ((Action) -> Void)?
   var onMouseExited: ((NSEvent) -> Void)?
   var onInteractionClosed: (() -> Void)?
-  var isPresentingInteraction: Bool { isPresentingMenu || reactionPickerPopover != nil }
+  var isPresentingInteraction: Bool { isPresentingMenu }
+
+  /// Presentation stays with the timeline controller; only the button geometry is exposed.
+  var reactionPickerAnchorView: NSView? {
+    guard !isHidden, reactionPickerButton.window != nil else { return nil }
+    layoutSubtreeIfNeeded()
+    return reactionPickerButton
+  }
 
   private var isPresentingMenu = false
-  private var reactionPickerPopover: NSPopover?
 
   private let reactionPickerButton = HoverActionButton(symbol: "face.smiling", label: "React")
   private let stack = NSStackView()
@@ -163,45 +168,6 @@ final class MessageHoverOverlayView: NSView {
     setFrameSize(fittingSize)
   }
 
-  func showReactionPicker(
-    recentReactions: RecentReactionsStore?, onSelect: @escaping (String) -> Void
-  ) throws {
-    if reactionPickerPopover != nil {
-      closeReactionPicker()
-      return
-    }
-    guard !isHidden, reactionPickerButton.window != nil, !isPresentingMenu else { return }
-
-    let picker = ReactionPickerViewController(
-      model: try ReactionPickerModel.loadBundled(), recentReactions: recentReactions)
-    let popover = NSPopover()
-    popover.behavior = .transient
-    popover.contentViewController = picker
-    popover.contentSize = ReactionPickerViewController.contentSize
-    popover.delegate = self
-    picker.onDismiss = { [weak self, weak popover] in
-      guard let self, let popover, self.reactionPickerPopover === popover else { return }
-      self.closeReactionPicker()
-    }
-    picker.onSelect = { [weak self, weak popover] key in
-      guard let self, let popover, self.reactionPickerPopover === popover else { return }
-      self.closeReactionPicker()
-      onSelect(key)
-    }
-    reactionPickerPopover = popover
-    popover.show(
-      relativeTo: reactionPickerButton.bounds, of: reactionPickerButton, preferredEdge: .maxY)
-  }
-
-  func closeReactionPicker() {
-    guard let popover = reactionPickerPopover else { return }
-    reactionPickerPopover = nil
-    (popover.contentViewController as? ReactionPickerViewController)?.stopLoadingRecents()
-    popover.delegate = nil
-    popover.close()
-    onInteractionClosed?()
-  }
-
   private func showMoreActions() {
     guard let menu = moreButton.menu else { return }
     isPresentingMenu = true
@@ -248,17 +214,6 @@ final class MessageHoverOverlayView: NSView {
   @available(*, unavailable)
   required init?(coder: NSCoder) {
     fatalError("init(coder:) has not been implemented")
-  }
-}
-
-extension MessageHoverOverlayView: NSPopoverDelegate {
-  func popoverDidClose(_ notification: Notification) {
-    guard let popover = notification.object as? NSPopover,
-      reactionPickerPopover === popover
-    else { return }
-    reactionPickerPopover = nil
-    (popover.contentViewController as? ReactionPickerViewController)?.stopLoadingRecents()
-    onInteractionClosed?()
   }
 }
 

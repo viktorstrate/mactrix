@@ -623,11 +623,9 @@ private final class ReactionEmojiView: NSView {
 
   private func updateAppearance() {
     setAccessibilitySelected(isSelected)
-    layer?.borderWidth = isSelected ? 2 : 0
-    layer?.borderColor = NSColor.keyboardFocusIndicatorColor.cgColor
     layer?.backgroundColor =
       isSelected
-      ? NSColor.selectedContentBackgroundColor.cgColor
+      ? NSColor.controlAccentColor.cgColor
       : isHovered ? NSColor.quaternaryLabelColor.cgColor : nil
   }
 

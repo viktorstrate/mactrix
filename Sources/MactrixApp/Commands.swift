@@ -76,10 +76,12 @@ public struct AppCommands: Commands {
       let selection = windowState?.conversationSelection
       let filenames = selection?.downloadFilenames ?? []
 
+      messageActionButton("Add Reaction", action: .reactionPicker)
+        .keyboardShortcut("r", modifiers: [.command, .shift])
       messageActionButton("Reply", action: .reply)
         .keyboardShortcut("r", modifiers: [.command])
       messageActionButton("Reply in Thread", action: .replyInThread)
-        .keyboardShortcut("r", modifiers: [.command, .shift])
+        .keyboardShortcut("r", modifiers: [.command, .control])
       messageActionButton("Edit Message", action: .edit)
         .keyboardShortcut("e", modifiers: [.command, .shift])
       messageActionButton("Pin Message", action: .pin)

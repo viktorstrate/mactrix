@@ -106,6 +106,18 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private weak var hoveredMessageView: MessageRowView?
   private var hoveredMessageId: String?
   private var hoveredRowIndex: Int?
+  private var reactionPickerPopover: NSPopover?
+  private var reactionPickerMessageID: String?
+  enum ReactionPickerPresentationSource {
+    case hoverButton
+    case selectedMessage
+  }
+
+  private var reactionPickerSource: ReactionPickerPresentationSource?
+  private var isHoverReactionPickerOpen: Bool {
+    reactionPickerPopover != nil && reactionPickerSource == .hoverButton
+  }
+  private var updatingReactionPickerAnchor = false
   private var messageEdit: MessageEditState?
   private var updatingTimelineItems = false
   private var appliedFontSize = TimelineTypography.fontSize
@@ -142,7 +154,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   func tearDown() {
-    hoverOverlay.closeReactionPicker()
+    closeReactionPicker()
     clearConversationSelection()
     NotificationCenter.default.removeObserver(self)
 
@@ -184,7 +196,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   override func viewWillDisappear() {
-    hoverOverlay.closeReactionPicker()
+    closeReactionPicker()
     clearConversationSelection()
     super.viewWillDisappear()
   }
@@ -214,6 +226,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     tableView.usesAutomaticRowHeights = false
     tableView.onLayout = { [weak self] in
       self?.positionHoverOverlay()
+      self?.updateReactionPickerAnchor()
     }
     tableView.onArrowKey = { [weak self] direction in
       self?.moveSelection(direction)
@@ -388,7 +401,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     updatingTimelineItems = true
     defer { updatingTimelineItems = wasUpdating }
 
-    hoverOverlay.closeReactionPicker()
+    closeReactionPicker()
     hideHoverOverlay()
     measurementMessageViews.removeAll()
     NSAnimationContext.runAnimationGroup { context in
@@ -466,6 +479,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private func updateHoverOverlay(for rowView: MessageRowView, hovering: Bool, event: NSEvent)
     -> Bool
   {
+    guard reactionPickerPopover == nil else {
+      return isHoverReactionPickerOpen && hoveredMessageView === rowView
+    }
     guard !hoverOverlay.isPresentingInteraction else {
       return hoveredMessageView === rowView
     }
@@ -517,7 +533,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       timelineItems[row].id == hoveredMessageId,
       let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false) as? MessageRowView
     else {
-      hoverOverlay.closeReactionPicker()
+      if isHoverReactionPickerOpen { closeReactionPicker() }
       hideHoverOverlay()
       return
     }
@@ -538,7 +554,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func hoverOverlayDidExit(with event: NSEvent) {
-    guard !hoverOverlay.isPresentingInteraction else { return }
+    guard !hoverOverlay.isPresentingInteraction, !isHoverReactionPickerOpen else { return }
     let tablePoint = tableView.convert(event.locationInWindow, from: nil)
     let row = tableView.row(at: tablePoint)
     if row >= 0,
@@ -555,7 +571,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func hideHoverOverlay() {
-    guard !hoverOverlay.isPresentingInteraction else { return }
+    guard !hoverOverlay.isPresentingInteraction, !isHoverReactionPickerOpen else { return }
     hoveredMessageView?.setHoverHighlight(false)
     hoveredMessageView = nil
     hoveredMessageId = nil
@@ -600,7 +616,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       case .message(_, let event, _) = timelineItems[row]
     else { return }
 
-    performMessageAction(action, for: event)
+    performMessageAction(action, for: event, reactionPickerSource: .hoverButton)
   }
 
   func canPerformMessageAction(
@@ -629,7 +645,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   func performMessageAction(
-    _ action: MessageHoverOverlayView.Action, for event: MatrixRustSDK.EventTimelineItem
+    _ action: MessageHoverOverlayView.Action, for event: MatrixRustSDK.EventTimelineItem,
+    reactionPickerSource: ReactionPickerPresentationSource = .selectedMessage
   ) {
     guard canPerformMessageAction(action, for: event) else { return }
     switch action {
@@ -637,12 +654,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       toggleReaction(key, for: event)
     case .reactionPicker:
       do {
-        try hoverOverlay.showReactionPicker(recentReactions: appState.matrixClient?.recentReactions)
-        {
-          [weak self] key in
-          // Capture this opening's event, independently of subsequent hover changes.
-          self?.toggleReaction(key, for: event)
-        }
+        try showReactionPicker(for: event, source: reactionPickerSource)
       } catch {
         Logger.timelineTableView.error("Failed to load reaction picker: \(error)")
       }
@@ -784,7 +796,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   @objc func viewDidScroll(_ notification: Notification) {
     guard positionedInitially, !updatingTimelineItems else { return }
-    hoverOverlay.closeReactionPicker()
+    closeReactionPicker()
     let distanceFromTop = tableView.visibleRect.minY - tableView.bounds.minY
     let threshold: CGFloat = 200.0  // Pixels from the top to trigger load
 
@@ -952,7 +964,11 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     // Layout and scroll restoration may send bounds notifications. Do not fetch
     // more history based on an intermediate viewport position.
     updatingTimelineItems = true
-    defer { updatingTimelineItems = false }
+    defer {
+      updatingTimelineItems = false
+      positionHoverOverlay()
+      updateReactionPickerAnchor()
+    }
     NSAnimationContext.runAnimationGroup { context in
       context.duration = 0
       context.allowsImplicitAnimation = false
@@ -983,7 +999,6 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
       scrollView.reflectScrolledClipView(clipView)
     }
-    positionHoverOverlay()
   }
 
   private func applyProjectedRows(oldIDs: [String], changedIDs: Set<String>) {
@@ -1021,7 +1036,6 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     if let hoveredMessageId {
       hoveredRowIndex = newIDs.firstIndex(of: hoveredMessageId)
       if hoveredRowIndex == nil {
-        hoverOverlay.closeReactionPicker()
         hideHoverOverlay()
       } else {
         positionHoverOverlay()
@@ -1041,6 +1055,138 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     let view = kind.makeRowView()
     measurementMessageViews[kind] = view
     return view
+  }
+}
+
+extension TimelineViewController: NSPopoverDelegate {
+  private func showReactionPicker(
+    for event: MatrixRustSDK.EventTimelineItem, source: ReactionPickerPresentationSource
+  ) throws {
+    guard view.window != nil, !hoverOverlay.isPresentingInteraction,
+      let row = rowForEventId(id: event.eventOrTransactionId)
+    else { return }
+    let messageID = timelineItems[row].id
+    if reactionPickerMessageID == messageID {
+      closeReactionPicker(restoreFocus: true)
+      return
+    }
+    closeReactionPicker()
+    let usesHoverAnchor =
+      source == .hoverButton && hoveredMessageId == messageID
+      && hoverOverlay.reactionPickerAnchorView != nil
+    if !usesHoverAnchor {
+      hideHoverOverlay()
+      // Reveal the row first so AppKit creates its real, laid-out content view.
+      tableView.scrollRowToVisible(row)
+    }
+    scrollView.layoutSubtreeIfNeeded()
+    guard
+      let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: true)
+        as? MessageRowView
+    else { return }
+    if !usesHoverAnchor {
+      let anchor = tableView.convert(rowView.reactionPickerAnchorRect, from: rowView)
+      // A tall message may not fit in the viewport; reveal the anchor itself.
+      tableView.scrollToVisible(anchor.insetBy(dx: -8, dy: -8))
+      scrollView.layoutSubtreeIfNeeded()
+    }
+    let anchor = reactionPickerAnchor(for: rowView, messageID: messageID, source: source)
+
+    let picker = ReactionPickerViewController(
+      model: try ReactionPickerModel.loadBundled(),
+      recentReactions: appState.matrixClient?.recentReactions)
+    let popover = NSPopover()
+    popover.behavior = .transient
+    popover.contentViewController = picker
+    popover.contentSize = ReactionPickerViewController.contentSize
+    popover.delegate = self
+    picker.onDismiss = { [weak self, weak popover] in
+      guard let self, let popover, self.reactionPickerPopover === popover else { return }
+      self.closeReactionPicker(restoreFocus: true)
+    }
+    picker.onSelect = { [weak self, weak popover] key in
+      guard let self, let popover, self.reactionPickerPopover === popover else { return }
+      let currentEvent = self.reactionPickerEvent()
+      self.closeReactionPicker(restoreFocus: true)
+      if let currentEvent, self.canPerformMessageAction(.reaction(key), for: currentEvent) {
+        self.toggleReaction(key, for: currentEvent)
+      }
+    }
+    reactionPickerMessageID = messageID
+    reactionPickerSource = source
+    reactionPickerPopover = popover
+    popover.show(relativeTo: anchor.rect, of: tableView, preferredEdge: anchor.edge)
+  }
+
+  private func reactionPickerAnchor(
+    for rowView: MessageRowView, messageID: String?, source: ReactionPickerPresentationSource
+  ) -> (rect: NSRect, edge: NSRectEdge) {
+    if source == .hoverButton, hoveredMessageId == messageID,
+      let button = hoverOverlay.reactionPickerAnchorView
+    {
+      return (tableView.convert(button.bounds, from: button), .maxY)
+    }
+    return (tableView.convert(rowView.reactionPickerAnchorRect, from: rowView), .maxX)
+  }
+
+  private func reactionPickerEvent() -> MatrixRustSDK.EventTimelineItem? {
+    guard let messageID = reactionPickerMessageID,
+      let item = timelineItems.first(where: { $0.id == messageID }),
+      case .message(_, let event, _) = item
+    else { return nil }
+    return event
+  }
+
+  private func updateReactionPickerAnchor() {
+    guard !updatingTimelineItems, !updatingReactionPickerAnchor,
+      let popover = reactionPickerPopover
+    else { return }
+    updatingReactionPickerAnchor = true
+    defer { updatingReactionPickerAnchor = false }
+    guard let event = reactionPickerEvent(), canPerformMessageAction(.reactionPicker, for: event),
+      let row = rowForEventId(id: event.eventOrTransactionId),
+      let rowView = tableView.view(atColumn: 0, row: row, makeIfNecessary: false)
+        as? MessageRowView
+    else {
+      closeReactionPicker()
+      return
+    }
+    let anchor = reactionPickerAnchor(
+      for: rowView, messageID: reactionPickerMessageID,
+      source: reactionPickerSource ?? .selectedMessage)
+    let visibleRect = tableView.convert(scrollView.contentView.bounds, from: scrollView.contentView)
+    guard visibleRect.intersects(anchor.rect) else {
+      closeReactionPicker()
+      return
+    }
+    popover.positioningRect = anchor.rect
+  }
+
+  private func closeReactionPicker(restoreFocus: Bool = false) {
+    guard let popover = reactionPickerPopover else { return }
+    let shouldRestoreFocus =
+      restoreFocus && reactionPickerSource == .selectedMessage
+      && reactionPickerMessageID == windowState.conversationSelection?.messageID
+      && windowState.conversationSelection?.owner === self
+    let wasHoverPresentation = isHoverReactionPickerOpen
+    reactionPickerPopover = nil
+    reactionPickerMessageID = nil
+    reactionPickerSource = nil
+    (popover.contentViewController as? ReactionPickerViewController)?.stopLoadingRecents()
+    popover.delegate = nil
+    popover.close()
+    if wasHoverPresentation { hideHoverOverlay() }
+    if shouldRestoreFocus, let window = view.window, window.isKeyWindow {
+      window.makeFirstResponder(tableView)
+    }
+  }
+
+  func popoverDidClose(_ notification: Notification) {
+    guard let popover = notification.object as? NSPopover, reactionPickerPopover === popover else {
+      return
+    }
+    // Transient dismissal (outside clicks/window changes) must not reclaim focus.
+    closeReactionPicker()
   }
 }
 

@@ -17,6 +17,13 @@ final class MessageReactionsView: NSView {
     true
   }
 
+  /// The last active button in this view's coordinates, excluding retained spare buttons.
+  var lastReactionButtonRect: NSRect? {
+    layoutSubtreeIfNeeded()
+    guard !reactions.isEmpty else { return nil }
+    return buttons[reactions.count - 1].frame
+  }
+
   override init(frame frameRect: NSRect) {
     super.init(frame: frameRect)
   }

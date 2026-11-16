@@ -134,6 +134,20 @@ final class MessageRowView: NSView {
     ])
   }
 
+  /// A picker anchor in row coordinates, beside the last reaction or at the content's bottom-left.
+  var reactionPickerAnchorRect: NSRect {
+    superview?.layoutSubtreeIfNeeded()
+    layoutSubtreeIfNeeded()
+    if let reactionsView, !reactionsView.isHidden,
+      let buttonRect = reactionsView.lastReactionButtonRect
+    {
+      let rect = convert(buttonRect, from: reactionsView)
+      return NSRect(x: rect.maxX, y: rect.minY, width: 1, height: rect.height)
+    }
+    let rect = convert(contentView.bounds, from: contentView)
+    return NSRect(x: rect.minX, y: rect.minY, width: 1, height: 1)
+  }
+
   func configureEditing(_ state: MessageEditState?) {
     contentView.configureEditing(state)
   }
