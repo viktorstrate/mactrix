@@ -9,9 +9,9 @@ struct RecoveryKeyVerificationSheet: View {
   @State private var verificationTask: Task<Void, Never>?
   @FocusState private var keyFieldFocused: Bool
   @State private var recoveryKey = ""
-  @State private var state: State = .idle
+  @State private var state: RecoveryState = .idle
 
-  enum State {
+  enum RecoveryState {
     case idle
     case verifying
     case recovered
