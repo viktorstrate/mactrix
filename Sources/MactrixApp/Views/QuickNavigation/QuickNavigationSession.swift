@@ -6,6 +6,14 @@ struct QuickNavigationCandidate: Equatable, Identifiable, Sendable {
   let id: String
   let displayName: String?
   let canonicalAlias: String?
+  let avatarUrl: String?
+
+  init(id: String, displayName: String?, canonicalAlias: String?, avatarUrl: String? = nil) {
+    self.id = id
+    self.displayName = displayName
+    self.canonicalAlias = canonicalAlias
+    self.avatarUrl = avatarUrl
+  }
 }
 
 /// Query, ranking, and keyboard selection without any window or view dependencies.
