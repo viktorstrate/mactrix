@@ -14,6 +14,7 @@ public struct AppCommands: Commands {
 
     about
     newTab
+    quickNavigation
     fontSizeCommands
     conversationCommands
   }
@@ -58,6 +59,16 @@ public struct AppCommands: Commands {
       if let windowState {
         Self.createRoomButton(windowState: windowState)
       }
+    }
+  }
+
+  var quickNavigation: some Commands {
+    CommandGroup(after: .newItem) {
+      Button("Quick Navigation") {
+        windowState?.quickNavigation.present()
+      }
+      .keyboardShortcut("k", modifiers: [.command])
+      .disabled(windowState?.quickNavigation.isSignedIn != true)
     }
   }
 

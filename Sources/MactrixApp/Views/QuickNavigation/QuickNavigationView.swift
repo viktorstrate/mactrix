@@ -15,6 +15,7 @@ final class QuickNavigationView: NSVisualEffectView {
   let emptyLabel = NSTextField(labelWithString: "No matching rooms")
   var onSubmit: ((QuickNavigationCandidate) -> Void)?
   var onDismiss: (() -> Void)?
+  var onSearchFocusLost: (() -> Void)?
   var onPreferredSizeChange: (() -> Void)?
   weak var imageLoader: ImageLoader? {
     didSet { tableView.reloadData() }
@@ -193,6 +194,10 @@ final class QuickNavigationView: NSVisualEffectView {
 }
 
 extension QuickNavigationView: NSTextFieldDelegate {
+  func controlTextDidEndEditing(_ notification: Notification) {
+    onSearchFocusLost?()
+  }
+
   func controlTextDidChange(_ notification: Notification) {
     guard (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true else { return }
     session.updateQuery(searchField.stringValue)

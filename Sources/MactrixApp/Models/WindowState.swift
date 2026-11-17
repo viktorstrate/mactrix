@@ -46,6 +46,8 @@ public final class WindowState {
     }
   }
 
+  @ObservationIgnored let quickNavigation = QuickNavigationCoordinator()
+
   var conversationSelection: ConversationMessageSelection?
 
   public var selectedRoomId: String?

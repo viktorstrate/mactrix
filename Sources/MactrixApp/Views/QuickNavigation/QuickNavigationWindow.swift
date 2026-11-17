@@ -1,12 +1,13 @@
 import AppKit
 import MactrixUI
 
-/// Standalone presentation. The owner handles attachment, navigation, and dismissal.
+/// Child panel presentation. The owner handles attachment, navigation, and dismissal.
 @MainActor
-final class QuickNavigationWindow: NSWindow {
+final class QuickNavigationWindow: NSPanel {
   let navigationView: QuickNavigationView
   var onSubmit: ((QuickNavigationCandidate) -> Void)?
   var onDismiss: (() -> Void)?
+  var onSearchFocusLost: (() -> Void)?
   var onPreferredSizeChange: (() -> Void)?
 
   init(session: QuickNavigationSession = QuickNavigationSession()) {
@@ -22,11 +23,16 @@ final class QuickNavigationWindow: NSWindow {
     collectionBehavior = [.transient, .fullScreenAuxiliary, .ignoresCycle]
     isMovable = false
     hidesOnDeactivate = true
-    contentView = navigationView
+    let container = NSView(frame: NSRect(origin: .zero, size: navigationView.preferredSize))
+    navigationView.frame = container.bounds
+    navigationView.autoresizingMask = [.width, .height]
+    container.addSubview(navigationView)
+    contentView = container
     initialFirstResponder = navigationView.searchField
 
     navigationView.onSubmit = { [weak self] candidate in self?.onSubmit?(candidate) }
     navigationView.onDismiss = { [weak self] in self?.onDismiss?() }
+    navigationView.onSearchFocusLost = { [weak self] in self?.onSearchFocusLost?() }
     navigationView.onPreferredSizeChange = { [weak self] in
       guard let self else { return }
       if let onPreferredSizeChange {
@@ -45,8 +51,23 @@ final class QuickNavigationWindow: NSWindow {
   override var canBecomeKey: Bool { true }
   override var canBecomeMain: Bool { false }
 
+  override func performKeyEquivalent(with event: NSEvent) -> Bool {
+    if event.type == .keyDown,
+      event.modifierFlags.intersection([.command, .shift, .control, .option]) == .command,
+      event.charactersIgnoringModifiers?.lowercased() == "k"
+    {
+      onDismiss?()
+      return true
+    }
+    return super.performKeyEquivalent(with: event)
+  }
+
   override func makeKeyAndOrderFront(_ sender: Any?) {
     super.makeKeyAndOrderFront(sender)
-    makeFirstResponder(navigationView.searchField)
+    if navigationView.searchField.currentEditor() !== firstResponder
+      || navigationView.searchField.currentEditor() == nil
+    {
+      makeFirstResponder(navigationView.searchField)
+    }
   }
 }

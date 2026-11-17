@@ -84,6 +84,10 @@ public struct MainView: View {
           .environment(windowState)
       }
     )
+    .background(
+      QuickNavigationWindowAttachment(
+        coordinator: windowState.quickNavigation, isSignedIn: appState.matrixClient != nil)
+    )
     .task { await attemptLoadUserSession() }
     .sheet(isPresented: $showWelcomeSheet, onDismiss: onLoginModalDismiss) {
       WelcomeSheetView()
