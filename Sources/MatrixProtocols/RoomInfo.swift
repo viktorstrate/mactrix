@@ -17,6 +17,10 @@ public protocol RoomInfo {
   var avatarUrl: String? { get }
   var isDirect: Bool { get }
   /**
+   * The user ID of the other participant if this is a direct chat with a single other user.
+   */
+  var directUserId: String? { get }
+  /**
    * Whether the room is public or not, based on the join rules.
    *
    * Can be `None` if the join rules state event is not available for this
@@ -113,6 +117,8 @@ public struct MockRoomInfo: RoomInfo {
   public var avatarUrl: String? { nil }
 
   public var isDirect: Bool { false }
+
+  public var directUserId: String? { nil }
 
   public var isPublic: Bool? { true }
 

@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MatrixRustSDK
 
 /// A reusable, clickable summary of the message being replied to.
@@ -121,12 +122,11 @@ final class MessageReplyPreviewView: NSButton {
     case .unavailable, .pending:
       return ("Loading reply…", "", true)
     case .ready(let content, let sender, let senderProfile, _, _):
-      let displayName: String
-      if case .ready(let name, _, _, _, _) = senderProfile, let name {
-        displayName = name
-      } else {
-        displayName = sender
+      var matrixName: String?
+      if case .ready(let name, _, _, _, _) = senderProfile {
+        matrixName = name
       }
+      let displayName = ContactDirectory.shared.resolvedName(userID: sender, matrixName: matrixName)
       return (displayName, content.userInterfaceText, false)
     case .error(let message):
       return ("Reply unavailable", message, false)

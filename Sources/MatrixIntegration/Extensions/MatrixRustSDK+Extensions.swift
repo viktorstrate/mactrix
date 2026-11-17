@@ -58,7 +58,12 @@ extension MatrixRustSDK.Room: @retroactive Identifiable {
   }
 }
 
-extension MatrixRustSDK.RoomInfo: MatrixProtocols.RoomInfo {}
+extension MatrixRustSDK.RoomInfo: MatrixProtocols.RoomInfo {
+  public var directUserId: String? {
+    guard isDirect, heroes.count == 1 else { return nil }
+    return heroes.first?.userId
+  }
+}
 
 /* extension MatrixRustSDK.TimelineItem: @retroactive Hashable, @retroactive Identifiable {
      public var id: String {

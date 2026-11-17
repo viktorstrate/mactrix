@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MatrixIntegration
 import MatrixProtocols
 import MatrixRustSDK
@@ -376,6 +377,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     timeline.diffDelegate = self
     applyProjectedRows(oldIDs: [], changedIDs: [])
     listenForTypingUsers()
+    listenForContactChanges()
     listenForReplyDetails()
     listenForRecentReactions()
     if let recentReactions = appState.matrixClient?.recentReactions {
@@ -747,7 +749,25 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private var typingNames: [String] {
     let members = timeline.room.members
     return timeline.room.typingUserIds.map { userId in
-      members.first(where: { $0.userId == userId })?.displayName ?? userId
+      ContactDirectory.shared.resolvedName(
+        userID: userId, matrixName: members.first(where: { $0.userId == userId })?.displayName)
+    }
+  }
+
+  /// Redraws visible rows when linked contacts or contact settings change.
+  private func listenForContactChanges() {
+    withObservationTracking {
+      _ = ContactDirectory.shared.revision
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        self.listenForContactChanges()
+        let visibleRows = self.tableView.rows(in: self.tableView.visibleRect)
+        guard visibleRows.length > 0 else { return }
+        self.tableView.reloadData(
+          forRowIndexes: IndexSet(integersIn: visibleRows.location..<NSMaxRange(visibleRows)),
+          columnIndexes: IndexSet(integer: 0))
+      }
     }
   }
 

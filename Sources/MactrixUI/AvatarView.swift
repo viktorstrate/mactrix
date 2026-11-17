@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 
 func userAvatarColorName(userID: String) -> String {
   String(
@@ -32,6 +33,7 @@ public final class AvatarView: NSView {
   private let imageView = AspectFillImageView()
   private var loadTask: Task<Void, Never>?
   private var avatarUrl: String?
+  private var contactImage: NSImage?
   private weak var imageLoader: ImageLoader?
   private var userID: String?
   private var kind: AvatarKind = .user
@@ -101,24 +103,35 @@ public final class AvatarView: NSView {
     userID: String, displayName: String?, avatarUrl: String?, kind: AvatarKind,
     imageLoader: ImageLoader?
   ) {
-    let sourceChanged = self.avatarUrl != avatarUrl || self.imageLoader !== imageLoader
+    let contacts = ContactDirectory.shared
+    let contactImage = kind == .user ? contacts.contactImage(for: userID) : nil
+    let sourceChanged =
+      self.avatarUrl != avatarUrl || self.imageLoader !== imageLoader
+      || self.contactImage !== contactImage
     if sourceChanged {
       cancelLoad()
       imageView.image = nil
     }
     self.avatarUrl = avatarUrl
+    self.contactImage = contactImage
     self.imageLoader = imageLoader
     self.kind = kind
     self.userID = userID
     initialLabel.stringValue =
       if kind == .user {
-        userAvatarInitial(userID: userID, displayName: displayName) ?? ""
+        userAvatarInitial(
+          userID: userID, displayName: contacts.contactName(for: userID) ?? displayName) ?? ""
       } else {
         ""
       }
     updateColors()
     configureCornerRadius()
     needsLayout = true
+
+    if let contactImage {
+      imageView.image = contactImage
+      return
+    }
 
     // Keep an existing image or request across updates that only change presentation.
     guard imageView.image == nil, loadTask == nil,
