@@ -11,6 +11,7 @@ let package = Package(
     .library(name: "MactrixApp", targets: ["MactrixApp"])
   ],
   dependencies: [
+    .package(path: "Packages/EmojiCatalog"),
     .package(url: "https://github.com/ZhgChgLi/ZMarkupParser.git", from: "1.12.0"),
     .package(
       url: "https://github.com/matrix-org/matrix-rust-components-swift", from: "26.11.11"
@@ -43,6 +44,7 @@ let package = Package(
         "MactrixUI",
         "MessageFormatting",
         .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift"),
+        .product(name: "EmojiCatalog", package: "EmojiCatalog"),
       ]
     ),
     .target(

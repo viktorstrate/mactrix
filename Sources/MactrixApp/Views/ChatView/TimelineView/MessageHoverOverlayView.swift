@@ -16,13 +16,27 @@ final class MessageHoverOverlayView: NSView {
 
   var onAction: ((Action) -> Void)?
   var onMouseExited: ((NSEvent) -> Void)?
-  var onMenuClosed: (() -> Void)?
-  private(set) var isPresentingMenu = false
+  var onInteractionClosed: (() -> Void)?
+  var isPresentingInteraction: Bool { isPresentingMenu }
 
+  /// Presentation stays with the timeline controller; only the button geometry is exposed.
+  var reactionPickerAnchorView: NSView? {
+    guard !isHidden, reactionPickerButton.window != nil else { return nil }
+    layoutSubtreeIfNeeded()
+    return reactionPickerButton
+  }
+
+  private var isPresentingMenu = false
+
+  private let reactionPickerButton = HoverActionButton(symbol: "face.smiling", label: "React")
   private let stack = NSStackView()
+  private let quickReactionButtons = (0..<5).map { _ in HoverActionButton(emoji: "", label: "") }
+  private let reactionDivider = NSView()
   private let moreButton = HoverActionButton(symbol: "ellipsis", label: "More actions")
   private let downloadMenuItem = NSMenuItem(
     title: "Download to File", action: #selector(downloadToFile(_:)), keyEquivalent: "")
+  private let pinMenuItem = NSMenuItem(
+    title: "Pin Message", action: #selector(pinMessage), keyEquivalent: "")
   private let deleteMenuItem = NSMenuItem(
     title: "Delete message", action: #selector(deleteMessage), keyEquivalent: "")
   private let editButton = HoverActionButton(symbol: "pencil", label: "Edit message")
@@ -58,13 +72,13 @@ final class MessageHoverOverlayView: NSView {
       stack.bottomAnchor.constraint(equalTo: bottomAnchor),
     ])
 
-    for emoji in ["👍", "🎉", "❤️"] {
-      let button = HoverActionButton(emoji: emoji, label: "React with \(emoji)")
-      button.onClick = { [weak self] in self?.onAction?(.reaction(emoji)) }
+    for button in quickReactionButtons {
+      button.isHidden = true
       stack.addArrangedSubview(button)
     }
 
-    let dividerContainer = NSView()
+    let dividerContainer = reactionDivider
+    dividerContainer.isHidden = true
     dividerContainer.translatesAutoresizingMaskIntoConstraints = false
     dividerContainer.widthAnchor.constraint(equalToConstant: 6).isActive = true
     dividerContainer.heightAnchor.constraint(equalToConstant: 28).isActive = true
@@ -79,9 +93,8 @@ final class MessageHoverOverlayView: NSView {
     ])
     stack.addArrangedSubview(dividerContainer)
 
-    let reactionPicker = HoverActionButton(symbol: "face.smiling", label: "React")
-    reactionPicker.onClick = { [weak self] in self?.onAction?(.reactionPicker) }
-    stack.addArrangedSubview(reactionPicker)
+    reactionPickerButton.onClick = { [weak self] in self?.onAction?(.reactionPicker) }
+    stack.addArrangedSubview(reactionPickerButton)
 
     replyButton.onClick = { [weak self] in self?.onAction?(.reply) }
     threadButton.onClick = { [weak self] in self?.onAction?(.replyInThread) }
@@ -90,15 +103,15 @@ final class MessageHoverOverlayView: NSView {
     editButton.onClick = { [weak self] in self?.onAction?(.edit) }
     stack.addArrangedSubview(editButton)
 
-    let pinButton = HoverActionButton(symbol: "pin", label: "Pin")
-    pinButton.onClick = { [weak self] in self?.onAction?(.pin) }
-    stack.addArrangedSubview(pinButton)
-
     let menu = NSMenu()
     menu.autoenablesItems = false
 
     let sourceMenuItem = NSMenuItem(
       title: "Show Source", action: #selector(showSource), keyEquivalent: "")
+
+    pinMenuItem.target = self
+
+    menu.addItem(pinMenuItem)
 
     downloadMenuItem.target = self
     downloadMenuItem.image = NSImage(
@@ -135,8 +148,13 @@ final class MessageHoverOverlayView: NSView {
 
   func configure(
     canReply: Bool, canEdit: Bool = false, canDelete: Bool = false,
+    canReact: Bool = true, canPin: Bool = false, isPinned: Bool = false,
     downloadFilenames: [String] = []
   ) {
+    reactionPickerButton.isEnabled = canReact
+    for button in quickReactionButtons {
+      button.isEnabled = canReact
+    }
     downloadMenuItem.isHidden = downloadFilenames.isEmpty
     downloadMenuItem.submenu = nil
     if downloadFilenames.count > 1 {
@@ -151,10 +169,37 @@ final class MessageHoverOverlayView: NSView {
       }
       downloadMenuItem.submenu = submenu
     }
+    pinMenuItem.title = isPinned ? "Unpin Message" : "Pin Message"
+    pinMenuItem.image = NSImage(
+      systemSymbolName: isPinned ? "pin.fill" : "pin",
+      accessibilityDescription: pinMenuItem.title)
+    pinMenuItem.isEnabled = canPin
     deleteMenuItem.isEnabled = canDelete
     editButton.isHidden = !canEdit
     replyButton.isHidden = !canReply
     threadButton.isHidden = !canReply
+    setFrameSize(fittingSize)
+  }
+
+  func setQuickReactions(_ keys: [String]) {
+    let keys = Array(keys.prefix(quickReactionButtons.count))
+    for (index, button) in quickReactionButtons.enumerated() {
+      guard keys.indices.contains(index) else {
+        button.isHidden = true
+        button.title = ""
+        button.toolTip = nil
+        button.setAccessibilityLabel(nil)
+        button.onClick = nil
+        continue
+      }
+      let key = keys[index]
+      button.title = key
+      button.toolTip = "React with \(key)"
+      button.setAccessibilityLabel("React with \(key)")
+      button.onClick = { [weak self] in self?.onAction?(.reaction(key)) }
+      button.isHidden = false
+    }
+    reactionDivider.isHidden = keys.isEmpty
     setFrameSize(fittingSize)
   }
 
@@ -163,7 +208,7 @@ final class MessageHoverOverlayView: NSView {
     isPresentingMenu = true
     defer {
       isPresentingMenu = false
-      onMenuClosed?()
+      onInteractionClosed?()
     }
     let menuOrigin = NSPoint(
       x: moreButton.bounds.minX,
@@ -177,6 +222,10 @@ final class MessageHoverOverlayView: NSView {
 
   @objc private func showSource() {
     onAction?(.showSource)
+  }
+
+  @objc private func pinMessage() {
+    onAction?(.pin)
   }
 
   @objc private func deleteMessage() {

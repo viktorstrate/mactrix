@@ -14,6 +14,11 @@ struct ConversationMessageSelection {
     return owner.selectedMessageEvent(matching: messageID)
   }
 
+  var isPinned: Bool {
+    guard let owner, let event else { return false }
+    return owner.isMessagePinned(event)
+  }
+
   var downloadFilenames: [String] {
     guard let event else { return [] }
     return MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename)
