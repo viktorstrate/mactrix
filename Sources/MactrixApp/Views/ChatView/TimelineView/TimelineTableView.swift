@@ -377,6 +377,12 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     applyProjectedRows(oldIDs: [], changedIDs: [])
     listenForTypingUsers()
     listenForReplyDetails()
+    listenForRecentReactions()
+    if let recentReactions = appState.matrixClient?.recentReactions {
+      startActionTask {
+        _ = await recentReactions.refresh()
+      }
+    }
   }
 
   override func viewDidLayout() {
@@ -475,6 +481,20 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
   }
 
+  private func listenForRecentReactions() {
+    guard let recentReactions = appState.matrixClient?.recentReactions else { return }
+    let keys = withObservationTracking {
+      recentReactions.isActive ? recentReactions.cachedKeys : []
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.listenForRecentReactions()
+      }
+    }
+    hoverOverlay.setQuickReactions(keys)
+    positionHoverOverlay()
+    updateReactionPickerAnchor()
+  }
+
   @discardableResult
   private func updateHoverOverlay(for rowView: MessageRowView, hovering: Bool, event: NSEvent)
     -> Bool
@@ -513,6 +533,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       canEdit: event.isOwn && event.isEditable && editableText(for: event) != nil,
       canDelete: canDeleteMessage(event),
       canReact: canPerformMessageAction(.reactionPicker, for: event),
+      canPin: canPerformMessageAction(.pin, for: event),
+      isPinned: isMessagePinned(event),
       downloadFilenames: MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename))
     if hoveredMessageView !== rowView {
       hoveredMessageView?.setHoverHighlight(false)
@@ -619,6 +641,11 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     performMessageAction(action, for: event, reactionPickerSource: .hoverButton)
   }
 
+  func isMessagePinned(_ event: MatrixRustSDK.EventTimelineItem) -> Bool {
+    guard case .eventId(let eventID) = event.eventOrTransactionId else { return false }
+    return timeline.room.roomInfo?.pinnedEventIds.contains(eventID) == true
+  }
+
   func canPerformMessageAction(
     _ action: MessageHoverOverlayView.Action, for event: MatrixRustSDK.EventTimelineItem
   ) -> Bool {
@@ -700,11 +727,18 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     case .pin:
       guard case .eventId(eventId: let eventId) = event.eventOrTransactionId else { return }
       startActionTask { [weak self] in
+        guard let self, let sdkTimeline = self.timeline.timeline else { return }
+        let isPinned = self.isMessagePinned(event)
         do {
-          _ = try await self?.timeline.timeline?.pinEvent(eventId: eventId)
+          if isPinned {
+            _ = try await sdkTimeline.unpinEvent(eventId: eventId)
+          } else {
+            _ = try await sdkTimeline.pinEvent(eventId: eventId)
+          }
         } catch {
           guard !Task.isCancelled else { return }
-          Logger.timelineTableView.error("Failed to pin message: \(error)")
+          Logger.timelineTableView.error(
+            "Failed to \(isPinned ? "unpin" : "pin") message: \(error)")
         }
       }
     }

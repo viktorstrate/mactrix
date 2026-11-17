@@ -84,8 +84,10 @@ public struct AppCommands: Commands {
         .keyboardShortcut("r", modifiers: [.command, .control])
       messageActionButton("Edit Message", action: .edit)
         .keyboardShortcut("e", modifiers: [.command, .shift])
-      messageActionButton("Pin Message", action: .pin)
-        .keyboardShortcut("p", modifiers: [.command, .option])
+      messageActionButton(
+        selection?.isPinned == true ? "Unpin Message" : "Pin Message", action: .pin
+      )
+      .keyboardShortcut("p", modifiers: [.command, .option])
 
       Divider()
 
