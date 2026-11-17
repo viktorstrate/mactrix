@@ -38,7 +38,7 @@ public final class LiveSpaceRoomList {
     spaceHandle = spaceRoomList.subscribeToSpaceUpdates(listener: spaceListener)
 
     Task { [weak self] in
-      for await space in spaceListener.debounce(for: .milliseconds(500)) {
+      for await space in spaceListener.debounce(for: .milliseconds(100)) {
         guard let self else { break }
         self.space = space
       }
@@ -96,7 +96,7 @@ public final class LiveSpaceRoomList {
     paginateHandle = spaceRoomList.subscribeToPaginationStateUpdates(listener: paginateListener)
 
     Task { [weak self] in
-      for await state in paginateListener.debounce(for: .milliseconds(500)) {
+      for await state in paginateListener.debounce(for: .milliseconds(100)) {
         self?.paginationState = state
       }
     }

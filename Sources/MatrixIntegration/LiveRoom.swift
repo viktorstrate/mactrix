@@ -11,6 +11,7 @@ public final class LiveRoom: Identifiable {
   public var members: [MatrixRustSDK.RoomMember] = []
 
   @ObservationIgnored private var typingHandle: TaskHandle?
+  @ObservationIgnored private let roomSubscription: RoomSubscriptionToken
 
   public var room: MatrixRustSDK.Room {
     sidebarRoom.room
@@ -24,8 +25,9 @@ public final class LiveRoom: Identifiable {
     sidebarRoom.id
   }
 
-  public init(sidebarRoom: SidebarRoom) {
+  public init(sidebarRoom: SidebarRoom, matrixClient: MatrixClient) {
     self.sidebarRoom = sidebarRoom
+    roomSubscription = matrixClient.roomSubscriptions.register(roomID: sidebarRoom.id)
 
     startListening()
 
@@ -38,8 +40,8 @@ public final class LiveRoom: Identifiable {
     }
   }
 
-  public convenience init(matrixRoom: MatrixRustSDK.Room) {
-    self.init(sidebarRoom: SidebarRoom(room: matrixRoom))
+  public convenience init(matrixRoom: MatrixRustSDK.Room, matrixClient: MatrixClient) {
+    self.init(sidebarRoom: SidebarRoom(room: matrixRoom), matrixClient: matrixClient)
   }
 
   isolated deinit {

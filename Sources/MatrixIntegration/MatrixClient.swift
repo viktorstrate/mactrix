@@ -11,6 +11,7 @@ import Utils
 @MainActor @Observable
 public class MatrixClient {
   public let storeID: String
+  @ObservationIgnored let roomSubscriptions = RoomSubscriptions()
   @ObservationIgnored public private(set) lazy var recentReactions = RecentReactionsStore(
     client: SDKRecentReactionsClient(client: client))
   private let storePassphrase: String
@@ -119,6 +120,7 @@ public class MatrixClient {
   public func reset() async throws {
     recentReactions.invalidate()
     isResettingSession = true
+    await roomSubscriptions.invalidate()
     Logger.matrixClient.debug("matrix client sign out")
     try? await client.logout()
     try? FileManager.default.removeItem(at: .sessionData(for: storeID))
@@ -129,7 +131,9 @@ public class MatrixClient {
 
   public internal(set) var syncService: SyncService?
   public internal(set) var syncState: SyncServiceState = .terminated
-  public internal(set) var roomListService: RoomListService?
+  public internal(set) var roomListService: RoomListService? {
+    didSet { roomSubscriptions.setService(roomListService) }
+  }
   public internal(set) var roomListServiceState: RoomListServiceState?
   public internal(set) var showRoomSyncIndicator: RoomListServiceSyncIndicator?
   public internal(set) var ignoredUserIds: [String] = []

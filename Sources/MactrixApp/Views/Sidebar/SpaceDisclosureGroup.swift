@@ -58,7 +58,7 @@ struct SpaceDisclosureGroup: View {
         guard let matrixClient = appState.matrixClient else { return }
         let room = try await matrixClient.client.joinRoomById(roomId: space.id)
         windowState.selectedScreen = .joinedRoom(
-          timeline: LiveTimeline(room: LiveRoom(matrixRoom: room)))
+          timeline: LiveTimeline(room: LiveRoom(matrixRoom: room, matrixClient: matrixClient)))
       }
     }
 

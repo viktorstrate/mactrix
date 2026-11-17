@@ -50,7 +50,7 @@ public final class SidebarRoom: Identifiable {
     roomInfoHandle = room.subscribeToRoomInfoUpdates(listener: listener)
 
     listenerTask = Task { [weak self] in
-      for await roomInfo in listener.debounce(for: .milliseconds(500)) {
+      for await roomInfo in listener.debounce(for: .milliseconds(100)) {
         guard let self, !Task.isCancelled else { break }
         self.roomInfo = roomInfo
       }

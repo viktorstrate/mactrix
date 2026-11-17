@@ -212,7 +212,8 @@ public struct MainView: View {
       if let roomId = windowState.selectedRoomId {
         if let selectedRoom = try matrixClient.client.getRoom(roomId: roomId) {
           windowState.selectedScreen = .joinedRoom(
-            timeline: LiveTimeline(room: LiveRoom(matrixRoom: selectedRoom)))
+            timeline: LiveTimeline(
+              room: LiveRoom(matrixRoom: selectedRoom, matrixClient: matrixClient)))
         } else {
           let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(
             roomId: roomId, viaServers: ["matrix.org"])

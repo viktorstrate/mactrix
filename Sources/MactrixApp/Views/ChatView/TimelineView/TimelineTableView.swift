@@ -378,6 +378,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     listenForTypingUsers()
     listenForReplyDetails()
     listenForRecentReactions()
+    listenForRoomInfo()
     if let recentReactions = appState.matrixClient?.recentReactions {
       startActionTask {
         _ = await recentReactions.refresh()
@@ -495,6 +496,43 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     updateReactionPickerAnchor()
   }
 
+  private func listenForRoomInfo() {
+    withObservationTracking {
+      _ = timeline.room.roomInfo
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        guard let self else { return }
+        self.listenForRoomInfo()
+        self.refreshHoveredMessage()
+      }
+    }
+  }
+
+  private func refreshHoveredMessage() {
+    guard let hoveredMessageId else { return }
+    guard let row = timelineItems.firstIndex(where: { $0.id == hoveredMessageId }),
+      case .message(_, let event, _) = timelineItems[row]
+    else {
+      hideHoverOverlay()
+      return
+    }
+    hoveredRowIndex = row
+    configureHoverOverlay(for: event)
+    positionHoverOverlay()
+    updateReactionPickerAnchor()
+  }
+
+  private func configureHoverOverlay(for event: MatrixRustSDK.EventTimelineItem) {
+    hoverOverlay.configure(
+      canReply: event.canBeRepliedTo,
+      canEdit: event.isOwn && event.isEditable && editableText(for: event) != nil,
+      canDelete: canDeleteMessage(event),
+      canReact: canPerformMessageAction(.reactionPicker, for: event),
+      canPin: canPerformMessageAction(.pin, for: event),
+      isPinned: isMessagePinned(event),
+      downloadFilenames: MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename))
+  }
+
   @discardableResult
   private func updateHoverOverlay(for rowView: MessageRowView, hovering: Bool, event: NSEvent)
     -> Bool
@@ -528,14 +566,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     guard row >= 0, row < timelineItems.count,
       case .message(_, let event, _) = timelineItems[row]
     else { return false }
-    hoverOverlay.configure(
-      canReply: event.canBeRepliedTo,
-      canEdit: event.isOwn && event.isEditable && editableText(for: event) != nil,
-      canDelete: canDeleteMessage(event),
-      canReact: canPerformMessageAction(.reactionPicker, for: event),
-      canPin: canPerformMessageAction(.pin, for: event),
-      isPinned: isMessagePinned(event),
-      downloadFilenames: MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename))
+    configureHoverOverlay(for: event)
     if hoveredMessageView !== rowView {
       hoveredMessageView?.setHoverHighlight(false)
     }

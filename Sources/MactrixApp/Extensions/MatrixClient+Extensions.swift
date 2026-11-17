@@ -13,14 +13,14 @@ extension MatrixClient {
 
     func joinRoom() async throws {
       let room = try await matrixClient.client.joinRoomById(roomId: roomId)
-      let timeline = LiveTimeline(room: LiveRoom(matrixRoom: room))
+      let timeline = LiveTimeline(room: LiveRoom(matrixRoom: room, matrixClient: matrixClient))
       windowState.selectedScreen = .joinedRoom(timeline: timeline)
     }
 
     func knockRoom() async throws {
       let room = try await matrixClient.client.knock(
         roomIdOrAlias: roomId, reason: nil, serverNames: ["matrix.org"])
-      let timeline = LiveTimeline(room: LiveRoom(matrixRoom: room))
+      let timeline = LiveTimeline(room: LiveRoom(matrixRoom: room, matrixClient: matrixClient))
       windowState.selectedScreen = .joinedRoom(timeline: timeline)
     }
 
