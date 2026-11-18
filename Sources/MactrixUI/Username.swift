@@ -1,3 +1,4 @@
+import ContactLinking
 import MatrixProtocols
 import SwiftUI
 
@@ -14,11 +15,14 @@ struct Username<Profile: UserProfile>: View {
   }
 
   private var label: some View {
-    Text(userProfile.displayName ?? userProfile.userId).foregroundStyle(
-      Color(userID: userProfile.userId)
-    )
-    .lineLimit(1)
-    .truncationMode(.tail)
-    .help(userProfile.userId)
+    let contacts = ContactDirectory.shared
+    let userID = userProfile.userId
+    let matrixName = userProfile.displayName
+
+    return Text(contacts.resolvedName(userID: userID, matrixName: matrixName))
+      .foregroundStyle(Color(userID: userID))
+      .lineLimit(1)
+      .truncationMode(.tail)
+      .help(contacts.matrixIdentityHelp(userID: userID, matrixName: matrixName) ?? userID)
   }
 }

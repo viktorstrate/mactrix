@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MactrixUI
 import MatrixRustSDK
 
@@ -75,9 +76,12 @@ class MessageProfileRowView: NSView {
       avatarUrl = nil
     }
 
-    name.stringValue = username
+    let contacts = ContactDirectory.shared
+    let displayedName = contacts.resolvedName(userID: event.sender, matrixName: username)
+    name.stringValue = displayedName
     name.textColor = NSColor(userID: event.sender)
-    name.toolTip = username
+    name.toolTip =
+      contacts.matrixIdentityHelp(userID: event.sender, matrixName: username) ?? displayedName
 
     profilePicture.configure(event: event)
 

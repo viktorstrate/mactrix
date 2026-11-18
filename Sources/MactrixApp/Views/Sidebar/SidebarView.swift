@@ -1,3 +1,4 @@
+import ContactLinking
 import MactrixUI
 import MatrixIntegration
 import MatrixRustSDK
@@ -106,6 +107,12 @@ struct SidebarView: View {
     .padding(12)
   }
 
+  /// The room name, or the linked contact's name for direct chats.
+  private func title(for room: SidebarRoom, fallback: String) -> String {
+    ContactDirectory.shared.roomTitle(roomName: room.room.displayName(), roomInfo: room.roomInfo)
+      ?? fallback
+  }
+
   @ViewBuilder
   var listView: some View {
     @Bindable var windowState = windowState
@@ -115,7 +122,7 @@ struct SidebarView: View {
         Section("Favorites", isExpanded: $windowState.sidebarSections.favorites) {
           ForEach(favorites) { room in
             MactrixUI.RoomRow(
-              title: room.room.displayName() ?? "Unknown room",
+              title: title(for: room, fallback: "Unknown room"),
               avatarUrl: room.room.avatarUrl(),
               roomInfo: room.roomInfo,
               imageLoader: appState.matrixClient,
@@ -131,7 +138,7 @@ struct SidebarView: View {
       Section("Directs", isExpanded: $windowState.sidebarSections.directs) {
         ForEach(directs) { room in
           MactrixUI.RoomRow(
-            title: room.room.displayName() ?? "Unknown user",
+            title: title(for: room, fallback: "Unknown user"),
             avatarUrl: room.room.avatarUrl(),
             roomInfo: room.roomInfo,
             imageLoader: appState.matrixClient,

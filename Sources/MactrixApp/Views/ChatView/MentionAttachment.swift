@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MactrixUI
 
 /// Hosts opt in explicitly so a temporarily disabled composer remains noninteractive.
@@ -17,6 +18,12 @@ final class MentionAttachment: NSTextAttachment {
     "MentionAttachment.avatarDidChange")
 
   let payload: UserDragPayload
+
+  /// The name shown in the pill. Only for display; the message keeps `payload.username`.
+  var displayedUsername: String {
+    ContactDirectory.shared.resolvedName(userID: payload.userId, matrixName: payload.username)
+  }
+
   /// Preserved for clipboard export, independently of the host's activation behavior.
   let navigationURL: URL?
 
@@ -93,8 +100,8 @@ final class MentionAttachment: NSTextAttachment {
     return MainActor.assumeIsolated {
       let height = ceil(font.ascender - font.descender) + 6
       let baselineOffset = MentionView.baselineOffset(for: font, height: height)
-      let labelWidth = (attachment.payload.username as NSString).size(withAttributes: [.font: font])
-        .width
+      let username = attachment.displayedUsername as NSString
+      let labelWidth = username.size(withAttributes: [.font: font]).width
       let available = max(
         1,
         (container?.size.width ?? proposedLineFragment.width) - 2
@@ -152,12 +159,12 @@ private final class MentionView: NSButton {
     action = #selector(activate)
     let payload = attachment.payload
     configureAvatar()
-    label.stringValue = payload.username
+    label.stringValue = attachment.displayedUsername
     label.lineBreakMode = .byTruncatingTail
     label.maximumNumberOfLines = 1
     addSubview(avatar)
     addSubview(label)
-    setAccessibilityLabel(payload.username + " (" + payload.userId + ")")
+    setAccessibilityLabel(attachment.displayedUsername + " (" + payload.userId + ")")
     setAccessibilityChildren([])
     addTrackingArea(
       NSTrackingArea(

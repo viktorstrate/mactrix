@@ -1,7 +1,7 @@
 import SwiftUI
 
 enum SettingsTab: Hashable {
-  case account, appearance, sessions
+  case account, appearance, contacts, sessions
 }
 
 public struct SettingsView: View {
@@ -17,6 +17,9 @@ public struct SettingsView: View {
       }
       Tab("Appearance", systemImage: "eye", value: .appearance) {
         AppearanceSettingsView().frame(width: 620, height: 500)
+      }
+      Tab("Contacts", systemImage: "person.crop.circle", value: .contacts) {
+        ContactsSettingsView().frame(width: 620, height: 500)
       }
       Tab("Sessions", systemImage: "desktopcomputer.and.macbook", value: .sessions) {
         SessionsSettingsView().frame(width: 620, height: 500)

@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MactrixUI
 import MatrixProtocols
 
@@ -221,7 +222,8 @@ private final class MentionCellView: NSView {
     avatar.configure(
       userID: profile.userId, displayName: profile.displayName, avatarUrl: profile.avatarUrl,
       kind: .user, imageLoader: imageLoader)
-    nameLabel.stringValue = profile.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? profile.userId
+    nameLabel.stringValue = ContactDirectory.shared.resolvedName(
+      userID: profile.userId, matrixName: profile.displayName)
     // nameLabel.textColor = NSColor(userID: profile.userId)
     idLabel.stringValue = profile.userId
   }

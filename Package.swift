@@ -23,8 +23,10 @@ let package = Package(
     // Targets can depend on other targets in this package and products from dependencies.
     .target(
       name: "MactrixUI",
-      dependencies: ["MatrixProtocols"]
+      dependencies: ["MatrixProtocols", "ContactLinking"]
     ),
+    .target(name: "ContactLinking"),
+    .testTarget(name: "ContactLinkingTests", dependencies: ["ContactLinking"]),
     .target(name: "Utils"),
     .testTarget(name: "UtilsTests", dependencies: ["Utils"]),
     .target(name: "MatrixProtocols"),
@@ -33,6 +35,7 @@ let package = Package(
       dependencies: [
         "Utils",
         "MatrixProtocols",
+        "ContactLinking",
         .product(name: "AsyncAlgorithms", package: "swift-async-algorithms"),
         .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift"),
       ]
@@ -42,6 +45,7 @@ let package = Package(
       dependencies: [
         "MatrixIntegration",
         "MactrixUI",
+        "ContactLinking",
         "MessageFormatting",
         .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift"),
         .product(name: "EmojiCatalog", package: "EmojiCatalog"),

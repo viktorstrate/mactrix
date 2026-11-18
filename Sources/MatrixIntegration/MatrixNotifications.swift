@@ -1,3 +1,4 @@
+import ContactLinking
 import MatrixRustSDK
 import OSLog
 import UserNotifications
@@ -83,9 +84,11 @@ extension MatrixNotifications {
   func notificationTitle(for notification: NotificationItem) -> String {
     switch notification.event {
     case .invite(let sender):
-      return "\(sender) invited you to a room"
+      let inviter = ContactDirectory.shared.resolvedName(userID: sender, matrixName: nil)
+      return "\(inviter) invited you to a room"
     case .timeline(let event):
-      let sender = notification.senderInfo.displayName ?? event.senderId()
+      let sender = ContactDirectory.shared.resolvedName(
+        userID: event.senderId(), matrixName: notification.senderInfo.displayName)
       let roomName = notification.roomInfo.displayName
       return "\(sender) (\(roomName))"
     }

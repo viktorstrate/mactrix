@@ -1,3 +1,4 @@
+import ContactLinking
 import MatrixProtocols
 import OSLog
 import SwiftUI
@@ -56,16 +57,20 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
     VStack(alignment: .center, spacing: 20) {
       VStack(alignment: .center) {
         AvatarImage(
-          userID: room.id, kind: roomInfo?.isDirect == true ? .user : .room,
+          userID: roomInfo?.directUserId ?? room.id,
+          kind: roomInfo?.isDirect == true ? .user : .room,
           displayName: room.displayName,
           avatarUrl: roomInfo?.avatarUrl,
           imageLoader: imageLoader
         )
         .frame(width: 72, height: 72)
 
-        Text(room.displayName ?? "Unknown room")
-          .font(.title)
-          .textSelection(.enabled)
+        Text(
+          ContactDirectory.shared.roomTitle(roomName: room.displayName, roomInfo: roomInfo)
+            ?? "Unknown room"
+        )
+        .font(.title)
+        .textSelection(.enabled)
 
         if let alias = roomInfo?.canonicalAlias {
           Text(alias)

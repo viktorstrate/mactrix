@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MactrixUI
 import MatrixProtocols
 import MatrixRustSDK
@@ -74,8 +75,10 @@ final class MessageReadReceiptsView: NSButton {
     countLabel.isHidden = hiddenCount == 0
     toolTip =
       "Read by "
-      + self.receipts.map { self.members[$0.userId]?.displayName ?? $0.userId }.joined(
-        separator: ", ")
+      + self.receipts.map {
+        ContactDirectory.shared.resolvedName(
+          userID: $0.userId, matrixName: self.members[$0.userId]?.displayName)
+      }.joined(separator: ", ")
     needsLayout = true
   }
 
@@ -159,7 +162,8 @@ final class MessageReadReceiptsView: NSButton {
       details.orientation = .vertical
       details.alignment = .leading
       details.spacing = 2
-      let name = members[receipt.userId]?.displayName ?? receipt.userId
+      let name = ContactDirectory.shared.resolvedName(
+        userID: receipt.userId, matrixName: members[receipt.userId]?.displayName)
       let nameLabel = NSTextField(labelWithString: name)
       nameLabel.lineBreakMode = .byTruncatingTail
       nameLabel.toolTip = name

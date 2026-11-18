@@ -1,3 +1,5 @@
+import ContactLinking
+import MactrixUI
 import MatrixIntegration
 import MatrixProtocols
 import MatrixRustSDK
@@ -28,7 +30,10 @@ struct ChatJoinedRoom: View {
   var body: some View {
     ChatRoomViewRepresentable(timeline: timeline, composer: composer)
       .ignoresSafeArea(edges: .vertical)
-      .navigationTitle(room.room.displayName() ?? "Unknown room")
+      .navigationTitle(
+        ContactDirectory.shared.roomTitle(
+          roomName: room.room.displayName(), roomInfo: room.roomInfo) ?? "Unknown room"
+      )
       .navigationSubtitle(toolbarSubtitle)
       .frame(minWidth: 250, minHeight: 200)
       .task(priority: .background) {
