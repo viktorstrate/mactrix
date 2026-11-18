@@ -12,13 +12,13 @@ If you use the [nix package manager](https://nixos.org), you can use `nix-shell`
 
 ## Launch
 
-The [run-matrix-server.sh](./run-matrix-server.sh) script will start a [continuwuity](https://continuwuity.org) matrix server, read a list of users from [users.csv](./users.csv) and use the continuwuity CLI to register them.
+The [run-matrix-server.sh](./run-matrix-server.sh) script will start a [continuwuity](https://continuwuity.org) matrix server, read a list of users from [users.csv](./users.csv) and use the continuwuity CLI to register them. Once complete, the server will keep running, it will print its process ID to be killed later.
 
-Once the server is running, inside another terminal run [populate-matrix-server.py](./populate-matrix-server.py) to make users sign in and send messages. Afterwards, you can sign in with any matrix client to [http://localhost:8008](http://localhost:8008).
+Inside another terminal, run [populate-matrix-server.py](./populate-matrix-server.py) to make users sign in and send messages. Afterwards, you can sign in with any matrix client to [http://localhost:8008](http://localhost:8008). Once you are done, you can stop the [run-matrix-server.sh](./run-matrix-server.sh) script or do `kill PID` where `PID` is the process id of the server from the first terminal.
 
 Note: The first user contained in [users.csv](./users.csv) will become the administrator of the server.
 
-To debug things or know what is happening on the server, if you are inside the `nix-shell`, you can run `element-web-client` to start a python server on [http://localhost:8000](http://localhost:8000) with a element web client.
+To debug things or know what is happening on the server, if you are inside the `nix-shell` (it is also available in the docker iamge), you can run `element-web-client` to start a python server on [http://localhost:8000](http://localhost:8000) with a element web client.
 
 ## Nix stuff
 
