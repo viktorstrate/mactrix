@@ -31,7 +31,7 @@ final class QuickNavigationView: NSVisualEffectView {
     self.session = session
     super.init(frame: .zero)
     material = .popover
-    blendingMode = .behindWindow
+    blendingMode = .withinWindow
     state = .active
     wantsLayer = true
     layer?.cornerRadius = 16

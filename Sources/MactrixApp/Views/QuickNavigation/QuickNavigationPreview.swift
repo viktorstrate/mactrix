@@ -5,7 +5,7 @@
   private struct QuickNavigationPreview: NSViewRepresentable {
     var query = ""
 
-    func makeNSView(context: Context) -> QuickNavigationView {
+    func makeNSView(context: Context) -> QuickNavigationShadowView {
       let session = QuickNavigationSession()
       session.updateCandidates([
         .init(
@@ -28,10 +28,10 @@
         .init(id: "!unnamed:example.org", displayName: nil, canonicalAlias: nil),
       ])
       session.updateQuery(query)
-      return QuickNavigationView(session: session)
+      return QuickNavigationShadowView(navigationView: QuickNavigationView(session: session))
     }
 
-    func updateNSView(_ nsView: QuickNavigationView, context: Context) {}
+    func updateNSView(_ nsView: QuickNavigationShadowView, context: Context) {}
   }
 
   #Preview("Quick Navigation") {

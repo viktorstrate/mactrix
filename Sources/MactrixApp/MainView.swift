@@ -85,7 +85,7 @@ public struct MainView: View {
       }
     )
     .background(
-      QuickNavigationWindowAttachment(
+      QuickNavigationOverlayAttachment(
         coordinator: windowState.quickNavigation, isSignedIn: appState.matrixClient != nil)
     )
     .task { await attemptLoadUserSession() }
