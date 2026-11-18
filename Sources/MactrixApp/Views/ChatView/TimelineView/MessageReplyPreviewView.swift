@@ -120,7 +120,7 @@ final class MessageReplyPreviewView: NSButton {
   ) {
     switch details {
     case .unavailable, .pending:
-      return ("Loading reply…", "", true)
+      return (String(localized: "Loading reply…"), "", true)
     case .ready(let content, let sender, let senderProfile, _, _):
       var matrixName: String?
       if case .ready(let name, _, _, _, _) = senderProfile {
@@ -129,7 +129,7 @@ final class MessageReplyPreviewView: NSButton {
       let displayName = ContactDirectory.shared.resolvedName(userID: sender, matrixName: matrixName)
       return (displayName, content.userInterfaceText, false)
     case .error(let message):
-      return ("Reply unavailable", message, false)
+      return (String(localized: "Reply unavailable"), message, false)
     }
   }
 

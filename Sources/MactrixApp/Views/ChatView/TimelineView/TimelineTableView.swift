@@ -732,12 +732,14 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       guard canDeleteMessage(event), let window = view.window else { return }
       let alert = NSAlert()
       alert.alertStyle = .warning
-      alert.messageText = "Delete message?"
+      alert.messageText = String(localized: "Delete message?")
       alert.informativeText =
-        "This will remove the message for everyone in the room. This action cannot be undone."
-      let deleteButton = alert.addButton(withTitle: "Delete")
+        String(
+          localized:
+            "This will remove the message for everyone in the room. This action cannot be undone.")
+      let deleteButton = alert.addButton(withTitle: String(localized: "Delete"))
       deleteButton.hasDestructiveAction = true
-      alert.addButton(withTitle: "Cancel")
+      alert.addButton(withTitle: String(localized: "Cancel"))
       startActionTask { [weak self] in
         let response = await alert.beginSheetModal(for: window)
         guard response == .alertFirstButtonReturn, !Task.isCancelled,

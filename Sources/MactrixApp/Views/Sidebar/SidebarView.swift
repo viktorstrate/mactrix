@@ -122,7 +122,7 @@ struct SidebarView: View {
         Section("Favorites", isExpanded: $windowState.sidebarSections.favorites) {
           ForEach(favorites) { room in
             MactrixUI.RoomRow(
-              title: title(for: room, fallback: "Unknown room"),
+              title: title(for: room, fallback: String(localized: "Unknown room")),
               avatarUrl: room.room.avatarUrl(),
               roomInfo: room.roomInfo,
               imageLoader: appState.matrixClient,
@@ -138,7 +138,7 @@ struct SidebarView: View {
       Section("Directs", isExpanded: $windowState.sidebarSections.directs) {
         ForEach(directs) { room in
           MactrixUI.RoomRow(
-            title: title(for: room, fallback: "Unknown user"),
+            title: title(for: room, fallback: String(localized: "Unknown user")),
             avatarUrl: room.room.avatarUrl(),
             roomInfo: room.roomInfo,
             imageLoader: appState.matrixClient,
@@ -153,7 +153,7 @@ struct SidebarView: View {
       Section("Rooms", isExpanded: $windowState.sidebarSections.rooms) {
         ForEach(rooms) { room in
           MactrixUI.RoomRow(
-            title: room.room.displayName() ?? "Unknown Room",
+            title: room.room.displayName() ?? String(localized: "Unknown room"),
             avatarUrl: room.room.avatarUrl(),
             roomInfo: room.roomInfo,
             imageLoader: appState.matrixClient,

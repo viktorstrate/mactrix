@@ -35,14 +35,14 @@ struct SidebarGroupsList: View {
 
     ScrollView {
       VStack(spacing: 8) {
-        GroupButton(id: nil, title: "Home", notifications: homeNotifications) {
+        GroupButton(id: nil, title: Text("Home"), notifications: homeNotifications) {
           Image(systemName: "house.fill")
             .font(.title2)
 
         }
         ForEach(spaces) { space in
           GroupButton(
-            id: space.id, title: space.spaceRoom.displayName,
+            id: space.id, title: Text(verbatim: space.spaceRoom.displayName),
             notifications: spaceNotifications[space.id, default: 0]
           ) {
             AvatarImage(
@@ -64,7 +64,7 @@ private struct GroupButton<Content: View>: View {
   @Environment(WindowState.self) var windowState
 
   let id: String?
-  let title: String
+  let title: Text
   let notifications: Int
   let content: () -> Content
 
@@ -95,7 +95,7 @@ private struct GroupButton<Content: View>: View {
         .overlay {
           if notifications > 0 {
 
-            Text("\(notifications)")
+            Text(verbatim: "\(notifications)")
               .foregroundColor(.white)
               .fontWeight(.medium)
               .padding(.vertical, 1)

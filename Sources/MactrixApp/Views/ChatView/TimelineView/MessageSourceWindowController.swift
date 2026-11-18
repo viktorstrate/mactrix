@@ -17,7 +17,7 @@ final class MessageSourceWindowController: NSWindowController, NSWindowDelegate 
       contentRect: NSRect(x: 0, y: 0, width: 680, height: 480),
       styleMask: [.titled, .closable, .resizable, .miniaturizable],
       backing: .buffered, defer: false)
-    sourceWindow.title = "Message Source"
+    sourceWindow.title = String(localized: "Message Source")
     sourceWindow.minSize = NSSize(width: 320, height: 200)
     sourceWindow.isReleasedWhenClosed = false
     sourceWindow.level = .normal
@@ -49,7 +49,10 @@ final class MessageSourceWindowController: NSWindowController, NSWindowDelegate 
     textView.textContainer?.widthTracksTextView = false
     textView.string =
       source.map(Self.prettyPrintedJSON)
-      ?? "Message source is not available yet. Local messages must be echoed back by the server before their raw source is available."
+      ?? String(
+        localized:
+          "Message source is not available yet. Local messages must be echoed back by the server before their raw source is available."
+      )
     scrollView.documentView = textView
     sourceWindow.initialFirstResponder = textView
     sourceWindow.center()

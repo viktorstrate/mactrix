@@ -197,7 +197,7 @@ final class MessageImageContentView: NSView, MessageMediaPreviewContentView {
 
   private func loadImage(_ image: ImageMessageContent, from client: MatrixClient?) {
     guard let client else {
-      showError("Matrix client not available")
+      showError(String(localized: "Matrix client not available"))
       return
     }
     let url = image.source.url()

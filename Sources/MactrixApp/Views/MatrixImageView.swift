@@ -45,7 +45,7 @@ struct MatrixImageView: View {
       .task(id: mediaSource?.url(), priority: .utility) {
         guard image == nil else { return }
         guard let matrixClient = appState.matrixClient else {
-          errorMessage = "Matrix client not available"
+          errorMessage = String(localized: "Matrix client not available")
           return
         }
 

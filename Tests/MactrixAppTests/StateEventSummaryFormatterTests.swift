@@ -365,6 +365,28 @@ struct StateEventSummaryFormatterTests {
     #expect(summary([joined("a", longName)], budget: 180).text == longName + " joined")
   }
 
+  @Test func composeKeepsUserIDsWhenTranslationsReorderNames() {
+    typealias Formatter = StateEventSummaryFormatter
+    let actor = [Formatter.Segment(text: "Alice", userId: "@a:example.org")]
+    let targets = [
+      Formatter.Segment(text: "Bob", userId: "@b:example.org"),
+      Formatter.Segment(text: " und "),
+      Formatter.Segment(text: "Charlie", userId: "@c:example.org"),
+    ]
+    let result = Formatter.compose(
+      "\(Formatter.placeholder(1)) wurden von \(Formatter.placeholder(0)) gebannt",
+      [actor, targets])
+    #expect(
+      result == [
+        .init(text: "Bob", userId: "@b:example.org"),
+        .init(text: " und "),
+        .init(text: "Charlie", userId: "@c:example.org"),
+        .init(text: " wurden von "),
+        .init(text: "Alice", userId: "@a:example.org"),
+        .init(text: " gebannt"),
+      ])
+  }
+
   @Test func moderationAndSecurityWinBudgetButRenderInSourceOrder() {
     let events = [
       profile("a", "Alice"),

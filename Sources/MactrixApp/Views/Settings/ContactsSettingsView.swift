@@ -30,7 +30,7 @@ struct ContactsSettingsView: View {
           accessStatus
         }
         LabeledContent("Linked contacts") {
-          Text("\(Set(contacts.linksByUserID.values.map(\.identifier)).count)")
+          Text(verbatim: "\(Set(contacts.linksByUserID.values.map(\.identifier)).count)")
         }
       }
       .disabled(!contacts.isEnabled)
