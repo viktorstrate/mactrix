@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MatrixProtocols
 
 /// Editor-local query and suggestion state, independent of suggestion presentation.
@@ -63,6 +64,8 @@ final class ComposerMentionAutocompleteSession<UserProfile: MatrixProtocols.User
     let suggestions = candidates.filter { candidate in
       query.text.isEmpty
         || candidate.displayName?.range(of: query.text, options: .caseInsensitive) != nil
+        || ContactDirectory.shared.contactName(for: candidate.userId)?.range(
+          of: query.text, options: .caseInsensitive) != nil
         || candidate.userId.range(of: query.text, options: .caseInsensitive) != nil
     }
     update(query: query, suggestions: suggestions)

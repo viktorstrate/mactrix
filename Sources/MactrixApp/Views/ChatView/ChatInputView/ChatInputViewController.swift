@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MactrixUI
 import MatrixIntegration
 import MatrixRustSDK
@@ -107,6 +108,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
       _ = composer.draftRevision
       _ = timeline.timeline
       _ = timeline.room.members
+      _ = ContactDirectory.shared.revision
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
         self?.observeState()
@@ -127,11 +129,16 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     }
   }
 
+  private var roomTitle: String {
+    ContactDirectory.shared.roomTitle(
+      roomName: room.displayName(), roomInfo: timeline.room.roomInfo) ?? "room"
+  }
+
   /// Only replace externally changed text; ordinary editing preserves selection and undo.
   func synchronizeEditor() {
     editorSession.synchronize(
       text: composer.text, enabled: composer.isDraftLoaded,
-      placeholder: "Message \(room.displayName() ?? "room")", fontSize: fontSize)
+      placeholder: "Message \(roomTitle)", fontSize: fontSize)
     let enabled = composer.isDraftLoaded
     container.dropDestination.enabled = enabled
     if let target = composer.replyTarget {

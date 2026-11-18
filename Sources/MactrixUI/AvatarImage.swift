@@ -1,3 +1,4 @@
+import ContactLinking
 import MatrixProtocols
 import OSLog
 import SwiftUI
@@ -49,7 +50,9 @@ public struct AvatarImage: View {
 
     return AvatarRepresentable(
       roomID: roomID, kind: kind, displayName: displayName, avatarUrl: avatarUrl,
-      imageLoader: imageLoader
+      imageLoader: imageLoader,
+      // Re-configure the AppKit view when linked contacts or contact settings change.
+      contactsRevision: ContactDirectory.shared.revision
     )
     .alignmentGuide(.firstTextBaseline) { dimensions in
       dimensions[VerticalAlignment.center] + baselineOffset
@@ -66,6 +69,7 @@ private struct AvatarRepresentable: NSViewRepresentable {
   let displayName: String?
   let avatarUrl: String?
   let imageLoader: ImageLoader?
+  let contactsRevision: Int
 
   func makeNSView(context: Context) -> AvatarView {
     let view = AvatarView()

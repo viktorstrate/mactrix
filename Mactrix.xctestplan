@@ -34,6 +34,13 @@
         "identifier" : "MessageFormattingTests",
         "name" : "MessageFormattingTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "ContactLinkingTests",
+        "name" : "ContactLinkingTests"
+      }
     }
   ],
   "version" : 1

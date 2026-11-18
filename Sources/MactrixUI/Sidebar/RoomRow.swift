@@ -76,7 +76,8 @@ public struct RoomRow: View {
       icon: {
         if avatarUrl != nil || roomInfo?.isDirect == true {
           AvatarImage(
-            userID: title, kind: roomInfo?.isDirect == true ? .user : .room,
+            userID: roomInfo?.directUserId ?? title,
+            kind: roomInfo?.isDirect == true ? .user : .room,
             displayName: roomInfo?.displayName, avatarUrl: avatarUrl,
             imageLoader: imageLoader
           )

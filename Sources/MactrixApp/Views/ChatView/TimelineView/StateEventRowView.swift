@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MatrixRustSDK
 import Utils
 
@@ -199,6 +200,7 @@ final class StateEventRowView: NSView {
     _ text: String, userId: String? = nil
   ) -> NSAttributedString {
     let isName = userId != nil
+    let text = userId.flatMap { ContactDirectory.shared.contactName(for: $0) } ?? text
     let size = TimelineTypography.scaled(NSFont.systemFontSize)
     let font =
       isName
