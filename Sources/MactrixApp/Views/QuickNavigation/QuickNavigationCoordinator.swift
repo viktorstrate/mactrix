@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MatrixIntegration
 import SwiftUI
 
@@ -104,12 +105,15 @@ final class QuickNavigationCoordinator: NSObject {
         }
       let roomAvatar = info == nil ? entry.room.avatarUrl() : info?.avatarUrl
       let directAvatar = info?.heroes.first { $0.userId != ownUserID }?.avatarUrl
+      let directUserID = kind == .direct ? info?.directUserId : nil
       return QuickNavigationCandidate(
         id: entry.id,
         displayName: info == nil ? entry.room.displayName() : info?.displayName,
         canonicalAlias: info == nil ? entry.room.canonicalAlias() : info?.canonicalAlias,
         avatarUrl: kind == .direct ? directAvatar ?? roomAvatar : roomAvatar,
-        kind: kind)
+        kind: kind,
+        contactName: directUserID.flatMap { ContactDirectory.shared.contactName(for: $0) },
+        directUserID: directUserID)
     }
   }
 
@@ -117,7 +121,7 @@ final class QuickNavigationCoordinator: NSObject {
     guard navigationView === view, self.matrixClient === matrixClient else { return }
 
     let updated = withObservationTracking {
-      candidates(from: matrixClient)
+      (candidates: candidates(from: matrixClient), revision: ContactDirectory.shared.revision)
     } onChange: { [weak self, weak matrixClient, weak view] in
       Task { @MainActor [weak self, weak matrixClient, weak view] in
         guard let self, let matrixClient, let view else { return }
@@ -125,7 +129,8 @@ final class QuickNavigationCoordinator: NSObject {
         observeRooms(matrixClient, for: view)
       }
     }
-    view.session.updateCandidates(updated)
+    view.session.updateCandidates(updated.candidates)
+    view.contactRevision = updated.revision
   }
 
   func cancel() {

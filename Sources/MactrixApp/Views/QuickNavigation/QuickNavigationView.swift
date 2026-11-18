@@ -1,4 +1,5 @@
 import AppKit
+import ContactLinking
 import MactrixUI
 import Observation
 
@@ -80,6 +81,13 @@ final class QuickNavigationView: NSView {
   var onPreferredSizeChange: (() -> Void)?
   weak var imageLoader: ImageLoader? {
     didSet { synchronize(reloadResults: true) }
+  }
+
+  var contactRevision = 0 {
+    didSet {
+      // Photos can change without changing any searchable candidate metadata.
+      if contactRevision != oldValue { synchronize(reloadResults: true) }
+    }
   }
 
   private var displayedResults: [QuickNavigationCandidate] = []
@@ -429,16 +437,21 @@ final class QuickNavigationCellView: NSTableCellView {
   }
 
   func configure(candidate: QuickNavigationCandidate, imageLoader: ImageLoader?) {
-    nameLabel.stringValue = candidate.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? candidate.id
+    nameLabel.stringValue = candidate.resolvedDisplayName
     detailLabel.stringValue =
       candidate.canonicalAlias.flatMap { $0.isEmpty ? nil : $0 } ?? candidate.id
     let avatarUrl = candidate.avatarUrl.flatMap { $0.isEmpty ? nil : $0 }
-    avatar.isHidden = avatarUrl == nil
+    let hasContactImage =
+      candidate.directUserID.flatMap {
+        ContactDirectory.shared.contactImage(for: $0)
+      } != nil
+    avatar.isHidden = avatarUrl == nil && !hasContactImage
     fallbackIcon.isHidden = !avatar.isHidden
     fallbackIcon.image = NSImage(
       systemSymbolName: candidate.kind.fallbackSymbolName, accessibilityDescription: nil)
     avatar.configure(
-      userID: candidate.id, displayName: candidate.displayName, avatarUrl: avatarUrl,
+      userID: candidate.directUserID ?? candidate.id, displayName: candidate.resolvedDisplayName,
+      avatarUrl: avatarUrl,
       kind: candidate.kind == .direct ? .user : .room, imageLoader: imageLoader)
   }
 }

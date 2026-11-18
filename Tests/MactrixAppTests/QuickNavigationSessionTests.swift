@@ -114,6 +114,51 @@ struct QuickNavigationSessionTests {
     #expect(session.results == [name, alias, id])
   }
 
+  @Test func searchesContactAndMatrixNamesUsingTheBestNameMatch() {
+    let session = QuickNavigationSession()
+    let linked = QuickNavigationCandidate(
+      id: "!alice:example.org", displayName: "Alice", canonicalAlias: nil,
+      kind: .direct, contactName: "Alice Café")
+    let prefix = room("Alice Team")
+    let alias = QuickNavigationCandidate(
+      id: "!alias:example.org", displayName: "Other", canonicalAlias: "#alice:example.org")
+    session.updateCandidates([alias, prefix, linked])
+
+    session.updateQuery("alice")
+    #expect(session.results == [linked, prefix, alias])
+    #expect(linked.resolvedDisplayName == "Alice Café")
+
+    session.updateQuery("ALCF")
+    #expect(session.results == [linked])
+  }
+
+  @Test func contactNameUpdatesReindexWithoutResettingQueryOrSelection() {
+    let session = QuickNavigationSession()
+    let linked = QuickNavigationCandidate(
+      id: "!dm:example.org", displayName: "Matrix Name", canonicalAlias: nil,
+      kind: .direct, contactName: "Alice")
+    session.updateCandidates([linked])
+    session.updateQuery("ali")
+
+    let renamed = QuickNavigationCandidate(
+      id: linked.id, displayName: linked.displayName, canonicalAlias: nil,
+      kind: .direct, contactName: "Alicia")
+    session.updateCandidates([renamed])
+    #expect(session.query == "ali")
+    #expect(session.highlightedCandidate == renamed)
+
+    let unlinked = QuickNavigationCandidate(
+      id: linked.id, displayName: linked.displayName, canonicalAlias: nil, kind: .direct)
+    session.updateCandidates([unlinked])
+    #expect(session.query == "ali")
+    #expect(session.results.isEmpty)
+    #expect(session.highlightedCandidate == nil)
+    #expect(unlinked.resolvedDisplayName == "Matrix Name")
+
+    session.updateQuery("mtrx")
+    #expect(session.results == [unlinked])
+  }
+
   @Test func wordBoundariesBeatMidWordMatches() {
     let session = QuickNavigationSession()
     let boundary = room("X ab cd")

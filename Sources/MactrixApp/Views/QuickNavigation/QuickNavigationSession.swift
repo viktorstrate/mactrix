@@ -17,19 +17,27 @@ struct QuickNavigationCandidate: Equatable, Identifiable, Sendable {
 
   let id: String
   let displayName: String?
+  let contactName: String?
+  let directUserID: String?
   let canonicalAlias: String?
   let avatarUrl: String?
   let kind: Kind
 
   init(
     id: String, displayName: String?, canonicalAlias: String?, avatarUrl: String? = nil,
-    kind: Kind = .room
+    kind: Kind = .room, contactName: String? = nil, directUserID: String? = nil
   ) {
     self.id = id
     self.displayName = displayName
+    self.contactName = contactName
+    self.directUserID = directUserID
     self.canonicalAlias = canonicalAlias
     self.avatarUrl = avatarUrl
     self.kind = kind
+  }
+
+  var resolvedDisplayName: String {
+    [contactName, displayName].compactMap { $0 }.first { !$0.isEmpty } ?? id
   }
 }
 
@@ -95,19 +103,21 @@ final class QuickNavigationSession {
 
 private struct IndexedCandidate {
   let candidate: QuickNavigationCandidate
-  let fields: [SearchText]
+  let fields: [[SearchText]]
 
   init(_ candidate: QuickNavigationCandidate) {
     self.candidate = candidate
-    fields = [candidate.displayName, candidate.canonicalAlias, candidate.id].map {
-      SearchText($0 ?? "")
-    }
+    fields = [
+      [candidate.contactName, candidate.displayName],
+      [candidate.canonicalAlias],
+      [candidate.id],
+    ].map { $0.compactMap { $0 }.map(SearchText.init) }
   }
 
   func rank(for query: [Character]) -> SearchRank? {
     // A name match takes precedence over aliases, then room IDs.
     for (index, field) in fields.enumerated() {
-      if let match = field.match(query) {
+      if let match = field.compactMap({ $0.match(query) }).max() {
         return SearchRank(fieldPriority: fields.count - index, match: match)
       }
     }
