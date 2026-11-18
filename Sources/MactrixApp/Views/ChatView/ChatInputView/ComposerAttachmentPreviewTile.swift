@@ -68,7 +68,9 @@ final class ComposerAttachmentPreviewTile: NSView {
 
   override func viewDidChangeEffectiveAppearance() {
     super.viewDidChangeEffectiveAppearance()
-    removeButton.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+    effectiveAppearance.performAsCurrentDrawingAppearance {
+      removeButton.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+    }
   }
 
   func update(attachment: ComposerAttachment) {

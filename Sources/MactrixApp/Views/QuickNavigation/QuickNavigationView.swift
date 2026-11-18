@@ -2,8 +2,70 @@ import AppKit
 import MactrixUI
 import Observation
 
-@MainActor
-final class QuickNavigationView: NSVisualEffectView {
+protocol QuickNavigationContainer: NSView {
+  init(navigationView: QuickNavigationView)
+  var navigationView: QuickNavigationView { get }
+}
+
+@available(macOS 26.0, *)
+final class QuickNavigationGlassView: NSGlassEffectView, QuickNavigationContainer {
+  let navigationView: QuickNavigationView
+
+  init(navigationView: QuickNavigationView) {
+    self.navigationView = navigationView
+    super.init(frame: NSRect(origin: .zero, size: navigationView.preferredSize))
+
+    style = .regular
+    tintColor = .controlBackgroundColor.withAlphaComponent(0.5)
+    cornerRadius = 16
+    contentView = navigationView
+  }
+
+  required init?(coder: NSCoder) { return nil }
+
+  override func viewDidChangeEffectiveAppearance() {
+    super.viewDidChangeEffectiveAppearance()
+    effectiveAppearance.performAsCurrentDrawingAppearance {
+      tintColor = .controlBackgroundColor.withAlphaComponent(0.5)
+    }
+  }
+}
+
+final class QuickNavigationFallbackView: NSView, QuickNavigationContainer {
+  let navigationView: QuickNavigationView
+
+  init(navigationView: QuickNavigationView) {
+    self.navigationView = navigationView
+    super.init(frame: NSRect(origin: .zero, size: navigationView.preferredSize))
+
+    wantsLayer = true
+    layer?.masksToBounds = false
+
+    let shadow = NSShadow()
+    shadow.shadowColor = NSColor.black.withAlphaComponent(0.3)
+    shadow.shadowBlurRadius = 20
+    shadow.shadowOffset = NSSize(width: 0, height: -6)
+    self.shadow = shadow
+
+    let effectView = NSVisualEffectView(
+      frame: NSRect(origin: .zero, size: navigationView.preferredSize))
+    effectView.material = .popover
+    effectView.blendingMode = .withinWindow
+    effectView.state = .active
+    effectView.wantsLayer = true
+    effectView.layer?.cornerRadius = 16
+    effectView.layer?.masksToBounds = true
+
+    navigationView.frame = bounds
+    navigationView.autoresizingMask = [.width, .height]
+    effectView.addSubview(navigationView)
+    addSubview(effectView)
+  }
+
+  required init?(coder: NSCoder) { nil }
+}
+
+final class QuickNavigationView: NSView {
   static let rowHeight: CGFloat = 52
   private static let headerHeight: CGFloat = 64
   private static let resultsPadding: CGFloat = 8
@@ -30,12 +92,9 @@ final class QuickNavigationView: NSVisualEffectView {
   init(session: QuickNavigationSession) {
     self.session = session
     super.init(frame: .zero)
-    material = .popover
-    blendingMode = .withinWindow
-    state = .active
-    wantsLayer = true
-    layer?.cornerRadius = 16
-    layer?.masksToBounds = true
+
+    // wantsLayer = true
+    // layer?.backgroundColor = NSColor.clear.cgColor
 
     let searchIcon = NSImageView()
     searchIcon.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)

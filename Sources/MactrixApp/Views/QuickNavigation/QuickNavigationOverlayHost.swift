@@ -73,7 +73,7 @@ struct QuickNavigationOverlayAttachment: NSViewRepresentable {
 
 @MainActor
 final class QuickNavigationOverlayHost: NSView {
-  private(set) var surface: QuickNavigationShadowView?
+  private(set) var surface: (any QuickNavigationContainer)?
   var onWindowChange: (() -> Void)?
 
   override var isFlipped: Bool { true }
@@ -85,7 +85,12 @@ final class QuickNavigationOverlayHost: NSView {
 
   func present(_ navigationView: QuickNavigationView) {
     removeNavigation()
-    let surface = QuickNavigationShadowView(navigationView: navigationView)
+    let surface: any QuickNavigationContainer
+    if #available(macOS 26.0, *) {
+      surface = QuickNavigationGlassView(navigationView: navigationView)
+    } else {
+      surface = QuickNavigationFallbackView(navigationView: navigationView)
+    }
     self.surface = surface
     addSubview(surface)
     layoutNavigation()
@@ -135,27 +140,4 @@ final class QuickNavigationOverlayHost: NSView {
     guard let surface, surface.frame.contains(convert(point, from: superview)) else { return nil }
     return super.hitTest(point)
   }
-}
-
-/// The material clips its corners; this separate, transparent layer lets its shadow extend outside.
-@MainActor
-final class QuickNavigationShadowView: NSView {
-  let navigationView: QuickNavigationView
-
-  init(navigationView: QuickNavigationView) {
-    self.navigationView = navigationView
-    super.init(frame: NSRect(origin: .zero, size: navigationView.preferredSize))
-    wantsLayer = true
-    layer?.masksToBounds = false
-    let shadow = NSShadow()
-    shadow.shadowColor = NSColor.black.withAlphaComponent(0.3)
-    shadow.shadowBlurRadius = 20
-    shadow.shadowOffset = NSSize(width: 0, height: -6)
-    self.shadow = shadow
-    navigationView.frame = bounds
-    navigationView.autoresizingMask = [.width, .height]
-    addSubview(navigationView)
-  }
-
-  required init?(coder: NSCoder) { nil }
 }

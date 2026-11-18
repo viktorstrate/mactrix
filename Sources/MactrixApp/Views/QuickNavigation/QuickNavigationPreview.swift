@@ -2,10 +2,11 @@
   import AppKit
   import SwiftUI
 
+  @available(macOS 26.0, *)
   private struct QuickNavigationPreview: NSViewRepresentable {
     var query = ""
 
-    func makeNSView(context: Context) -> QuickNavigationShadowView {
+    func makeNSView(context: Context) -> QuickNavigationGlassView {
       let session = QuickNavigationSession()
       session.updateCandidates([
         .init(
@@ -28,18 +29,20 @@
         .init(id: "!unnamed:example.org", displayName: nil, canonicalAlias: nil),
       ])
       session.updateQuery(query)
-      return QuickNavigationShadowView(navigationView: QuickNavigationView(session: session))
+      return QuickNavigationGlassView(navigationView: QuickNavigationView(session: session))
     }
 
-    func updateNSView(_ nsView: QuickNavigationShadowView, context: Context) {}
+    func updateNSView(_ nsView: QuickNavigationGlassView, context: Context) {}
   }
 
+  @available(macOS 26.0, *)
   #Preview("Quick Navigation") {
     QuickNavigationPreview()
       .frame(width: 640, height: 497)
       .padding(24)
   }
 
+  @available(macOS 26.0, *)
   #Preview("Quick Navigation — No Results") {
     QuickNavigationPreview(query: "no matching room")
       .frame(width: 640, height: 133)
