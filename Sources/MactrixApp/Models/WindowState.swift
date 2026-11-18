@@ -81,6 +81,36 @@ public final class WindowState {
     )
   }
 
+  func loadSelectedRoom(using matrixClient: MatrixClient) async {
+    let roomID = selectedRoomId
+    do {
+      Logger.viewCycle.debug("Selected room: \(roomID.debugDescription)")
+      guard let roomID else {
+        selectedScreen = .none
+        return
+      }
+
+      if case .joinedRoom(let timeline) = selectedScreen, timeline.room.id == roomID {
+        return
+      }
+
+      if let room = try matrixClient.client.getRoom(roomId: roomID) {
+        selectedScreen = .joinedRoom(
+          timeline: LiveTimeline(room: LiveRoom(matrixRoom: room, matrixClient: matrixClient)))
+      } else {
+        let preview = try await matrixClient.client.getRoomPreviewFromRoomId(
+          roomId: roomID, viaServers: ["matrix.org"])
+        try Task.checkCancellation()
+        guard selectedRoomId == roomID else { return }
+        selectedScreen = .previewRoom(preview)
+      }
+    } catch is CancellationError {
+      // A subsequent room selection superseded this request.
+    } catch {
+      Logger.viewCycle.error("Failed to get room \(error)")
+    }
+  }
+
   public func toggleInspector() {
     if inspectorVisible {
       if inspectorContent == .roomInfo {

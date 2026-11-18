@@ -1,10 +1,12 @@
 import AppKit
+import MatrixIntegration
 import SwiftUI
 
 /// Resolves the scene's window, then installs above its entire content tree, including inspectors.
 struct QuickNavigationOverlayAttachment: NSViewRepresentable {
   let coordinator: QuickNavigationCoordinator
-  var isSignedIn = false
+  let matrixClient: MatrixClient?
+  let onSelectRoom: (String) -> Void
 
   func makeNSView(context: Context) -> AttachmentView {
     AttachmentView(coordinator: coordinator)
@@ -15,7 +17,7 @@ struct QuickNavigationOverlayAttachment: NSViewRepresentable {
       nsView.uninstall()
       nsView.coordinator = coordinator
     }
-    coordinator.isSignedIn = isSignedIn
+    coordinator.configure(matrixClient: matrixClient, onSelectRoom: onSelectRoom)
     nsView.installIfNeeded()
   }
 

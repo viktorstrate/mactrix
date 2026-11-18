@@ -1,4 +1,5 @@
 import AppKit
+import MatrixIntegration
 import SwiftUI
 
 /// Owns one main window's navigation session without creating or activating another window.
@@ -9,10 +10,20 @@ final class QuickNavigationCoordinator: NSObject {
   private var navigationView: QuickNavigationView? { host?.surface?.navigationView }
   private weak var previousResponder: NSResponder?
   private var eventMonitor: Any?
+  @ObservationIgnored private weak var matrixClient: MatrixClient?
+  @ObservationIgnored private var onSelectRoom: ((String) -> Void)?
+
   var isSignedIn = false {
     didSet {
       if !isSignedIn { dismiss() }
     }
+  }
+
+  func configure(matrixClient: MatrixClient?, onSelectRoom: @escaping (String) -> Void) {
+    if self.matrixClient !== matrixClient { dismiss() }
+    self.matrixClient = matrixClient
+    self.onSelectRoom = onSelectRoom
+    isSignedIn = matrixClient != nil
   }
 
   func attach(to host: QuickNavigationOverlayHost?) {
@@ -23,7 +34,19 @@ final class QuickNavigationCoordinator: NSObject {
 
   func toggle() {
     if navigationView == nil {
-      present()
+      guard let matrixClient else { return }
+      present(candidates: candidates(from: matrixClient)) {
+        [weak self, weak matrixClient] candidate in
+        // Observation delivery is deferred; validate against the current list at submission too.
+        guard let self, let matrixClient, self.matrixClient === matrixClient,
+          matrixClient.rooms.contains(where: { $0.id == candidate.id })
+        else { return }
+        onSelectRoom?(candidate.id)
+      }
+      if let navigationView {
+        navigationView.imageLoader = matrixClient
+        observeRooms(matrixClient, for: navigationView)
+      }
     } else {
       cancel()
     }
@@ -64,6 +87,33 @@ final class QuickNavigationCoordinator: NSObject {
     if !parent.makeFirstResponder(navigationView.searchField) {
       cancel()
     }
+  }
+
+  private func candidates(from matrixClient: MatrixClient) -> [QuickNavigationCandidate] {
+    matrixClient.rooms.map { entry in
+      // Read observable roomInfo, not just SDK getters, so metadata updates invalidate the list.
+      let info = entry.roomInfo
+      return QuickNavigationCandidate(
+        id: entry.id,
+        displayName: info == nil ? entry.room.displayName() : info?.displayName,
+        canonicalAlias: info == nil ? entry.room.canonicalAlias() : info?.canonicalAlias,
+        avatarUrl: info == nil ? entry.room.avatarUrl() : info?.avatarUrl)
+    }
+  }
+
+  private func observeRooms(_ matrixClient: MatrixClient, for view: QuickNavigationView) {
+    guard navigationView === view, self.matrixClient === matrixClient else { return }
+
+    let updated = withObservationTracking {
+      candidates(from: matrixClient)
+    } onChange: { [weak self, weak matrixClient, weak view] in
+      Task { @MainActor [weak self, weak matrixClient, weak view] in
+        guard let self, let matrixClient, let view else { return }
+        // A callback from a dismissed presentation must not update a later session.
+        observeRooms(matrixClient, for: view)
+      }
+    }
+    view.session.updateCandidates(updated)
   }
 
   func cancel() {

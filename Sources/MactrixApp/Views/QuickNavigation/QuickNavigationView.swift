@@ -16,18 +16,17 @@ final class QuickNavigationGlassView: NSGlassEffectView, QuickNavigationContaine
     super.init(frame: NSRect(origin: .zero, size: navigationView.preferredSize))
 
     style = .regular
-    tintColor = .controlBackgroundColor.withAlphaComponent(0.5)
     cornerRadius = 16
     contentView = navigationView
   }
 
   required init?(coder: NSCoder) { return nil }
 
-  override func viewDidChangeEffectiveAppearance() {
-    super.viewDidChangeEffectiveAppearance()
-    effectiveAppearance.performAsCurrentDrawingAppearance {
-      tintColor = .controlBackgroundColor.withAlphaComponent(0.5)
-    }
+  override var wantsUpdateLayer: Bool { true }
+
+  override func updateLayer() {
+    super.updateLayer()
+    tintColor = .controlBackgroundColor.withAlphaComponent(0.5)
   }
 }
 
