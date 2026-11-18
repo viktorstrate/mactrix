@@ -29,22 +29,29 @@ final class MessageHoverOverlayView: NSView {
 
   private var isPresentingMenu = false
 
-  private let reactionPickerButton = HoverActionButton(symbol: "face.smiling", label: "React")
+  private let reactionPickerButton = HoverActionButton(
+    symbol: "face.smiling", label: String(localized: "React"))
   private let stack = NSStackView()
   private let quickReactionButtons = (0..<5).map { _ in HoverActionButton(emoji: "", label: "") }
   private let reactionDivider = NSView()
-  private let moreButton = HoverActionButton(symbol: "ellipsis", label: "More actions")
+  private let moreButton = HoverActionButton(
+    symbol: "ellipsis", label: String(localized: "More actions"))
   private let downloadMenuItem = NSMenuItem(
-    title: "Download to File", action: #selector(downloadToFile(_:)), keyEquivalent: "")
+    title: String(localized: "Download to File"), action: #selector(downloadToFile(_:)),
+    keyEquivalent: "")
   private let pinMenuItem = NSMenuItem(
-    title: "Pin Message", action: #selector(pinMessage), keyEquivalent: "")
+    title: String(localized: "Pin Message"), action: #selector(pinMessage), keyEquivalent: "")
   private let copyLinkMenuItem = NSMenuItem(
-    title: "Copy Message Link", action: #selector(copyMessageLink), keyEquivalent: "")
+    title: String(localized: "Copy Message Link"), action: #selector(copyMessageLink),
+    keyEquivalent: "")
   private let deleteMenuItem = NSMenuItem(
-    title: "Delete Message", action: #selector(deleteMessage), keyEquivalent: "")
-  private let editButton = HoverActionButton(symbol: "pencil", label: "Edit message")
-  private let replyButton = HoverActionButton(symbol: "arrowshape.turn.up.left", label: "Reply")
-  private let threadButton = HoverActionButton(symbol: "ellipsis.message", label: "Reply in thread")
+    title: String(localized: "Delete message"), action: #selector(deleteMessage), keyEquivalent: "")
+  private let editButton = HoverActionButton(
+    symbol: "pencil", label: String(localized: "Edit message"))
+  private let replyButton = HoverActionButton(
+    symbol: "arrowshape.turn.up.left", label: String(localized: "Reply"))
+  private let threadButton = HoverActionButton(
+    symbol: "ellipsis.message", label: String(localized: "Reply in thread"))
 
   init() {
     super.init(frame: .zero)
@@ -110,7 +117,7 @@ final class MessageHoverOverlayView: NSView {
     menu.autoenablesItems = false
 
     let sourceMenuItem = NSMenuItem(
-      title: "Show Source", action: #selector(showSource), keyEquivalent: "")
+      title: String(localized: "Show Source"), action: #selector(showSource), keyEquivalent: "")
 
     pinMenuItem.target = self
 
@@ -118,23 +125,24 @@ final class MessageHoverOverlayView: NSView {
 
     downloadMenuItem.target = self
     downloadMenuItem.image = NSImage(
-      systemSymbolName: "arrow.down.to.line", accessibilityDescription: "Download to File")
+      systemSymbolName: "arrow.down.to.line",
+      accessibilityDescription: downloadMenuItem.title)
     menu.addItem(downloadMenuItem)
 
     copyLinkMenuItem.target = self
     copyLinkMenuItem.image = NSImage(
-      systemSymbolName: "link", accessibilityDescription: "Copy Message Link")
+      systemSymbolName: "link", accessibilityDescription: copyLinkMenuItem.title)
     menu.addItem(copyLinkMenuItem)
 
     sourceMenuItem.target = self
     sourceMenuItem.image = NSImage(
       systemSymbolName: "chevron.left.forwardslash.chevron.right",
-      accessibilityDescription: "Show Source")
+      accessibilityDescription: sourceMenuItem.title)
     menu.addItem(sourceMenuItem)
 
     deleteMenuItem.target = self
     deleteMenuItem.image = NSImage(
-      systemSymbolName: "trash", accessibilityDescription: "Delete message")
+      systemSymbolName: "trash", accessibilityDescription: deleteMenuItem.title)
     menu.addItem(deleteMenuItem)
 
     moreButton.menu = menu
@@ -177,7 +185,8 @@ final class MessageHoverOverlayView: NSView {
       }
       downloadMenuItem.submenu = submenu
     }
-    pinMenuItem.title = isPinned ? "Unpin Message" : "Pin Message"
+    pinMenuItem.title =
+      isPinned ? String(localized: "Unpin Message") : String(localized: "Pin Message")
     pinMenuItem.image = NSImage(
       systemSymbolName: isPinned ? "pin.fill" : "pin",
       accessibilityDescription: pinMenuItem.title)
@@ -203,8 +212,8 @@ final class MessageHoverOverlayView: NSView {
       }
       let key = keys[index]
       button.title = key
-      button.toolTip = "React with \(key)"
-      button.setAccessibilityLabel("React with \(key)")
+      button.toolTip = String(localized: "React with \(key)")
+      button.setAccessibilityLabel(String(localized: "React with \(key)"))
       button.onClick = { [weak self] in self?.onAction?(.reaction(key)) }
       button.isHidden = false
     }

@@ -129,16 +129,19 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
     }
   }
 
-  private var roomTitle: String {
-    ContactDirectory.shared.roomTitle(
-      roomName: room.displayName(), roomInfo: timeline.room.roomInfo) ?? "room"
+  private var placeholder: String {
+    guard
+      let roomTitle = ContactDirectory.shared.roomTitle(
+        roomName: room.displayName(), roomInfo: timeline.room.roomInfo)
+    else { return String(localized: "Message") }
+    return String(localized: "Message \(roomTitle)")
   }
 
   /// Only replace externally changed text; ordinary editing preserves selection and undo.
   func synchronizeEditor() {
     editorSession.synchronize(
       text: composer.text, enabled: composer.isDraftLoaded,
-      placeholder: "Message \(roomTitle)", fontSize: fontSize)
+      placeholder: placeholder, fontSize: fontSize)
     let enabled = composer.isDraftLoaded
     container.dropDestination.enabled = enabled
     switch composer.reply {

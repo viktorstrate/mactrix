@@ -16,9 +16,9 @@ final class StateEventRowView: NSView {
       let button = NSButton()
       button.isBordered = false
       button.font = .systemFont(ofSize: TimelineTypography.scaled(NSFont.systemFontSize))
-      button.title = "Expand"
+      button.title = String(localized: "Expand")
       let expand = button.intrinsicContentSize.width
-      button.title = "Collapse"
+      button.title = String(localized: "Collapse")
       return ceil(max(expand, button.intrinsicContentSize.width))
     }
   }
@@ -37,7 +37,7 @@ final class StateEventRowView: NSView {
 
   private static let timeFormatter: DateFormatter = {
     let formatter = DateFormatter()
-    formatter.dateFormat = "HH:mm"
+    formatter.setLocalizedDateFormatFromTemplate("Hm")
     return formatter
   }()
 
@@ -83,8 +83,10 @@ final class StateEventRowView: NSView {
     showsButton = items.count > 1
     let expanded = expanded && showsButton
     expandButton.isHidden = !showsButton
-    expandButton.title = expanded ? "Collapse" : "Expand"
-    expandButton.setAccessibilityLabel(expanded ? "Collapse state changes" : "Expand state changes")
+    expandButton.title = expanded ? String(localized: "Collapse") : String(localized: "Expand")
+    expandButton.setAccessibilityLabel(
+      expanded
+        ? String(localized: "Collapse state changes") : String(localized: "Expand state changes"))
     expandButton.setAccessibilityExpanded(expanded)
     stackTrailing.constant = -Self.trailingSpace(showsButton: showsButton)
 

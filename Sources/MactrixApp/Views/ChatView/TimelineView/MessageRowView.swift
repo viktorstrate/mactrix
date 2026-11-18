@@ -33,7 +33,7 @@ final class MessageRowView: NSView {
   private static let receiptSpacing: CGFloat = 10
 
   private let timestamp = NSTextField(labelWithString: "")
-  private let editedLabel = NSTextField(labelWithString: "(edited)")
+  private let editedLabel = NSTextField(labelWithString: String(localized: "(edited)"))
   private lazy var timestampWidthConstraint = timestamp.widthAnchor.constraint(
     equalToConstant: Self.timestampWidth)
   private let contentView: any MessageContentRowView
@@ -71,7 +71,7 @@ final class MessageRowView: NSView {
 
   private static let timeFormatter: DateFormatter = {
     let formatter = DateFormatter()
-    formatter.dateFormat = "HH:mm"
+    formatter.setLocalizedDateFormatFromTemplate("Hm")
     return formatter
   }()
 

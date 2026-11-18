@@ -16,9 +16,9 @@ struct SearchUserInspectorView: View {
       Section("User search results") {
         if searching {
           Group {
-            Text("First user")
-            Text("Second user")
-            Text("Third user")
+            Text(verbatim: "First user")
+            Text(verbatim: "Second user")
+            Text(verbatim: "Third user")
           }.redacted(reason: .placeholder)
         } else {
           ForEach(searchedUsers) { user in

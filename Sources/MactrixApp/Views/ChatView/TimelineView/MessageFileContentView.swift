@@ -247,7 +247,7 @@ private final class FilePreviewButton: NSButton {
     filenameLabel.stringValue = filename
     sizeLabel.stringValue = size ?? ""
     sizeLabel.isHidden = size == nil
-    toolTip = "Preview \(filename)"
+    toolTip = String(localized: "Preview \(filename)")
   }
 
   func setIcon(_ icon: NSImage) {

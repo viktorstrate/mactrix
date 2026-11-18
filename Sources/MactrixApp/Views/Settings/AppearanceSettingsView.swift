@@ -14,7 +14,7 @@ struct AppearanceSettingsView: View {
       }
       Picker("Font size", selection: $fontSize) {
         ForEach(8..<25) {
-          Text("\($0)")
+          Text(verbatim: "\($0)")
             .tag($0)
         }
       }

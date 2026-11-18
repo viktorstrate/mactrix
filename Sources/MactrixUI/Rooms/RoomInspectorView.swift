@@ -42,7 +42,8 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
     title: LocalizedStringResource, allMembers: [RoomMember], withRole role: RoomMemberRole
   ) -> some View {
     let roleMembers = allMembers.filter { $0.roleForPowerLevel == role }
-    Section("\(title) (\(roleMembers.count))") {
+    let sectionTitle = "\(String(localized: title)) (\(roleMembers.count))"
+    Section(sectionTitle) {
       ForEach(roleMembers) { member in
         Button(action: { onSelectUser(member) }) {
           RoomInspectorMemberRow(member: member, imageLoader: imageLoader)
@@ -67,7 +68,7 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
 
         Text(
           ContactDirectory.shared.roomTitle(roomName: room.displayName, roomInfo: roomInfo)
-            ?? "Unknown room"
+            ?? String(localized: "Unknown room")
         )
         .font(.title)
         .textSelection(.enabled)
@@ -95,16 +96,20 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
   @ViewBuilder
   var usersPlaceholder: some View {
     Group {
-      Section("Admins (2)") {
-        Text("First admin")
-        Text("Second admin")
+      Section {
+        Text(verbatim: "First admin")
+        Text(verbatim: "Second admin")
+      } header: {
+        Text(verbatim: "Admins (2)")
       }
 
-      Section("Users (4)") {
-        Text("First user")
-        Text("Second user")
-        Text("Third user")
-        Text("Fourth user")
+      Section {
+        Text(verbatim: "First user")
+        Text(verbatim: "Second user")
+        Text(verbatim: "Third user")
+        Text(verbatim: "Fourth user")
+      } header: {
+        Text(verbatim: "Users (4)")
       }
     }
     .redacted(reason: .placeholder)
@@ -120,10 +125,12 @@ public struct RoomInspectorView<Room: MatrixProtocols.Room, RoomMember: MatrixPr
 
       if let roomInfo {
         Section("Extra room info") {
-          Text("Room version: \(roomInfo.roomVersion, default: "Unknown")")
+          Text("Room version: \(roomInfo.roomVersion, default: String(localized: "Unknown"))")
           Text("Notification count: \(roomInfo.notificationCount)")
           Text("Highlight count: \(roomInfo.highlightCount)")
-          Text("Marked unread: \(roomInfo.isMarkedUnread.description)")
+          Text(
+            "Marked unread: \(roomInfo.isMarkedUnread ? String(localized: "Yes") : String(localized: "No"))"
+          )
           Text("Unread mentions: \(roomInfo.numUnreadMentions)")
           Text("Unread messages: \(roomInfo.numUnreadMessages)")
           Text("Unread notifications: \(roomInfo.numUnreadNotifications)")

@@ -48,6 +48,16 @@ xed Mactrix.xcworkspace
 
 Then open the project in Xcode and build using `Cmd+B`.
 
+### Translations
+
+Mactrix is available in English and German. All translations live in a single string catalog in the app target, `Mactrix/Localizable.xcstrings`, because the UI code in the Swift package looks up strings in the app's main bundle. Xcode doesn't add strings from the package to this catalog by itself, so after adding or changing user-facing strings, run:
+
+```bash
+scripts/sync-strings.sh
+```
+
+The script builds the app and syncs the catalog with the strings found in the package sources. New strings then show up in Xcode's catalog editor for translation.
+
 ### Completed Feature List
 
 - [ ] Authentication

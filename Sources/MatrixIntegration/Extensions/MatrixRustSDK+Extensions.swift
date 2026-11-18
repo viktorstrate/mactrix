@@ -225,23 +225,24 @@ extension MatrixRustSDK.TimelineItemContent {
   public var userInterfaceText: String {
     switch self {
     case .callInvite:
-      return "call invite"
+      return String(localized: "call invite")
     case .msgLike(let content):
       return content.kind.userInterfaceText
     case .rtcNotification:
-      return "rtc notification"
+      return String(localized: "rtc notification")
     case .roomMembership(let userId, userDisplayName: _, let change, let reason):
       return Self.roomMembershipDescription(userId: userId, change: change, reason: reason)
     case .profileChange(let displayName, let prevDisplayName, let avatarUrl, let prevAvatarUrl):
       switch (displayName, prevDisplayName, avatarUrl, prevAvatarUrl) {
       case (.some(_), .some(_), .some(_), .some(_)):
-        return "changed their display name and avatar"
+        return String(localized: "changed their display name and avatar")
       case (.some(let displayName), .some(let prevDisplayName), _, _):
-        return "changed their display name from \(prevDisplayName) to \(displayName)"
+        return String(
+          localized: "changed their display name from \(prevDisplayName) to \(displayName)")
       case (_, _, .some(_), .some(_)):
-        return "changed their avatar"
+        return String(localized: "changed their avatar")
       case _:
-        return "unknown profile change"
+        return String(localized: "unknown profile change")
       }
     case .state(stateKey: _, let content):
       return content.description
@@ -258,45 +259,45 @@ extension MatrixRustSDK.TimelineItemContent {
     let changeMsg =
       switch change {
       case nil:
-        "unknown membership change event"
+        String(localized: "unknown membership change event")
       case .some(.none):
-        "room membership event was none"
+        String(localized: "room membership event was none")
       case .banned:
-        "banned \(userId)"
+        String(localized: "banned \(userId)")
       case .error:
-        "room membership event error"
+        String(localized: "room membership event error")
       case .joined:
-        "joined room"
+        String(localized: "joined room")
       case .left:
-        "left the room"
+        String(localized: "left the room")
       case .unbanned:
-        "unbanned \(userId)"
+        String(localized: "unbanned \(userId)")
       case .kicked:
-        "kicked \(userId)"
+        String(localized: "kicked \(userId)")
       case .invited:
-        "invited \(userId)"
+        String(localized: "invited \(userId)")
       case .kickedAndBanned:
-        "kicked and banned \(userId)"
+        String(localized: "kicked and banned \(userId)")
       case .invitationAccepted:
-        "accepted invitiation to join the room"
+        String(localized: "accepted invitation to join the room")
       case .invitationRejected:
-        "rejected invitiation to join the room"
+        String(localized: "rejected invitation to join the room")
       case .invitationRevoked:
-        "revoked invitiation for \(userId) to join the room"
+        String(localized: "revoked invitation for \(userId) to join the room")
       case .knocked:
-        "requested to join the room"
+        String(localized: "requested to join the room")
       case .knockAccepted:
-        "accepted join request from \(userId)"
+        String(localized: "accepted join request from \(userId)")
       case .knockRetracted:
-        "request to join the room was retracted"
+        String(localized: "request to join the room was retracted")
       case .knockDenied:
-        "denied join request from \(userId)"
+        String(localized: "denied join request from \(userId)")
       case .notImplemented:
-        "room membership event not implemented"
+        String(localized: "room membership event not implemented")
       }
 
     return if let reason {
-      "\(changeMsg) because \(reason)"
+      String(localized: "\(changeMsg) because \(reason)")
     } else {
       changeMsg
     }
@@ -309,18 +310,19 @@ extension MatrixRustSDK.MsgLikeKind {
     case .message(let content):
       return content.body
     case .sticker(let body, info: _, source: _):
-      return "Sticker: \(body)"
+      return String(localized: "Sticker: \(body)")
     case .poll(
       let question, kind: _, maxSelections: _, answers: _, votes: _, endTime: _, hasBeenEdited: _):
-      return "Poll: \(question)"
+      return String(localized: "Poll: \(question)")
     case .redacted:
-      return "Redacted"
+      return String(localized: "Redacted")
     case .unableToDecrypt(msg: _):
-      return "Unable to decrypt"
+      return String(localized: "Unable to decrypt")
     case .other(let eventType):
-      return "Other: \(eventType)"
+      return String(localized: "Other: \(String(describing: eventType))")
     case .liveLocation(let content):
-      return "Live location: \(content.description ?? "no description")"
+      return String(
+        localized: "Live location: \(content.description ?? String(localized: "no description"))")
     }
   }
 }
@@ -416,47 +418,47 @@ extension MatrixRustSDK.OtherState: @retroactive CustomStringConvertible {
   public var description: String {
     switch self {
     case .policyRuleRoom:
-      return "changed policy rules for room"
+      return String(localized: "changed policy rules for room")
     case .policyRuleServer:
-      return "changed policy rules for server"
+      return String(localized: "changed policy rules for server")
     case .policyRuleUser:
-      return "changed policy rule for user"
+      return String(localized: "changed policy rule for user")
     case .roomAvatar(url: _):
-      return "changed room avatar"
+      return String(localized: "changed room avatar")
     case .roomCanonicalAlias:
-      return "changed room canonical alias"
+      return String(localized: "changed room canonical alias")
     case .roomCreate:
-      return "created room"
+      return String(localized: "created room")
     case .roomEncryption:
-      return "changed room encryption"
+      return String(localized: "changed room encryption")
     case .roomGuestAccess:
-      return "changed room guest access"
+      return String(localized: "changed room guest access")
     case .roomHistoryVisibility:
-      return "change room history visibility"
+      return String(localized: "changed room history visibility")
     case .roomJoinRules:
-      return "changed room join rules"
+      return String(localized: "changed room join rules")
     case .roomName(let name):
-      return "changed room name to '\(name ?? "empty")'"
+      return String(localized: "changed room name to '\(name ?? String(localized: "empty"))'")
     case .roomPinnedEvents(change: _):
-      return "changed room pinned events"
+      return String(localized: "changed room pinned events")
     case .roomPowerLevels(
       events: _, previousEvents: _, users: _, previousUsers: _, thresholds: _, previousThresholds: _
     ):
-      return "changed room power levels"
+      return String(localized: "changed room power levels")
     case .roomServerAcl:
-      return "changed room server acl"
+      return String(localized: "changed room server acl")
     case .roomThirdPartyInvite(displayName: _):
-      return "changed room third party invite"
+      return String(localized: "changed room third party invite")
     case .roomTombstone:
-      return "room tombstone"
+      return String(localized: "room tombstone")
     case .roomTopic(let topic):
-      return "changed room topic to '\(topic ?? "none")'"
+      return String(localized: "changed room topic to '\(topic ?? String(localized: "none"))'")
     case .spaceChild:
-      return "changed space child"
+      return String(localized: "changed space child")
     case .spaceParent:
-      return "changed space parent"
+      return String(localized: "changed space parent")
     case .custom(let eventType):
-      return "changed custom state '\(eventType)'"
+      return String(localized: "changed custom state '\(eventType)'")
     }
   }
 }
@@ -471,7 +473,7 @@ extension MatrixRustSDK.EmbeddedEventDetails {
     case .ready(let content, sender: _, senderProfile: _, timestamp: _, eventOrTransactionId: _):
       return content.userInterfaceText
     case .error(let message):
-      return "Error: \(message)"
+      return String(localized: "Error: \(message)")
     }
   }
 }

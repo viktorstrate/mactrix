@@ -84,12 +84,29 @@ struct ReactionPickerModel: Sendable {
         searchEntries.append(SearchEntry(item: item, text: Self.searchText(for: item)))
       }
       categories.append(
-        Section(id: .category(category.id), title: category.name, items: items))
+        Section(
+          id: .category(category.id), title: Self.title(for: category), items: items))
     }
 
     self.metadataByKey = metadataByKey
     self.searchEntries = searchEntries
     self.categories = categories
+  }
+
+  /// The catalog only has English category names, so the known Unicode groups are translated here.
+  private static func title(for category: EmojiCatalog.Category) -> String {
+    switch category.id {
+    case "smileys-emotion": String(localized: "Smileys & Emotion")
+    case "people-body": String(localized: "People & Body")
+    case "animals-nature": String(localized: "Animals & Nature")
+    case "food-drink": String(localized: "Food & Drink")
+    case "travel-places": String(localized: "Travel & Places")
+    case "activities": String(localized: "Activities")
+    case "objects": String(localized: "Objects")
+    case "symbols": String(localized: "Symbols")
+    case "flags": String(localized: "Flags")
+    default: category.name
+    }
   }
 
   func item(for key: String) -> Item {
