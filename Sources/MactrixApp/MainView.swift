@@ -84,6 +84,20 @@ public struct MainView: View {
           .environment(windowState)
       }
     )
+    .background {
+      let matrixClient = appState.matrixClient
+      QuickNavigationOverlayAttachment(
+        coordinator: windowState.quickNavigation, matrixClient: matrixClient,
+        onSelectRoom: { [weak windowState, weak matrixClient] roomID in
+          guard let windowState, let matrixClient else { return }
+          if windowState.selectedRoomId != roomID {
+            windowState.selectedRoomId = roomID
+          } else {
+            // The ID may still refer to this room while a profile or another screen is showing.
+            Task { await windowState.loadSelectedRoom(using: matrixClient) }
+          }
+        })
+    }
     .task { await attemptLoadUserSession() }
     .sheet(isPresented: $showWelcomeSheet, onDismiss: onLoginModalDismiss) {
       WelcomeSheetView()
@@ -206,27 +220,6 @@ public struct MainView: View {
   func onRoomSelected() async {
     guard let matrixClient = appState.matrixClient else { return }
 
-    do {
-      Logger.viewCycle.debug("Selected room: \(windowState.selectedRoomId.debugDescription)")
-
-      if let roomId = windowState.selectedRoomId {
-        if let selectedRoom = try matrixClient.client.getRoom(roomId: roomId) {
-          windowState.selectedScreen = .joinedRoom(
-            timeline: LiveTimeline(
-              room: LiveRoom(matrixRoom: selectedRoom, matrixClient: matrixClient)))
-        } else {
-          let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(
-            roomId: roomId, viaServers: ["matrix.org"])
-
-          Logger.viewCycle.debug(
-            "Selected room preview: \(roomPreview.info().debugDescription)")
-          windowState.selectedScreen = .previewRoom(roomPreview)
-        }
-      } else {
-        windowState.selectedScreen = .none
-      }
-    } catch {
-      Logger.viewCycle.error("Failed to get room \(error)")
-    }
+    await windowState.loadSelectedRoom(using: matrixClient)
   }
 }

@@ -14,6 +14,8 @@ public struct AppCommands: Commands {
 
     about
     newTab
+    createRoom
+    quickNavigation
     fontSizeCommands
     conversationCommands
   }
@@ -54,21 +56,34 @@ public struct AppCommands: Commands {
         Text("New Tab")
       }
       .keyboardShortcut("t", modifiers: [.command])
-
-      if let windowState {
-        Self.createRoomButton(windowState: windowState)
-      }
     }
   }
 
-  static func createRoomButton(windowState: WindowState) -> some View {
+  var quickNavigation: some Commands {
+    CommandGroup(after: .newItem) {
+      Button("Quick Navigation") {
+        windowState?.quickNavigation.toggle()
+      }
+      .keyboardShortcut("k", modifiers: [.command])
+      .disabled(windowState?.quickNavigation.isSignedIn != true)
+    }
+  }
+
+  var createRoom: some Commands {
+    CommandGroup(after: .newItem) {
+      Self.createRoomButton(windowState: windowState)
+    }
+  }
+
+  static func createRoomButton(windowState: WindowState?) -> some View {
     Button {
-      windowState.selectedScreen = .newRoom
+      windowState?.selectedScreen = .newRoom
     } label: {
       Label("Create room", systemImage: "plus.bubble")
     }
     .help("Create a new room")
     .keyboardShortcut("N", modifiers: [.command, .shift])
+    .disabled(windowState != nil)
   }
 
   var conversationCommands: some Commands {
