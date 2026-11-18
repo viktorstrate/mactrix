@@ -2,15 +2,18 @@
 
 import asyncio
 import csv
+import logging
 import os
 import sys
 import time
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
 import aiohttp
 from nio import (
     AsyncClient,
+    LoginError,
     RoomCreateError,
     RoomVisibility,
 )
@@ -49,6 +52,28 @@ SERVER_NAME = os.environ.get("MATRIX_SERVER_NAME", "localhost")
 TIMEOUT = int(os.environ.get("MATRIX_TIMEOUT", "60"))
 
 
+@contextmanager
+def _quiet_nio_user_id_warning():
+    """Suppress matrix-nio's schema-validation warning for M_NOT_FOUND login responses.
+
+    When Continuwuity hasn't finished creating the account yet, the login response
+    is a Matrix error that matrix-nio first tries to validate as a successful
+    LoginResponse. That produces a noisy "'user_id' is a required property" warning.
+    """
+    logger = logging.getLogger("nio.responses")
+    filt = logging.Filter()
+
+    def _filter(record: logging.LogRecord) -> bool:
+        return "'user_id' is a required property" not in record.getMessage()
+
+    filt.filter = _filter
+    logger.addFilter(filt)
+    try:
+        yield
+    finally:
+        logger.removeFilter(filt)
+
+
 async def wait_for_server(session: aiohttp.ClientSession, timeout: int = TIMEOUT) -> None:
     url = f"{SERVER}/_matrix/client/versions"
     deadline = time.time() + timeout
@@ -65,12 +90,29 @@ async def wait_for_server(session: aiohttp.ClientSession, timeout: int = TIMEOUT
 
 
 async def login_user(localpart: str, password: str) -> AsyncClient:
-    client = AsyncClient(SERVER, localpart)
-    resp = await client.login(password)
-    if not getattr(resp, "access_token", None):
+    """Log in a user, retrying while the server is still creating accounts."""
+    deadline = time.time() + TIMEOUT
+    last_error: LoginError | None = None
+
+    while time.time() < deadline:
+        client = AsyncClient(SERVER, localpart)
+        with _quiet_nio_user_id_warning():
+            resp = await client.login(password)
+        if getattr(resp, "access_token", None):
+            print(f"[ok] user {localpart} signed in")
+            return client
+
+        await client.close()
+
+        if isinstance(resp, LoginError) and resp.status_code == "M_NOT_FOUND":
+            last_error = resp
+            print(f"[wait] user {localpart} not ready yet: {resp}")
+            await asyncio.sleep(1)
+            continue
+
         raise RuntimeError(f"login failed for {localpart}: {resp}")
-    print(f"[ok] user {localpart} signed in")
-    return client
+
+    raise RuntimeError(f"login failed for {localpart}: {last_error}")
 
 
 async def get_or_create_room(
