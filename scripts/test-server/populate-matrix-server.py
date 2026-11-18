@@ -9,7 +9,11 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import aiohttp
-from nio import AsyncClient, RoomVisibility
+from nio import (
+    AsyncClient,
+    RoomCreateError,
+    RoomVisibility,
+)
 
 
 @dataclass(frozen=True)
@@ -69,6 +73,42 @@ async def login_user(localpart: str, password: str) -> AsyncClient:
     return client
 
 
+async def get_or_create_room(
+    session: aiohttp.ClientSession,
+    client: AsyncClient,
+    name: str,
+    topic: str,
+    alias: str,
+    visibility: RoomVisibility = RoomVisibility.public,
+) -> str:
+    """Create the room or reuse it if the alias already exists."""
+    room_alias = f"#{alias}:{SERVER_NAME}"
+    encoded_alias = aiohttp.helpers.quote(room_alias, safe="")
+    resolve_url = f"{SERVER}/_matrix/client/v3/directory/room/{encoded_alias}"
+    async with session.get(resolve_url) as resolve_resp_http:
+        if resolve_resp_http.status == 200:
+            resolve_data = await resolve_resp_http.json()
+            room_id = resolve_data["room_id"]
+            print(f"[ok] using existing room {room_id}")
+            return room_id
+
+    create_resp = await client.room_create(
+        name=name,
+        topic=topic,
+        visibility=visibility,
+        alias=alias,
+    )
+
+    if hasattr(create_resp, "room_id"):
+        print(f"[ok] room {create_resp.room_id} created")
+        return create_resp.room_id
+
+    if isinstance(create_resp, RoomCreateError):
+        raise RuntimeError(f"failed to create room: {create_resp.message}")
+
+    raise RuntimeError(f"unexpected room_create response: {create_resp}")
+
+
 async def send_message(client: AsyncClient, room_id: str, body: str) -> None:
     await client.room_send(
         room_id,
@@ -83,40 +123,43 @@ async def main() -> int:
         await wait_for_server(session)
 
         alice = await login_user(USERS["alice"].username, USERS["alice"].password)
-        if USERS["alice"].display_name:
-            await alice.set_displayname(USERS["alice"].display_name)
+        try:
+            if USERS["alice"].display_name:
+                await alice.set_displayname(USERS["alice"].display_name)
 
-        create_resp = await alice.room_create(
-            name=ROOM_NAME,
-            topic="Quality assurance room for Mactrix",
-            visibility=RoomVisibility.public,
-            alias=ROOM_ALIAS,
-        )
-        room_id = create_resp.room_id
-        print(f"[ok] room {room_id} created")
+            room_id = await get_or_create_room(
+                session,
+                alice,
+                name=ROOM_NAME,
+                topic="Quality assurance room for Mactrix",
+                visibility=RoomVisibility.public,
+                alias=ROOM_ALIAS,
+            )
 
-        await send_message(alice, room_id, "Welcome to the room!")
+            await send_message(alice, room_id, "Welcome to the room!")
 
-        bob = await login_user(USERS["bob"].username, USERS["bob"].password)
-        if USERS["bob"].display_name:
-            await bob.set_displayname(USERS["bob"].display_name)
+            bob = await login_user(USERS["bob"].username, USERS["bob"].password)
+            try:
+                if USERS["bob"].display_name:
+                    await bob.set_displayname(USERS["bob"].display_name)
 
-        # Bob joins the room
-        # matrix-nio sends an empty body for join, which Continuwuity rejects
-        # with M_BAD_JSON; send an explicit empty JSON object instead.
-        join_url = (
-            f"{SERVER}/_matrix/client/v3/rooms/"
-            f"{room_id}/join?access_token={bob.access_token}"
-        )
-        async with session.post(join_url, json={}) as join_resp_http:
-            join_data = await join_resp_http.json()
-            if join_resp_http.status != 200:
-                raise RuntimeError(f"bob failed to join room: {join_data}")
+                # Bob joins the room
+                # matrix-nio sends an empty body for join, which Continuwuity rejects
+                # with M_BAD_JSON; send an explicit empty JSON object instead.
+                join_url = (
+                    f"{SERVER}/_matrix/client/v3/rooms/"
+                    f"{room_id}/join?access_token={bob.access_token}"
+                )
+                async with session.post(join_url, json={}) as join_resp_http:
+                    join_data = await join_resp_http.json()
+                    if join_resp_http.status != 200:
+                        raise RuntimeError(f"bob failed to join room: {join_data}")
 
-        await send_message(bob, room_id, "Hello!")
-
-        await alice.close()
-        await bob.close()
+                await send_message(bob, room_id, "Hello!")
+            finally:
+                await bob.close()
+        finally:
+            await alice.close()
 
     return 0
 
