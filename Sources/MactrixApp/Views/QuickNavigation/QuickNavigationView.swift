@@ -87,13 +87,12 @@ final class QuickNavigationView: NSView {
   private var displayedHighlight: String?
   private var needsRevealSelection = false
   private var lastPreferredSize: NSSize = .zero
+  private let scrollAnimation: QuickNavigationScrollAnimation
 
   init(session: QuickNavigationSession) {
     self.session = session
+    self.scrollAnimation = QuickNavigationScrollAnimation(scrollView: scrollView)
     super.init(frame: .zero)
-
-    // wantsLayer = true
-    // layer?.backgroundColor = NSColor.clear.cgColor
 
     let searchIcon = NSImageView()
     searchIcon.image = NSImage(systemSymbolName: "magnifyingglass", accessibilityDescription: nil)
@@ -150,6 +149,9 @@ final class QuickNavigationView: NSView {
     scrollView.autohidesScrollers = true
     scrollView.scrollerStyle = .overlay
     scrollView.documentView = tableView
+    scrollView.automaticallyAdjustsContentInsets = false
+    scrollView.contentInsets = NSEdgeInsets(
+      top: Self.resultsPadding, left: 8, bottom: Self.resultsPadding, right: 8)
 
     emptyLabel.font = .systemFont(ofSize: 14)
     emptyLabel.textColor = .secondaryLabelColor
@@ -171,11 +173,10 @@ final class QuickNavigationView: NSView {
       separator.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
       separator.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
       separator.heightAnchor.constraint(equalToConstant: 1),
-      scrollView.topAnchor.constraint(
-        equalTo: separator.bottomAnchor, constant: Self.resultsPadding),
-      scrollView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 8),
-      scrollView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
-      scrollView.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -Self.resultsPadding),
+      scrollView.topAnchor.constraint(equalTo: separator.topAnchor),
+      scrollView.leadingAnchor.constraint(equalTo: leadingAnchor),
+      scrollView.trailingAnchor.constraint(equalTo: trailingAnchor),
+      scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
       emptyLabel.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
       emptyLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor),
     ])
@@ -193,9 +194,24 @@ final class QuickNavigationView: NSView {
 
   override func layout() {
     super.layout()
-    guard needsRevealSelection else { return }
+    guard needsRevealSelection, window != nil else { return }
+    // Initial synchronization can lay out a zero-sized view before presentation. Wait for the
+    // scroll view's actual viewport so the first row doesn't become a stale downward target.
+    scrollView.layoutSubtreeIfNeeded()
+    let viewport = scrollView.contentView.bounds
+    guard viewport.width > 0, viewport.height > 0 else { return }
     needsRevealSelection = false
-    if tableView.selectedRow >= 0 { tableView.scrollRowToVisible(tableView.selectedRow) }
+    scrollAnimation.reveal(
+      row: tableView.selectedRow, in: tableView, padding: Self.resultsPadding)
+  }
+
+  override func viewDidMoveToWindow() {
+    super.viewDidMoveToWindow()
+    if window == nil {
+      scrollAnimation.cancel()
+    } else if needsRevealSelection {
+      needsLayout = true
+    }
   }
 
   private func observeSession() {
@@ -216,7 +232,10 @@ final class QuickNavigationView: NSView {
       || displayedHighlight != session.highlightedRoomID
     displayedQuery = session.query
     displayedHighlight = session.highlightedRoomID
-    if orderChanged { tableView.cancelMouseTracking() }
+    if orderChanged {
+      tableView.cancelMouseTracking()
+      scrollAnimation.cancel()
+    }
     if searchField.stringValue != session.query,
       (searchField.currentEditor() as? NSTextView)?.hasMarkedText() != true
     {
