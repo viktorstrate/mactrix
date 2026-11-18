@@ -6,7 +6,7 @@ on:
 
 jobs:
   build:
-    name: Build docker image
+    name: Build docker image and run automated server tests
     runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@v5
@@ -22,5 +22,45 @@ jobs:
         uses: docker/build-push-action@v7
         with:
           push: false
+          load: true
           context: "{{defaultContext}}:scripts/test-server"
           tags: viktorstrate/mactrix-test-server:latest
+
+      -
+        name: Start Matrix server container
+        run: |
+          docker run -d \
+            --name mactrix-test-server \
+            -p 8008:8008 \
+            -e MATRIX_PORT=8008 \
+            -e MATRIX_SERVER_NAME=localhost \
+            -e MATRIX_SERVER=http://127.0.0.1:8008 \
+            -e MATRIX_PID_FILE=/tmp/matrix-server.pid \
+            -e MATRIX_LOG_FILE=/tmp/matrix-server.log \
+            viktorstrate/mactrix-test-server:latest \
+            nix-shell --run "./run-matrix-server.sh"
+
+      -
+        name: Populate server with rooms and messages
+        run: |
+          docker exec \
+            -e MATRIX_SERVER=http://127.0.0.1:8008 \
+            -e MATRIX_SERVER_NAME=localhost \
+            mactrix-test-server \
+            nix-shell --run "./populate-matrix-server.py"
+
+      # TODO: run tests here
+
+      -
+        name: Stop Matrix server container
+        if: always()
+        run: |
+          docker stop mactrix-test-server >/dev/null 2>&1 || true
+          docker rm mactrix-test-server >/dev/null 2>&1 || true
+
+      -
+        name: Dump logs on failure
+        if: failure()
+        run: |
+          echo "=== Container logs ==="
+          docker logs mactrix-test-server 2>/dev/null || echo "No container logs found"

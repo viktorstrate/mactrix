@@ -8,7 +8,7 @@ Infrastructure to launch a ephemeral matrxi server.
 - a recent version of python
 - [matrix-nio](https://github.com/matrix-nio/matrix-nio), a python library to use the matrix api
 
-If you use the [nix package manager](https://nixos.org), you can use `nix-shell` to have everything needed available in your local shell. This is also what the CI environment uses.
+If you use the [nix package manager](https://nixos.org), you can use `nix-shell` to have everything needed available in your local shell. This is also what the CI environment uses. You can also build a [docker image](./Dockerfile).
 
 ## Launch
 
