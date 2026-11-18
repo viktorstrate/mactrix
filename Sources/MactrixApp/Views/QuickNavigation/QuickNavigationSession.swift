@@ -3,16 +3,33 @@ import Observation
 
 /// Searchable room metadata, independent of membership state and the Matrix SDK.
 struct QuickNavigationCandidate: Equatable, Identifiable, Sendable {
+  enum Kind: Equatable, Sendable {
+    case room, direct, space
+
+    var fallbackSymbolName: String {
+      switch self {
+      case .room: "number"
+      case .direct: "person.fill"
+      case .space: "network"
+      }
+    }
+  }
+
   let id: String
   let displayName: String?
   let canonicalAlias: String?
   let avatarUrl: String?
+  let kind: Kind
 
-  init(id: String, displayName: String?, canonicalAlias: String?, avatarUrl: String? = nil) {
+  init(
+    id: String, displayName: String?, canonicalAlias: String?, avatarUrl: String? = nil,
+    kind: Kind = .room
+  ) {
     self.id = id
     self.displayName = displayName
     self.canonicalAlias = canonicalAlias
     self.avatarUrl = avatarUrl
+    self.kind = kind
   }
 }
 

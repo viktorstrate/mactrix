@@ -90,14 +90,26 @@ final class QuickNavigationCoordinator: NSObject {
   }
 
   private func candidates(from matrixClient: MatrixClient) -> [QuickNavigationCandidate] {
-    matrixClient.rooms.map { entry in
+    let ownUserID = try? matrixClient.client.userId()
+    return matrixClient.rooms.map { entry in
       // Read observable roomInfo, not just SDK getters, so metadata updates invalidate the list.
       let info = entry.roomInfo
+      let kind: QuickNavigationCandidate.Kind =
+        if info?.isSpace ?? entry.room.isSpace() {
+          .space
+        } else if info?.isDirect == true {
+          .direct
+        } else {
+          .room
+        }
+      let roomAvatar = info == nil ? entry.room.avatarUrl() : info?.avatarUrl
+      let directAvatar = info?.heroes.first { $0.userId != ownUserID }?.avatarUrl
       return QuickNavigationCandidate(
         id: entry.id,
         displayName: info == nil ? entry.room.displayName() : info?.displayName,
         canonicalAlias: info == nil ? entry.room.canonicalAlias() : info?.canonicalAlias,
-        avatarUrl: info == nil ? entry.room.avatarUrl() : info?.avatarUrl)
+        avatarUrl: kind == .direct ? directAvatar ?? roomAvatar : roomAvatar,
+        kind: kind)
     }
   }
 

@@ -16,10 +16,10 @@
           id: "!dev:example.org", displayName: "Development", canonicalAlias: "#dev:example.org"),
         .init(
           id: "!design:example.org", displayName: "Design", canonicalAlias: "#design:example.org"),
-        .init(id: "!alice:example.org", displayName: "Alice", canonicalAlias: nil),
+        .init(id: "!alice:example.org", displayName: "Alice", canonicalAlias: nil, kind: .direct),
         .init(
           id: "!space:example.org", displayName: "Community Space",
-          canonicalAlias: "#community:example.org"),
+          canonicalAlias: "#community:example.org", kind: .space),
         .init(
           id: "!help:example.org", displayName: "Help & Support",
           canonicalAlias: "#help:example.org"),

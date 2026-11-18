@@ -210,6 +210,26 @@ struct QuickNavigationSessionTests {
     #expect(session.results == [renamed, development])
   }
 
+  @Test func avatarAndKindUpdatesPreserveQueryAndHighlightedRoom() {
+    let session = makeSession()
+    session.updateQuery("de")
+    session.highlight(roomID: design.id)
+    let updated = QuickNavigationCandidate(
+      id: design.id, displayName: design.displayName, canonicalAlias: design.canonicalAlias,
+      avatarUrl: "mxc://example.org/alice", kind: .direct)
+    session.updateCandidates([general, development, updated])
+
+    #expect(session.query == "de")
+    #expect(session.highlightedCandidate == updated)
+    #expect(session.highlightedCandidate?.avatarUrl == "mxc://example.org/alice")
+    #expect(session.highlightedCandidate?.kind == .direct)
+
+    session.updateCandidates([general, development, design])
+    #expect(session.highlightedCandidate == design)
+    #expect(session.highlightedCandidate?.avatarUrl == nil)
+    #expect(session.highlightedCandidate?.kind == .room)
+  }
+
   @Test func removedOrNoLongerMatchingSelectionFallsBackToFirstResult() {
     let session = makeSession()
     session.highlight(roomID: design.id)

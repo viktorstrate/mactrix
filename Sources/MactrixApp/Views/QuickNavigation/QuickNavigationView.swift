@@ -79,7 +79,7 @@ final class QuickNavigationView: NSView {
   var onSearchFocusLost: (() -> Void)?
   var onPreferredSizeChange: (() -> Void)?
   weak var imageLoader: ImageLoader? {
-    didSet { tableView.reloadData() }
+    didSet { synchronize(reloadResults: true) }
   }
 
   private var displayedResults: [QuickNavigationCandidate] = []
@@ -209,7 +209,7 @@ final class QuickNavigationView: NSView {
     synchronize()
   }
 
-  private func synchronize() {
+  private func synchronize(reloadResults: Bool = false) {
     let orderChanged = !displayedResults.elementsEqual(session.results) { $0.id == $1.id }
     let revealSelection =
       orderChanged || displayedQuery != session.query
@@ -222,7 +222,7 @@ final class QuickNavigationView: NSView {
     {
       searchField.stringValue = session.query
     }
-    if displayedResults != session.results {
+    if reloadResults || displayedResults != session.results {
       displayedResults = session.results
       tableView.reloadData()
     }
@@ -364,7 +364,7 @@ final class QuickNavigationCellView: NSTableCellView {
     super.init(frame: .zero)
     nameLabel.font = .systemFont(ofSize: 14, weight: .medium)
     detailLabel.font = .systemFont(ofSize: 12)
-    fallbackIcon.image = NSImage(systemSymbolName: "number", accessibilityDescription: nil)
+
     fallbackIcon.symbolConfiguration = .init(pointSize: 22, weight: .medium)
     for label in [nameLabel, detailLabel] {
       label.isSelectable = false
@@ -413,8 +413,13 @@ final class QuickNavigationCellView: NSTableCellView {
     nameLabel.stringValue = candidate.displayName.flatMap { $0.isEmpty ? nil : $0 } ?? candidate.id
     detailLabel.stringValue =
       candidate.canonicalAlias.flatMap { $0.isEmpty ? nil : $0 } ?? candidate.id
+    let avatarUrl = candidate.avatarUrl.flatMap { $0.isEmpty ? nil : $0 }
+    avatar.isHidden = avatarUrl == nil
+    fallbackIcon.isHidden = !avatar.isHidden
+    fallbackIcon.image = NSImage(
+      systemSymbolName: candidate.kind.fallbackSymbolName, accessibilityDescription: nil)
     avatar.configure(
-      userID: candidate.id, displayName: candidate.displayName, avatarUrl: candidate.avatarUrl,
-      kind: .room, imageLoader: imageLoader)
+      userID: candidate.id, displayName: candidate.displayName, avatarUrl: avatarUrl,
+      kind: candidate.kind == .direct ? .user : .room, imageLoader: imageLoader)
   }
 }
