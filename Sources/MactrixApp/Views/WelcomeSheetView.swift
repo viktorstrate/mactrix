@@ -17,6 +17,7 @@ struct WelcomeSheetView: View {
 
   @State private var loading: Bool = false
   @State private var showError: Error? = nil
+  @State private var isCredentialStage: Bool = false
 
   private let defaultHomeserver = "matrix.org"
 
@@ -28,8 +29,19 @@ struct WelcomeSheetView: View {
       loading = true
       defer { loading = false }
 
+      let isCombinedUsername = homeserverField.contains(":") && homeserverField.hasPrefix("@")
       do {
+          if isCombinedUsername {
+            let parts = homeserverField
+              .dropFirst()
+              .split(separator: ":", maxSplits: 1)
+            if parts.count == 2 {
+              usernameField = String(parts[0])
+              homeserverField = String(parts[1])
+            }
+          }
         homeserverLogin = try await MatrixClient.loginDetails(homeServer: homeserverField)
+        isCredentialStage = true
         showError = nil
       } catch {
         homeserverLogin = nil
@@ -107,13 +119,18 @@ struct WelcomeSheetView: View {
         .padding(.bottom)
 
       Form {
-        TextField(
-          "Homeserver", text: $homeserverField,
-          prompt:
-            Text(defaultHomeserver)
-        )
-        .disabled(loading)
-        .onSubmit { loadHomeserver() }
+        HStack {
+          Text(isCredentialStage ? "Homeserver": "Homeserver or\nUsername")
+            .lineLimit(2)
+            .multilineTextAlignment(.center)
+            .transition(.opacity)
+          
+            TextField("", text: $homeserverField,
+                      prompt:
+                        Text(defaultHomeserver))
+            .disabled(loading)
+            .onSubmit { loadHomeserver() }
+        }.animation(.snappy(duration: 0.3), value: isCredentialStage)
 
         if homeserverLogin?.loginDetails.supportsOauthLogin() == true {
           oauthLogin
@@ -123,7 +140,7 @@ struct WelcomeSheetView: View {
           passwordLogin
         }
       }
-      .frame(maxWidth: 300)
+      .frame(maxWidth: 330)
 
       if let showError = showError {
         let message: String = {
