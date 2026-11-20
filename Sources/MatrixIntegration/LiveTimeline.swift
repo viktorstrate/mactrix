@@ -35,7 +35,7 @@ public final class LiveTimeline {
   public private(set) var paginating: PaginationStatus = .idle(hitTimelineStart: false)
   public private(set) var hitTimelineStart: Bool = false
   private var fetchMessagesAgain: Bool = false
-  private var fetchingOlderMessages: Bool = false
+  public private(set) var fetchingOlderMessages: Bool = false
 
   public init(room: LiveRoom) {
     self.focusedThreadId = nil
@@ -147,16 +147,20 @@ public final class LiveTimeline {
       return
     }
 
-    Logger.liveTimeline.info("fetch more messages")
+    guard let timeline else { return }
+
+    fetchingOlderMessages = true
+    defer {
+      fetchingOlderMessages = false
+      fetchMessagesAgain = false
+    }
 
     do {
-      _ = try await timeline?.paginateBackwards(numEvents: 100)
-      fetchingOlderMessages = false
-
-      if fetchMessagesAgain {
+      repeat {
         fetchMessagesAgain = false
-        await fetchOlderMessages()
-      }
+        Logger.liveTimeline.info("fetch more messages")
+        _ = try await timeline.paginateBackwards(numEvents: 100)
+      } while fetchMessagesAgain && !hitTimelineStart && !Task.isCancelled
     } catch {
       Logger.liveTimeline.error("Failed to paginate backwards: \(error)")
     }

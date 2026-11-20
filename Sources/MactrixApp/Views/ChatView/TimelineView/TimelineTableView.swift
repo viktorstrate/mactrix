@@ -33,6 +33,10 @@ enum TimelineItemRowInfo {
     let event: MatrixRustSDK.EventTimelineItem
   }
 
+  enum PaginationSpinnerPosition {
+    case top, bottom
+  }
+
   case profile(item: TimelineItem, event: MatrixRustSDK.EventTimelineItem)
   case message(
     item: TimelineItem, event: MatrixRustSDK.EventTimelineItem,
@@ -41,6 +45,7 @@ enum TimelineItemRowInfo {
   case state(items: [StateEntry])
   case virtual(item: TimelineItem, virtual: MatrixRustSDK.VirtualTimelineItem)
   case typingIndicator
+  case paginationSpinner(position: PaginationSpinnerPosition)
 
   @MainActor
   var reuseIdentifier: NSUserInterfaceItemIdentifier {
@@ -55,6 +60,8 @@ enum TimelineItemRowInfo {
       return NSUserInterfaceItemIdentifier("virtual")
     case .typingIndicator:
       return NSUserInterfaceItemIdentifier("typing-indicator")
+    case .paginationSpinner:
+      return NSUserInterfaceItemIdentifier("pagination-spinner")
     }
   }
 
@@ -68,7 +75,7 @@ enum TimelineItemRowInfo {
       items.first?.item
     case .virtual(let item, _):
       item
-    case .typingIndicator:
+    case .typingIndicator, .paginationSpinner:
       nil
     }
   }
@@ -87,6 +94,10 @@ extension TimelineItemRowInfo: Identifiable {
       "virtual:\(item.uniqueId().id)"
     case .typingIndicator:
       "typing-indicator"
+    case .paginationSpinner(.bottom):
+      "pagination-spinner-bottom"
+    case .paginationSpinner(.top):
+      "pagination-spinner-top"
     }
   }
 }
@@ -138,9 +149,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   let timeline: LiveTimeline
   let composer: ChatComposerState
   private var projection: TimelineRowProjection
-  var timelineItems: [TimelineItemRowInfo] {
-    projection.rows
-  }
+  private var showTopPaginationSpinner = false
+  private var showBottomPaginationSpinner = false
+  private(set) var timelineItems: [TimelineItemRowInfo] = []
 
   init(
     appState: AppState, windowState: WindowState, timeline: LiveTimeline,
@@ -265,6 +276,12 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         view.configure(names: self.typingNames)
         view.identifier = item.reuseIdentifier
         return view
+      case .paginationSpinner:
+        let view =
+          tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
+          as? PaginationSpinnerRowView ?? PaginationSpinnerRowView()
+        view.identifier = item.reuseIdentifier
+        return view
       case .virtual(_, let virtual):
         let view =
           tableView.makeView(withIdentifier: item.reuseIdentifier, owner: self)
@@ -375,12 +392,14 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
     timeline.focusDelegate = self
     timeline.diffDelegate = self
-    applyProjectedRows(oldIDs: [], changedIDs: [])
+    showTopPaginationSpinner = timeline.fetchingOlderMessages
+    applyProjectedRows(changedIDs: [])
     listenForTypingUsers()
     listenForContactChanges()
     listenForReplyDetails()
     listenForRecentReactions()
     listenForRoomInfo()
+    listenForTimelinePagination()
     if let recentReactions = appState.matrixClient?.recentReactions {
       startActionTask {
         _ = await recentReactions.refresh()
@@ -820,6 +839,29 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
   }
 
+  private func listenForTimelinePagination() {
+    let fetchingOlderMessages = withObservationTracking {
+      timeline.fetchingOlderMessages
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.listenForTimelinePagination()
+      }
+    }
+    // Forward pagination is not implemented yet so we just return `false`
+    updatePaginationSpinners(showTop: fetchingOlderMessages, showBottom: false)
+  }
+
+  private func updatePaginationSpinners(showTop: Bool, showBottom: Bool) {
+    guard showTop != showTopPaginationSpinner || showBottom != showBottomPaginationSpinner
+    else { return }
+
+    updateTimelineRows(revealingTopSpinner: showTop && !showTopPaginationSpinner) {
+      showTopPaginationSpinner = showTop
+      showBottomPaginationSpinner = showBottom
+      return []
+    }
+  }
+
   private func configureStateRow(
     _ view: StateEventRowView, items: [TimelineItemRowInfo.StateEntry], id: String
   ) {
@@ -1000,7 +1042,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         stateEventIDs = nil
       case .state(let items):
         stateEventIDs = items.map { $0.event.eventOrTransactionId.id }
-      case .profile, .virtual, .typingIndicator:
+      case .profile, .virtual, .typingIndicator, .paginationSpinner:
         continue
       }
       let rect = tableView.rect(ofRow: row)
@@ -1041,10 +1083,26 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   func timelineDidApply(diffs: [TimelineDiff]) {
+    updateTimelineRows {
+      let change = projection.apply(diffs)
+      assert(
+        projection.sourceItems.map { $0.uniqueId().id }
+          == timeline.timelineItems.map { $0.uniqueId().id }
+      )
+      return change.changedIDs
+    }
+  }
+
+  private func updateTimelineRows(
+    revealingTopSpinner: Bool = false, _ update: () -> Set<String>
+  ) {
     let clipView = scrollView.contentView
     let followBottom = documentView.isAtBottom
     let oldOrigin = clipView.bounds.origin
-    let candidates = readingAnchorCandidates()
+    // At the top edge, anchoring to the first message would hide the new spinner.
+    let keepTopVisible =
+      revealingTopSpinner && tableView.visibleRect.minY - tableView.bounds.minY <= 2
+    let candidates = keepTopVisible ? [] : readingAnchorCandidates()
 
     // Layout and scroll restoration may send bounds notifications. Do not fetch
     // more history based on an intermediate viewport position.
@@ -1058,14 +1116,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       context.duration = 0
       context.allowsImplicitAnimation = false
 
-      let change = projection.apply(diffs)
-
-      assert(
-        projection.sourceItems.map { $0.uniqueId().id }
-          == timeline.timelineItems.map { $0.uniqueId().id }
-      )
-
-      applyProjectedRows(oldIDs: change.oldIDs, changedIDs: change.changedIDs)
+      applyProjectedRows(changedIDs: update())
 
       // Settle the entire scroll-view hierarchy before measuring the anchor and
       // restoring the viewport. No further layout or scroll adjustment follows.
@@ -1086,13 +1137,24 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
   }
 
-  private func applyProjectedRows(oldIDs: [String], changedIDs: Set<String>) {
+  private func applyProjectedRows(changedIDs: Set<String>) {
     let wasUpdating = updatingTimelineItems
     updatingTimelineItems = true
     defer { updatingTimelineItems = wasUpdating }
+
+    let oldIDs = timelineItems.map(\.id)
     let selectedId =
       oldIDs.indices.contains(tableView.selectedRow) ? oldIDs[tableView.selectedRow] : nil
-    let newIDs = timelineItems.map(\.id)
+    var rows = projection.rows
+    if showTopPaginationSpinner {
+      rows.insert(.paginationSpinner(position: .top), at: 0)
+    }
+    if showBottomPaginationSpinner {
+      // Keep the typing indicator last, where the typing listener expects it.
+      rows.insert(.paginationSpinner(position: .bottom), at: rows.count - 1)
+    }
+    timelineItems = rows
+    let newIDs = rows.map(\.id)
     expandedStateRowIDs.formIntersection(newIDs)
     let structureChanged = oldIDs != newIDs
 
@@ -1363,6 +1425,10 @@ extension TimelineViewController: NSTableViewDelegate {
 
     if case .typingIndicator = item {
       return TypingIndicatorRowView.rowHeight
+    }
+
+    if case .paginationSpinner = item {
+      return PaginationSpinnerRowView.rowHeight
     }
 
     if case .virtual = item {

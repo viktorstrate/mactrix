@@ -345,7 +345,7 @@ private func snapshots(_ projection: TimelineRowProjection) -> [ProjectionRowSna
     case .virtual(let item, _):
       items = [item]
       events = []
-    case .typingIndicator:
+    case .typingIndicator, .paginationSpinner:
       items = []
       events = []
     }
@@ -366,7 +366,7 @@ private func expectEquivalent(_ projection: TimelineRowProjection, to expected: 
     switch row {
     case .state(let entries): entries.map(\.item)
     case .message(let item, _, _), .virtual(let item, _): [item]
-    case .profile, .typingIndicator: []
+    case .profile, .typingIndicator, .paginationSpinner: []
     }
   }
   #expect(projectedItems.map { $0.uniqueId().id } == expected.map { $0.uniqueId().id })
