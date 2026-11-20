@@ -17,7 +17,6 @@ struct WelcomeSheetView: View {
 
   @State private var loading: Bool = false
   @State private var showError: Error? = nil
-  @State private var isCredentialStage: Bool = false
 
   private let defaultHomeserver = "matrix.org"
 
@@ -35,13 +34,13 @@ struct WelcomeSheetView: View {
             let parts = homeserverField
               .dropFirst()
               .split(separator: ":", maxSplits: 1)
-            if parts.count == 2 {
+              
+              assert(parts.count == 2, "Splitting the fully qualified username must only ever result in two parts")
               usernameField = String(parts[0])
               homeserverField = String(parts[1])
-            }
+            
           }
         homeserverLogin = try await MatrixClient.loginDetails(homeServer: homeserverField)
-        isCredentialStage = true
         showError = nil
       } catch {
         homeserverLogin = nil
@@ -120,7 +119,7 @@ struct WelcomeSheetView: View {
 
       Form {
         HStack {
-          Text(isCredentialStage ? "Homeserver": "Homeserver or\nUsername")
+          Text(homeserverLogin != nil ? "Homeserver": "Homeserver or\nUsername")
             .lineLimit(2)
             .multilineTextAlignment(.center)
             .transition(.opacity)
@@ -130,7 +129,7 @@ struct WelcomeSheetView: View {
                         Text(defaultHomeserver))
             .disabled(loading)
             .onSubmit { loadHomeserver() }
-        }.animation(.snappy(duration: 0.3), value: isCredentialStage)
+        }.animation(.snappy(duration: 0.3), value: homeserverLogin == nil)
 
         if homeserverLogin?.loginDetails.supportsOauthLogin() == true {
           oauthLogin
