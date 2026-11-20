@@ -109,7 +109,7 @@ public struct AppCommands: Commands {
       if filenames.count > 1 {
         Menu("Download to File…") {
           ForEach(filenames.indices, id: \.self) { index in
-            messageActionButton(filenames[index], action: .downloadToFile(index))
+            messageActionButton(verbatim: filenames[index], action: .downloadToFile(index))
               .keyboardShortcut(
                 index == 0 ? KeyboardShortcut("s", modifiers: [.command, .shift]) : nil)
           }
@@ -130,14 +130,28 @@ public struct AppCommands: Commands {
     }
   }
 
+  private func messageActionButton(
+    _ title: LocalizedStringKey, action: MessageHoverOverlayView.Action
+  ) -> some View {
+    messageActionButton(label: Text(title), action: action)
+  }
+
+  private func messageActionButton(
+    verbatim title: String, action: MessageHoverOverlayView.Action
+  ) -> some View {
+    messageActionButton(label: Text(verbatim: title), action: action)
+  }
+
   @ViewBuilder
   private func messageActionButton(
-    _ title: String, action: MessageHoverOverlayView.Action
+    label: Text, action: MessageHoverOverlayView.Action
   ) -> some View {
     let selection = windowState?.conversationSelection
 
-    Button(title) {
+    Button {
       selection?.perform(action)
+    } label: {
+      label
     }
     .disabled(selection?.canPerform(action) != true)
   }

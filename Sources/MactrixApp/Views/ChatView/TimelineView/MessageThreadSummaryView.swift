@@ -64,7 +64,7 @@ final class MessageThreadSummaryView: NSButton {
   func configure(summary: ThreadSummary) {
     heading.font = Self.font
     snippet.font = Self.font
-    heading.stringValue = "Thread (\(summary.numReplies()) messages)"
+    heading.stringValue = String(localized: "Thread (\(summary.numReplies()) messages)")
     snippet.stringValue = summary.description ?? ""
     snippet.isHidden = summary.description == nil
   }

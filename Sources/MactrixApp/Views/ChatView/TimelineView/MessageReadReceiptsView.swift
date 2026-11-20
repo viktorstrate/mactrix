@@ -73,12 +73,11 @@ final class MessageReadReceiptsView: NSButton {
     let hiddenCount = self.receipts.count - visible.count
     countLabel.stringValue = hiddenCount > 0 ? "+\(hiddenCount)" : ""
     countLabel.isHidden = hiddenCount == 0
-    toolTip =
-      "Read by "
-      + self.receipts.map {
-        ContactDirectory.shared.resolvedName(
-          userID: $0.userId, matrixName: self.members[$0.userId]?.displayName)
-      }.joined(separator: ", ")
+    let names = self.receipts.map {
+      ContactDirectory.shared.resolvedName(
+        userID: $0.userId, matrixName: self.members[$0.userId]?.displayName)
+    }
+    toolTip = String(localized: "Read by \(names.formatted(.list(type: .and)))")
     needsLayout = true
   }
 
@@ -133,8 +132,7 @@ final class MessageReadReceiptsView: NSButton {
     stack.spacing = 8
 
     let header = NSTextField(
-      labelWithString: receipts.count == 1 ? "Read by 1 person" : "Read by \(receipts.count) people"
-    )
+      labelWithString: String(localized: "Read by \(receipts.count) people"))
     header.font = .boldSystemFont(ofSize: NSFont.systemFontSize)
     stack.addArrangedSubview(header)
     let width: CGFloat = 230

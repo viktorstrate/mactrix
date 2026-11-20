@@ -47,12 +47,12 @@ final class MessageVideoContentView: NSView, MessageContentRowView {
 
     playButton.isBordered = false
     playButton.image = NSImage(
-      systemSymbolName: "play.fill", accessibilityDescription: "Play video")?
+      systemSymbolName: "play.fill", accessibilityDescription: String(localized: "Play video"))?
       .withSymbolConfiguration(.init(pointSize: 32, weight: .regular))
     playButton.contentTintColor = .white
     playButton.target = self
     playButton.action = #selector(playVideo)
-    playButton.toolTip = "Play video"
+    playButton.toolTip = String(localized: "Play video")
 
     spinner.style = .spinning
     spinner.controlSize = .small

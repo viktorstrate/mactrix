@@ -85,7 +85,7 @@ extension MatrixNotifications {
     switch notification.event {
     case .invite(let sender):
       let inviter = ContactDirectory.shared.resolvedName(userID: sender, matrixName: nil)
-      return "\(inviter) invited you to a room"
+      return String(localized: "\(inviter) invited you to a room")
     case .timeline(let event):
       let sender = ContactDirectory.shared.resolvedName(
         userID: event.senderId(), matrixName: notification.senderInfo.displayName)
@@ -97,74 +97,74 @@ extension MatrixNotifications {
   func notificationBody(for notification: NotificationItem) -> String {
     switch notification.event {
     case .invite(sender: _):
-      return "Room \(notification.roomInfo.displayName)"
+      return String(localized: "Room \(notification.roomInfo.displayName)")
     case .timeline(let event):
       do {
         switch try event.content() {
         case .messageLike(content: let msgLike):
           switch msgLike {
           case .callAnswer:
-            return "Call answered"
+            return String(localized: "Call answered")
           case .callInvite:
-            return "Call invitation"
+            return String(localized: "Call invitation")
           case .rtcNotification:
-            return "RTC Notification"
+            return String(localized: "RTC Notification")
           case .callHangup:
-            return "Call hang up"
+            return String(localized: "Call hang up")
           case .callCandidates:
-            return "Call candidates"
+            return String(localized: "Call candidates")
           case .keyVerificationReady:
-            return "Key verification ready"
+            return String(localized: "Key verification ready")
           case .keyVerificationStart:
-            return "Key verification start"
+            return String(localized: "Key verification start")
           case .keyVerificationCancel:
-            return "Key verification cancel"
+            return String(localized: "Key verification cancel")
           case .keyVerificationAccept:
-            return "Key verification accept"
+            return String(localized: "Key verification accept")
           case .keyVerificationKey:
-            return "Key verification key"
+            return String(localized: "Key verification key")
           case .keyVerificationMac:
-            return "Key verification mac"
+            return String(localized: "Key verification mac")
           case .keyVerificationDone:
-            return "Key verification done"
+            return String(localized: "Key verification done")
           case .poll(let question):
-            return "Asked \(question)"
+            return String(localized: "Asked \(question)")
           case .reactionContent:
-            return "Reaction content"
+            return String(localized: "Reaction content")
           case .roomEncrypted:
-            return "Room encrypted"
+            return String(localized: "Room encrypted")
           case .roomMessage(let messageType, _):
             switch messageType {
             case .emote:
-              return "Emote"
+              return String(localized: "Emote")
             case .image:
-              return "Image"
+              return String(localized: "Image")
             case .audio:
-              return "Audio"
+              return String(localized: "Audio")
             case .video:
-              return "Video"
+              return String(localized: "Video")
             case .file:
-              return "File"
+              return String(localized: "File")
             case .gallery:
-              return "Gallery"
+              return String(localized: "Gallery")
             case .notice:
-              return "Notice"
+              return String(localized: "Notice")
             case .text(let content):
               return content.body
             case .location:
-              return "Location"
+              return String(localized: "Location")
             case .other(let msgtype, let body):
               return "\(msgtype): \(body)"
             }
           case .roomRedaction:
-            return "Message redacted"
+            return String(localized: "Message redacted")
           case .sticker:
-            return "Sent a sticker"
+            return String(localized: "Sent a sticker")
           case .beacon:
-            return "Beacon"
+            return String(localized: "Beacon")
           }
         case .state(content:):
-          return "State change"
+          return String(localized: "State change")
         }
       } catch {
         return error.localizedDescription

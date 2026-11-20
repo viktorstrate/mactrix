@@ -44,7 +44,8 @@ final class MessageAttachmentContent {
         file: Self.fileFallback(for: audio), matrixClient: matrixClient)
     case .other(let itemtype, let body):
       (view as? MessageTextContentView)?.configureCaption(
-        "Unsupported attachment (\(itemtype)): \(body)", formatted: nil, matrixClient: matrixClient)
+        String(localized: "Unsupported attachment (\(itemtype)): \(body)"), formatted: nil,
+        matrixClient: matrixClient)
     }
   }
 
@@ -61,7 +62,8 @@ final class MessageAttachmentContent {
         for: Self.fileFallback(for: audio), width: width) ?? 0
     case .other(let itemtype, let body):
       return (view as? MessageTextContentView)?.height(
-        forCaption: "Unsupported attachment (\(itemtype)): \(body)", formatted: nil, width: width)
+        forCaption: String(localized: "Unsupported attachment (\(itemtype)): \(body)"),
+        formatted: nil, width: width)
         ?? 0
     }
   }

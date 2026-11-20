@@ -100,9 +100,9 @@ final class ComposerAttachmentPreviewTile: NSView {
     }
     previewButton.toolTip = tooltip
     previewButton.setAccessibilityLabel("\(attachment.filename), \(typeDescription), \(tooltip)")
-    previewButton.setAccessibilityHelp("Open in Quick Look")
-    removeButton.toolTip = "Remove \(attachment.filename)"
-    removeButton.setAccessibilityLabel("Remove \(attachment.filename)")
+    previewButton.setAccessibilityHelp(String(localized: "Open in Quick Look"))
+    removeButton.toolTip = String(localized: "Remove \(attachment.filename)")
+    removeButton.setAccessibilityLabel(String(localized: "Remove \(attachment.filename)"))
     removeButton.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
   }
 
@@ -171,7 +171,7 @@ final class ComposerAttachmentPreviewStrip: NSScrollView {
     documentView = tileContainer
     setAccessibilityElement(true)
     setAccessibilityRole(.group)
-    setAccessibilityLabel("Attachments")
+    setAccessibilityLabel(String(localized: "Attachments"))
     unregisterAttachmentDragTypes(in: self)
   }
 

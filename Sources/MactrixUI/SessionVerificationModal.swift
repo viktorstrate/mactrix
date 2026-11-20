@@ -19,7 +19,7 @@ public struct SessionVerificationModal<VerificationEmoji: SessionVerificationEmo
     self.onComplete = onComplete
   }
 
-  var subtitle: String {
+  var subtitle: LocalizedStringKey {
     switch verificationData {
     case .emojis(emojis: _, indices: _):
       "Do the emojis match with the other device?"
@@ -52,7 +52,7 @@ public struct SessionVerificationModal<VerificationEmoji: SessionVerificationEmo
 
       case .decimals(let values):
         ForEach(values, id: \.self) { value in
-          Text("\(value)")
+          Text(verbatim: "\(value)")
         }
       }
 

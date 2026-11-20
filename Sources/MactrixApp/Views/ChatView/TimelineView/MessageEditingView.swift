@@ -7,8 +7,8 @@ import Observation
 final class MessageEditingView: NSView, NSTextViewDelegate {
   private let editor = ComposerMentionTextView()
 
-  private let saveButton = NSButton(title: "Save", target: nil, action: nil)
-  private let cancelButton = NSButton(title: "Cancel", target: nil, action: nil)
+  private let saveButton = NSButton(title: String(localized: "Save"), target: nil, action: nil)
+  private let cancelButton = NSButton(title: String(localized: "Cancel"), target: nil, action: nil)
   private let editErrorLabel = NSTextField(labelWithString: "")
   private var editState: MessageEditState?
   private var restoringEditor = false
@@ -30,7 +30,7 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
     editor.textContainer?.widthTracksTextView = true
     editor.textContainerInset = NSSize(width: 2, height: 5)
     editor.delegate = self
-    editor.setAccessibilityLabel("Edit message")
+    editor.setAccessibilityLabel(String(localized: "Edit message"))
 
     editor.wantsLayer = true
     editor.layer?.borderWidth = 1
@@ -140,7 +140,7 @@ final class MessageEditingView: NSView, NSTextViewDelegate {
     if editor.mentionAutocomplete.query != nil { editor.updateMentionAutocomplete() }
     saveButton.isEnabled = !state.isSaving
     cancelButton.isEnabled = !state.isSaving
-    saveButton.title = state.isSaving ? "Saving…" : "Save"
+    saveButton.title = state.isSaving ? String(localized: "Saving…") : String(localized: "Save")
     editErrorLabel.stringValue = state.error ?? ""
     editErrorLabel.toolTip = state.error
     requestInitialFocus()

@@ -9,7 +9,7 @@ public struct RoomEncryptionBadge: View {
   }
 
   struct Badge {
-    let label: String
+    let label: LocalizedStringKey
     let icon: String
     let color: Color
   }

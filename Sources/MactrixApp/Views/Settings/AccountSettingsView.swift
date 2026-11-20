@@ -3,7 +3,7 @@ import OSLog
 import SwiftUI
 
 struct ChangableField: View {
-  let name: String
+  let name: LocalizedStringKey
   let value: String
   let onSave: (_ newValue: String) async -> Void
 
@@ -51,7 +51,7 @@ struct AccountSettingsView: View {
     if let matrixClient = appState.matrixClient {
       Form {
         ChangableField(
-          name: "Display name", value: displayName ?? "loading...",
+          name: "Display name", value: displayName ?? String(localized: "Loading…"),
           onSave: { newDisplayName in
             do {
               try await matrixClient.client.setDisplayName(name: newDisplayName)
@@ -70,12 +70,12 @@ struct AccountSettingsView: View {
         }
 
         LabeledContent("User") {
-          Text((try? matrixClient.client.userId()) ?? "error")
+          Text((try? matrixClient.client.userId()) ?? String(localized: "Error"))
             .textSelection(.enabled)
         }
 
         LabeledContent("Device") {
-          Text((try? matrixClient.client.deviceId()) ?? "error")
+          Text((try? matrixClient.client.deviceId()) ?? String(localized: "Error"))
             .textSelection(.enabled)
         }
 
