@@ -1,15 +1,16 @@
 import Foundation
 import Security
+import Utils
 
 enum KeychainError: Error {
   case unexpectedStatus(OSStatus)
 }
 
-struct AppKeychain {
+public struct AppKeychain {
   private let service: String
 
-  init(service: String = Bundle.main.bundleIdentifier!) {
-    self.service = service
+  public init(service: String? = nil) {
+    self.service = service ?? ActiveProfile.current.keychainService
   }
 
   private var baseQuery: [CFString: Any] {
@@ -22,7 +23,7 @@ struct AppKeychain {
   }
 
   /// Saves data for the given key, creating or updating the keychain item.
-  func save(_ data: Data, forKey key: String) throws {
+  public func save(_ data: Data, forKey key: String) throws {
     var query = baseQuery
     query[kSecAttrAccount] = key
 
@@ -43,7 +44,7 @@ struct AppKeychain {
   }
 
   /// Returns the data stored for the given key, or `nil` if no item exists.
-  func load(forKey key: String) throws -> Data? {
+  public func load(forKey key: String) throws -> Data? {
     var query = baseQuery
     query[kSecAttrAccount] = key
     query[kSecReturnData] = true
@@ -59,7 +60,7 @@ struct AppKeychain {
   }
 
   /// Removes all keychain items stored under this service.
-  func removeAll() throws {
+  public func removeAll() throws {
     let status = SecItemDelete(baseQuery as CFDictionary)
     guard status == errSecSuccess || status == errSecItemNotFound else {
       throw KeychainError.unexpectedStatus(status)

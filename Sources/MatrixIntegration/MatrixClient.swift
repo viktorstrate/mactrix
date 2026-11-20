@@ -31,6 +31,7 @@ public class MatrixClient {
   init(userSession: UserSession) async throws {
     storeID = userSession.storeID
     storePassphrase = userSession.storePassphrase
+    let profile = ActiveProfile.current
 
     client = try await Self.clientBuilder(
       homeServer: userSession.homeserverURL, storeId: storeID, storePassphrase: storePassphrase
@@ -38,6 +39,8 @@ public class MatrixClient {
     // .enableOidcRefreshLock()
     .setSessionDelegate(sessionDelegate: self)
     .build()
+
+    Logger.matrixClient.info("Matrix client using profile: \(profile.name)")
 
     try await client.restoreSession(session: userSession.session)
 
@@ -62,11 +65,21 @@ public class MatrixClient {
   }
 
   static func clientBuilder(homeServer: String, storeId: String, storePassphrase: String)
-    -> ClientBuilder
+    throws -> ClientBuilder
   {
+    let profile = ActiveProfile.current
+    let dataDir = profile.dataDirectory(storeID: storeId)
+    let cacheDir = profile.cacheDirectory(storeID: storeId)
+
+    // The Rust SDK requires existing writable directories for named profiles.
+    if !profile.isDefault {
+      try FileManager.default.createDirectory(at: dataDir, withIntermediateDirectories: true)
+      try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+    }
+
     let sqliteConfig = SqliteStoreBuilder(
-      dataPath: URL.sessionData(for: storeId).path(percentEncoded: false),
-      cachePath: URL.sessionCaches(for: storeId).path(percentEncoded: false)
+      dataPath: dataDir.path(percentEncoded: false),
+      cachePath: cacheDir.path(percentEncoded: false)
     )
     .passphrase(passphrase: storePassphrase)
 
@@ -122,9 +135,10 @@ public class MatrixClient {
     isResettingSession = true
     await roomSubscriptions.invalidate()
     Logger.matrixClient.debug("matrix client sign out")
+    let profile = ActiveProfile.current
     try? await client.logout()
-    try? FileManager.default.removeItem(at: .sessionData(for: storeID))
-    try? FileManager.default.removeItem(at: .sessionCaches(for: storeID))
+    try? FileManager.default.removeItem(at: profile.dataDirectory(storeID: storeID))
+    try? FileManager.default.removeItem(at: profile.cacheDirectory(storeID: storeID))
     try AppKeychain().removeAll()
     Logger.matrixClient.debug("matrix client sign out complete")
   }
@@ -318,16 +332,4 @@ extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
   }
 }
 
-extension URL {
-  fileprivate static func sessionData(for sessionID: String) -> URL {
-    applicationSupportDirectory
-      .appending(component: "dk.qpqp.mactrix")
-      .appending(component: sessionID)
-  }
 
-  fileprivate static func sessionCaches(for sessionID: String) -> URL {
-    cachesDirectory
-      .appending(component: "dk.qpqp.mactrix")
-      .appending(component: sessionID)
-  }
-}
