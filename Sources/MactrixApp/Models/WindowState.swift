@@ -99,7 +99,7 @@ public final class WindowState {
           timeline: LiveTimeline(room: LiveRoom(matrixRoom: room, matrixClient: matrixClient)))
       } else {
         let preview = try await matrixClient.client.getRoomPreviewFromRoomId(
-          roomId: roomID, viaServers: ["matrix.org"])
+          roomId: roomID, viaServers: matrixClient.viaServers)
         try Task.checkCancellation()
         guard selectedRoomId == roomID else { return }
         selectedScreen = .previewRoom(preview)

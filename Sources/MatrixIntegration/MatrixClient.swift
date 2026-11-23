@@ -28,6 +28,13 @@ public class MatrixClient {
 
   public let notifications: MatrixNotifications = .init()
 
+  public let viaServers = ["matrix.org"]
+
+  public func routingServers(hints: [String]) -> [String] {
+    var seen = Set<String>()
+    return (hints + viaServers).filter { seen.insert($0).inserted }
+  }
+
   init(userSession: UserSession) async throws {
     storeID = userSession.storeID
     storePassphrase = userSession.storePassphrase

@@ -45,7 +45,7 @@ struct LoadMatrixUriScreen: View {
               let roomPreview = try await matrixClient.client
                 .getRoomPreviewFromRoomId(
                   roomId: roomId,
-                  viaServers: matrixUri.routingVia
+                  viaServers: matrixClient.routingServers(hints: matrixUri.routingVia)
                 )
               windowState.selectedScreen = .previewRoom(roomPreview)
             } catch {
