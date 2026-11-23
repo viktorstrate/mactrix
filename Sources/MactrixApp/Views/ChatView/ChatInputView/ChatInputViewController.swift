@@ -101,7 +101,7 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
   private func observeState() {
     withObservationTracking {
       _ = composer.text
-      _ = composer.replyTarget
+      _ = composer.reply
       _ = composer.attachments
       _ = composer.isDraftLoaded
       _ = composer.focusRequest
@@ -141,12 +141,16 @@ final class ChatInputViewController: NSViewController, NSTextViewDelegate {
       placeholder: "Message \(roomTitle)", fontSize: fontSize)
     let enabled = composer.isDraftLoaded
     container.dropDestination.enabled = enabled
-    if let target = composer.replyTarget {
+    switch composer.reply {
+    case .resolved(let target):
       let details = EmbeddedEventDetails.ready(
         content: target.content, sender: target.sender, senderProfile: target.senderProfile,
         timestamp: target.timestamp, eventOrTransactionId: target.eventOrTransactionId)
       container.setReply(details: details)
-    } else {
+    case .unresolved:
+      container.setReply(
+        details: .error(message: String(localized: "The original message isn't loaded.")))
+    case nil:
       container.setReply(details: nil)
     }
     synchronizePreviewAttachments()

@@ -8,11 +8,22 @@ struct ComposerTextContent: Sendable {
   let mentionedUserIDs: [String]
 }
 
+enum ComposerStateReply {
+  case unresolved(eventId: String)
+  case resolved(EventTimelineItem)
+
+  var eventId: String {
+    switch self {
+    case .unresolved(let eventId): eventId
+    case .resolved(let target): target.eventOrTransactionId.id
+    }
+  }
+}
+
 @MainActor
 struct ComposerSubmissionSnapshot {
   let text: String
   let mentionedUserIDs: [String]
-  let replyTarget: EventTimelineItem?
   let replyEventIdentifier: String?
   let attachments: [ComposerAttachment]
 }
@@ -22,7 +33,7 @@ final class ChatComposerState {
   var text = "" {
     didSet { draftRevision += 1 }
   }
-  private(set) var replyTarget: EventTimelineItem?
+  private(set) var reply: ComposerStateReply?
   private(set) var attachments: [ComposerAttachment] = []
   private(set) var isDraftLoaded = false
   private var isDraftRestoring = false
@@ -35,19 +46,24 @@ final class ChatComposerState {
   }
 
   func beginReply(to event: EventTimelineItem) {
-    replyTarget = event
-    draftRevision += 1
+    restoreReply(to: event)
     requestTextFocus()
   }
 
   func restoreReply(to event: EventTimelineItem) {
-    replyTarget = event
+    reply = .resolved(event)
+    draftRevision += 1
+  }
+
+  func restoreReply(eventId: String) {
+    // The reply target may be outside an event-focused timeline's loaded context.
+    reply = .unresolved(eventId: eventId)
     draftRevision += 1
   }
 
   func cancelReply() {
-    guard replyTarget != nil else { return }
-    replyTarget = nil
+    guard reply != nil else { return }
+    reply = nil
     draftRevision += 1
   }
 
@@ -83,8 +99,7 @@ final class ChatComposerState {
     ComposerSubmissionSnapshot(
       text: content.markdown,
       mentionedUserIDs: content.mentionedUserIDs,
-      replyTarget: replyTarget,
-      replyEventIdentifier: replyTarget?.eventOrTransactionId.id,
+      replyEventIdentifier: reply?.eventId,
       attachments: attachments,
     )
   }
@@ -186,9 +201,8 @@ final class ChatComposerState {
     if text == snapshot.text {
       text = ""
     }
-    if replyTarget?.eventOrTransactionId.id == snapshot.replyEventIdentifier {
-      replyTarget = nil
-      draftRevision += 1
+    if reply?.eventId == snapshot.replyEventIdentifier {
+      cancelReply()
     }
 
     let capturedIDs = Set(snapshot.attachments.map(\.id))
@@ -205,7 +219,7 @@ final class ChatComposerState {
   func saveDraft(room: Room, timeline: LiveTimeline) async {
     guard isDraftLoaded else { return }  // avoid overwriting a draft before restoration
 
-    if text.isEmpty, replyTarget == nil, attachments.isEmpty {
+    if text.isEmpty, reply == nil, attachments.isEmpty {
       Logger.viewCycle.debug("clearing draft")
       do {
         try await room.clearComposerDraft(threadRoot: timeline.focusedThreadId)
@@ -216,8 +230,8 @@ final class ChatComposerState {
     }
 
     let draftType: ComposerDraftType
-    if let replyTarget {
-      draftType = .reply(eventId: replyTarget.eventOrTransactionId.id)
+    if let reply {
+      draftType = .reply(eventId: reply.eventId)
     } else {
       draftType = .newMessage
     }
@@ -247,9 +261,14 @@ final class ChatComposerState {
       text = draft.plainText
       switch draft.draftType {
       case .reply(let eventId):
+        restoreReply(eventId: eventId)
         do {
           let item = try await innerTimeline.getEventTimelineItemByEventId(eventId: eventId)
-          restoreReply(to: item)
+          if case .unresolved(let currentId) = reply, currentId == eventId,
+            item.eventOrTransactionId.id == eventId
+          {
+            restoreReply(to: item)
+          }
         } catch {
           Logger.viewCycle.error("failed to resolve reply target: \(error)")
         }
@@ -288,7 +307,7 @@ final class ChatComposerState {
   func reset() {
     let removedAttachments = attachments
     text = ""
-    replyTarget = nil
+    reply = nil
     attachments = []
     draftRevision += 1
     removedAttachments.forEach(cleanupIfOwned)
