@@ -18,7 +18,8 @@ struct MactrixApp: App {
       AppCommands(appState: appState)
     }
     .onChange(of: windowState == nil, focusNotification)
-    .onChange(of: appState.matrixClient?.notifications.selectedRoomId == nil, focusNotification)
+    .onChange(of: appState.notificationRouter.pendingTarget, focusNotification)
+    .onChange(of: appState.restoration, focusNotification)
 
     Settings {
       SettingsView()
@@ -28,11 +29,6 @@ struct MactrixApp: App {
 
   func focusNotification() {
     guard let windowState else { return }
-    guard let notificationRoomId = appState.matrixClient?.notifications.selectedRoomId else {
-      return
-    }
-
-    windowState.selectedRoomId = notificationRoomId
-    appState.matrixClient?.notifications.selectedRoomId = nil
+    appState.showNotificationTarget(in: windowState)
   }
 }

@@ -22,8 +22,6 @@ public class MatrixClient {
 
   public internal(set) var rooms: [SidebarRoom] = []
 
-  @ObservationIgnored var lastAppliedDockUnreadCount: Int?
-
   public internal(set) var spaceService: LiveSpaceService!
 
   private var clientDelegateHandle: TaskHandle?
@@ -33,7 +31,7 @@ public class MatrixClient {
   public private(set) var ownDisplayName: String?
   public private(set) var ownAvatarUrl: String?
 
-  public let notifications: MatrixNotifications = .init()
+  public let notifications: MatrixNotifications
 
   public let viaServers = ["matrix.org"]
 
@@ -45,6 +43,7 @@ public class MatrixClient {
   init(userSession: UserSession, accountStore: AccountStore) async throws {
     storeID = userSession.storeID
     userID = userSession.userID
+    notifications = MatrixNotifications(accountID: userSession.storeID)
     storePassphrase = userSession.storePassphrase
     self.accountStore = accountStore
 
@@ -59,7 +58,6 @@ public class MatrixClient {
 
     spaceService = LiveSpaceService(client: self.client, spaceService: await client.spaceService())
     clientDelegateHandle = try? client.setDelegate(delegate: self)
-    observeDockIconUnreadCount()
   }
 
   init(
@@ -67,13 +65,13 @@ public class MatrixClient {
   ) async throws {
     self.storeID = storeID
     self.userID = try client.userId()
+    notifications = MatrixNotifications(accountID: storeID)
     self.storePassphrase = storePassphrase
     self.accountStore = accountStore
     self.client = client
 
     spaceService = LiveSpaceService(client: self.client, spaceService: await client.spaceService())
     clientDelegateHandle = try? self.client.setDelegate(delegate: self)
-    observeDockIconUnreadCount()
   }
 
   func userSession() throws -> UserSession {
@@ -178,12 +176,12 @@ public class MatrixClient {
     isResettingSession = true
     await roomSubscriptions.invalidate()
     await syncService?.stop()
-    Logger.matrixClient.debug("matrix client sign out")
+    Logger.matrixClient.debug("matrix client sign out, store \(self.storeID)")
     try? await client.logout()
     try? FileManager.default.removeItem(at: StoreDirectories.data(for: storeID))
     try? FileManager.default.removeItem(at: StoreDirectories.caches(for: storeID))
     try accountStore.remove(storeID: storeID)
-    Logger.matrixClient.debug("matrix client sign out complete")
+    Logger.matrixClient.debug("matrix client sign out complete, store \(self.storeID)")
   }
 
   public internal(set) var syncService: SyncService?
@@ -304,7 +302,7 @@ public class MatrixClient {
 
     // Start the sync loop.
     await _syncService.start()
-    Logger.matrixClient.info("Matrix sync started")
+    Logger.matrixClient.info("Matrix sync started, store \(self.storeID)")
   }
 
   /// Reloads `ownDisplayName` and `ownAvatarUrl`, falling back to cached values when offline.
@@ -376,12 +374,12 @@ extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
   }
 
   public nonisolated func saveSessionInKeychain(session: MatrixRustSDK.Session) {
-    Logger.matrixClient.debug("client session delegate: save session in keychain")
+    Logger.matrixClient.debug("client session delegate: save session in keychain, store \(self.storeID)")
     do {
       try accountStore.save(
         UserSession(session: session, storeID: storeID, storePassphrase: storePassphrase))
     } catch {
-      Logger.matrixClient.error("failed to save session in keychain: \(error)")
+      Logger.matrixClient.error("failed to save session in keychain, store \(self.storeID): \(error)")
     }
   }
 }

@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import MatrixIntegration
 import OSLog
@@ -26,15 +27,22 @@ public final class AppState {
   }
 
   /// Signed-in accounts in display order.
-  public private(set) var accounts: [MatrixClient] = []
+  public private(set) var accounts: [MatrixClient] = [] {
+    didSet { updateNotificationLabels() }
+  }
   public private(set) var activeAccountID: String?
   private var hasRestored = false
 
   @ObservationIgnored private let accountStore: AccountStore
   @ObservationIgnored private var restoreTask: Task<Void, Never>?
+  @ObservationIgnored private var lastAppliedDockUnreadCount: Int?
+
+  /// Routes clicked notifications from every account.
+  public let notificationRouter = NotificationRouter()
 
   public init() {
     accountStore = AccountStore()
+    observeDockBadge()
   }
 
   /// The active account.
@@ -121,6 +129,47 @@ public final class AppState {
     } catch {
       Logger.viewCycle.error("Failed to reset matrix client: \(error)")
     }
+  }
+
+  /// Opens the room of a clicked notification in `windowState`, switching to its account.
+  public func showNotificationTarget(in windowState: WindowState) {
+    // A click that launched the app arrives before accounts are restored; handle it afterwards.
+    guard hasRestored, let target = notificationRouter.pendingTarget else { return }
+    notificationRouter.pendingTarget = nil
+
+    if let accountID = target.accountID {
+      guard let account = accounts.first(where: { $0.storeID == accountID }) else {
+        Logger.viewCycle.info("Ignoring notification from a removed account")
+        return
+      }
+      activate(account)
+      // Switch the window now so the room below isn't treated as the previous account's.
+      windowState.showAccount(account.storeID, knownAccountIDs: Set(accounts.map(\.storeID)))
+    }
+    windowState.selectedRoomId = target.roomId
+  }
+
+  /// Names the receiving account in notifications once more than one account is signed in.
+  private func updateNotificationLabels() {
+    let showsLabels = accounts.count > 1
+    for account in accounts {
+      account.notifications.accountLabel = showsLabels ? account.userID : nil
+    }
+  }
+
+  /// Shows the number of unread rooms across all accounts on the Dock icon.
+  private func observeDockBadge() {
+    let count = withObservationTracking {
+      accounts.reduce(0) { $0 + $1.unreadRoomCount }
+    } onChange: { [weak self] in
+      Task { @MainActor [weak self] in
+        self?.observeDockBadge()
+      }
+    }
+
+    guard count != lastAppliedDockUnreadCount else { return }
+    NSApp?.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
+    lastAppliedDockUnreadCount = count
   }
 
   private func startSync(_ client: MatrixClient) {

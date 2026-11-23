@@ -60,20 +60,6 @@ extension MatrixClient {
       return count + (isUnread ? 1 : 0)
     }
   }
-
-  func observeDockIconUnreadCount() {
-    let count = withObservationTracking {
-      unreadRoomCount
-    } onChange: { [weak self] in
-      Task { @MainActor [weak self] in
-        self?.observeDockIconUnreadCount()
-      }
-    }
-
-    guard count != lastAppliedDockUnreadCount else { return }
-    NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
-    lastAppliedDockUnreadCount = count
-  }
 }
 
 extension MatrixClient: SyncServiceStateObserver {
@@ -134,7 +120,7 @@ extension MatrixClient: MatrixRustSDK.ClientDelegate {
   nonisolated public func didReceiveAuthError(isSoftLogout: Bool) {
     Task { @MainActor in
       Logger.matrixClient.debug(
-        "did receive auth error: soft logout \(isSoftLogout, privacy: .public)")
+        "did receive auth error: soft logout \(isSoftLogout, privacy: .public), store \(self.storeID)")
       if !isSoftLogout {
         authenticationFailed = true
         // The session is gone; keep the account listed but stop using it.
