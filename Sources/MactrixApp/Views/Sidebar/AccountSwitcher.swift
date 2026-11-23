@@ -67,6 +67,10 @@ struct AccountSwitcher: View {
             .font(.body.weight(.semibold))
         }
         Spacer(minLength: 0)
+        if appState.inactiveUnreadRoomCount > 0 {
+          UnreadBadge(count: appState.inactiveUnreadRoomCount)
+            .help("Unread rooms in your other accounts")
+        }
         Image(systemName: "chevron.up.chevron.down")
           .font(.caption.weight(.semibold))
           .foregroundStyle(.secondary)
@@ -102,7 +106,9 @@ struct AccountSwitcher: View {
 
   private var accessibilityLabel: String {
     guard let active = appState.matrixClient else { return "Switch account" }
-    return "Switch account, current: \(active.accountMenuTitle)"
+    let label = "Switch account, current: \(active.accountMenuTitle)"
+    let unread = appState.inactiveUnreadRoomCount
+    return unread > 0 ? "\(label), \(unread) unread in other accounts" : label
   }
 
   private var popoverContent: some View {
@@ -163,12 +169,7 @@ private struct AccountRow: View {
             .font(.caption.weight(.medium))
             .foregroundStyle(.orange)
         } else if account.unreadRoomCount > 0 {
-          Text("\(account.unreadRoomCount)")
-            .font(.caption.weight(.semibold).monospacedDigit())
-            .foregroundStyle(.white)
-            .padding(.horizontal, 6)
-            .padding(.vertical, 1)
-            .background(.tint, in: Capsule())
+          UnreadBadge(count: account.unreadRoomCount)
         }
       }
       .padding(.horizontal, 6)
@@ -188,6 +189,20 @@ private struct AccountRow: View {
     if account.authenticationFailed { return "Signed out" }
     if account.unreadRoomCount > 0 { return "\(account.unreadRoomCount) unread" }
     return ""
+  }
+}
+
+/// The number of unread rooms, in a tinted capsule.
+private struct UnreadBadge: View {
+  let count: Int
+
+  var body: some View {
+    Text("\(count)")
+      .font(.caption.weight(.semibold).monospacedDigit())
+      .foregroundStyle(.white)
+      .padding(.horizontal, 6)
+      .padding(.vertical, 1)
+      .background(.tint, in: Capsule())
   }
 }
 

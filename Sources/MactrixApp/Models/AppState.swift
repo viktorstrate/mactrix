@@ -52,6 +52,14 @@ public final class AppState {
     accounts.first { $0.storeID == activeAccountID }
   }
 
+  /// The number of unread rooms across accounts other than the active one.
+  public var inactiveUnreadRoomCount: Int {
+    accounts.reduce(0) { count, account in
+      guard account.storeID != activeAccountID, !account.authenticationFailed else { return count }
+      return count + account.unreadRoomCount
+    }
+  }
+
   public var restoration: Restoration {
     hasRestored ? .restored(activeAccountID: activeAccountID) : .pending
   }
