@@ -79,6 +79,13 @@ public class MatrixClient {
       session: client.session(), storeID: storeID, storePassphrase: storePassphrase)
   }
 
+  /// The most connections each of an account's SQLite databases keeps open.
+  ///
+  /// The SDK otherwise sizes each pool at four connections per CPU core. With four databases per
+  /// account and two file descriptors per connection, a few accounts would then exhaust the
+  /// process's file descriptors, failing database opens, network requests, and rendering.
+  static let sqlitePoolMaxSize: UInt32 = 8
+
   static func clientBuilder(homeServer: String, storeId: String, storePassphrase: String)
     -> ClientBuilder
   {
@@ -87,6 +94,7 @@ public class MatrixClient {
       cachePath: StoreDirectories.caches(for: storeId).path(percentEncoded: false)
     )
     .passphrase(passphrase: storePassphrase)
+    .poolMaxSize(poolMaxSize: sqlitePoolMaxSize)
 
     return ClientBuilder()
       .serverNameOrHomeserverUrl(serverNameOrUrl: homeServer)
