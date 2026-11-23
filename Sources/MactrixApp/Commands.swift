@@ -32,7 +32,7 @@ public struct AppCommands: Commands {
             get: { appState.activeAccountID == account.storeID },
             set: { if $0 { appState.activate(account) } })
         ) {
-          Text(account.accountName)
+          Text(account.accountMenuTitle)
         }
         .keyboardShortcut(
           index < 9
