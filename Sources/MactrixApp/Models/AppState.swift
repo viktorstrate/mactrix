@@ -41,6 +41,8 @@ public final class AppState {
   public let notificationRouter = NotificationRouter()
 
   public init() {
+    // Before any account opens its stores.
+    OpenFileLimit.raise()
     accountStore = AccountStore()
     observeDockBadge()
   }
