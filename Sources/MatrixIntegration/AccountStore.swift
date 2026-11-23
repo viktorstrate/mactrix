@@ -100,7 +100,7 @@ public struct AccountStore: Sendable {
   }
 
   /// Persists the display order of accounts.
-  func setOrder(_ storeIDs: [String]) {
+  public func setOrder(_ storeIDs: [String]) {
     defaults.set(storeIDs, forKey: DefaultsKey.order)
   }
 

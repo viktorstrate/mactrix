@@ -58,7 +58,7 @@ struct WelcomeSheetView: View {
       do {
         let client = try await homeserverLogin.loginPassword(
           homeServer: homeserverField, username: usernameField, password: passwordField)
-        appState.matrixClient = client
+        try await appState.add(client)
         dismiss()
       } catch {
         showError = error
@@ -74,7 +74,7 @@ struct WelcomeSheetView: View {
 
       do {
         let client = try await homeserverLogin.loginOidc(webAuthSession: webAuthenticationSession)
-        appState.matrixClient = client
+        try await appState.add(client)
         dismiss()
       } catch {
         showError = error

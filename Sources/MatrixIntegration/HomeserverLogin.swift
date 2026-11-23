@@ -61,12 +61,11 @@ public struct HomeserverLogin {
   @MainActor
   fileprivate func onSuccessfullLogin() async throws -> MatrixClient {
     let accountStore = AccountStore()
-    let matrixClient = await MatrixClient(
+    let matrixClient = try await MatrixClient(
       storeID: storeID, storePassphrase: storePassphrase, client: unauthenticatedClient,
       accountStore: accountStore)
 
     try accountStore.save(matrixClient.userSession())
-    accountStore.activeStoreID = storeID
 
     return matrixClient
   }

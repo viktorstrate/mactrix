@@ -140,9 +140,12 @@ public struct MainView: View {
         }
       }
     )
-    .onChange(of: appState.matrixClient == nil) { _, matrixClientIsNil in
-      if matrixClientIsNil {
-        Logger.viewCycle.info("Matrix client is nil, present welcome sheet")
+    .onChange(of: appState.restoration, initial: true) { _, restoration in
+      guard case .restored(let activeAccountID) = restoration else { return }
+      windowState.showAccount(
+        activeAccountID, knownAccountIDs: Set(appState.accounts.map(\.storeID)))
+      if activeAccountID == nil {
+        Logger.viewCycle.info("No signed in accounts, present welcome sheet")
         showWelcomeSheet = true
       }
     }
@@ -165,39 +168,14 @@ public struct MainView: View {
   }
 
   func attemptLoadUserSession() async {
-    guard appState.matrixClient == nil else { return }
-
-    do {
-      if let matrixClient = try await MatrixClient.attemptRestore() {
-        appState.matrixClient = matrixClient
-      }
-    } catch {
-      Logger.viewCycle.error("Failed to restore matrix session: \(error)")
-    }
-
-    showWelcomeSheet = appState.matrixClient == nil
-    if let matrixClient = appState.matrixClient {
-      onMatrixLoaded(matrixClient: matrixClient)
-    }
-  }
-
-  func onMatrixLoaded(matrixClient: MatrixClient) {
-    Task {
-      do {
-        try await matrixClient.startSync()
-      } catch {
-        Logger.matrixClient.error("Failed to start sync: \(error)")
-      }
-    }
+    await appState.restoreAccounts()
   }
 
   func onLoginModalDismiss() {
     Task {
       do {
         try await Task.sleep(for: .milliseconds(100))
-        if let matrixClient = appState.matrixClient {
-          onMatrixLoaded(matrixClient: matrixClient)
-        } else {
+        if appState.accounts.isEmpty {
           NSApp.terminate(nil)
         }
       } catch is CancellationError {

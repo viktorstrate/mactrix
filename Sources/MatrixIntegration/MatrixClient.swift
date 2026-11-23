@@ -11,6 +11,8 @@ import Utils
 @MainActor @Observable
 public class MatrixClient {
   public let storeID: String
+  /// The Matrix user ID of this account.
+  public let userID: String
   @ObservationIgnored let roomSubscriptions = RoomSubscriptions()
   @ObservationIgnored public private(set) lazy var recentReactions = RecentReactionsStore(
     client: SDKRecentReactionsClient(client: client))
@@ -38,6 +40,7 @@ public class MatrixClient {
 
   init(userSession: UserSession, accountStore: AccountStore) async throws {
     storeID = userSession.storeID
+    userID = userSession.userID
     storePassphrase = userSession.storePassphrase
     self.accountStore = accountStore
 
@@ -57,8 +60,9 @@ public class MatrixClient {
 
   init(
     storeID: String, storePassphrase: String, client: ClientProtocol, accountStore: AccountStore
-  ) async {
+  ) async throws {
     self.storeID = storeID
+    self.userID = try client.userId()
     self.storePassphrase = storePassphrase
     self.accountStore = accountStore
     self.client = client
@@ -128,18 +132,27 @@ public class MatrixClient {
       loginDetails: details)
   }
 
-  public static func attemptRestore(accountStore: AccountStore = AccountStore()) async throws
-    -> MatrixClient?
-  {
-    try accountStore.migrateLegacyIfNeeded()
-    removeOrphanedStores(accountStore: accountStore)
-    let sessions = try accountStore.loadAll()
-    guard
-      let userSession = sessions.first(where: { $0.storeID == accountStore.activeStoreID })
-        ?? sessions.first
-    else { return nil }
+  /// Restores every stored account. Accounts that fail to restore are skipped and logged.
+  public static func restoreAll(accountStore: AccountStore) async -> [MatrixClient] {
+    let sessions: [UserSession]
+    do {
+      try accountStore.migrateLegacyIfNeeded()
+      removeOrphanedStores(accountStore: accountStore)
+      sessions = try accountStore.loadAll()
+    } catch {
+      Logger.matrixClient.error("Failed to load stored accounts: \(error)")
+      return []
+    }
 
-    return try await MatrixClient(userSession: userSession, accountStore: accountStore)
+    var clients: [MatrixClient] = []
+    for session in sessions {
+      do {
+        clients.append(try await MatrixClient(userSession: session, accountStore: accountStore))
+      } catch {
+        Logger.matrixClient.error("Failed to restore store \(session.storeID): \(error)")
+      }
+    }
+    return clients
   }
 
   /// Deletes store directories left behind by abandoned logins.
@@ -160,6 +173,7 @@ public class MatrixClient {
     recentReactions.invalidate()
     isResettingSession = true
     await roomSubscriptions.invalidate()
+    await syncService?.stop()
     Logger.matrixClient.debug("matrix client sign out")
     try? await client.logout()
     try? FileManager.default.removeItem(at: StoreDirectories.data(for: storeID))
