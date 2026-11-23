@@ -77,8 +77,8 @@ public class MatrixClient {
     -> ClientBuilder
   {
     let sqliteConfig = SqliteStoreBuilder(
-      dataPath: URL.sessionData(for: storeId).path(percentEncoded: false),
-      cachePath: URL.sessionCaches(for: storeId).path(percentEncoded: false)
+      dataPath: StoreDirectories.data(for: storeId).path(percentEncoded: false),
+      cachePath: StoreDirectories.caches(for: storeId).path(percentEncoded: false)
     )
     .passphrase(passphrase: storePassphrase)
 
@@ -86,7 +86,7 @@ public class MatrixClient {
       .serverNameOrHomeserverUrl(serverNameOrUrl: homeServer)
       .sqliteStore(config: sqliteConfig)
       .withSearchIndexStore(
-        path: URL.sessionCaches(for: storeId).appending(component: "SearchIndex")
+        path: StoreDirectories.caches(for: storeId).appending(component: "SearchIndex")
           .path(percentEncoded: false),
         key: storePassphrase
       )
@@ -132,6 +132,7 @@ public class MatrixClient {
     -> MatrixClient?
   {
     try accountStore.migrateLegacyIfNeeded()
+    removeOrphanedStores(accountStore: accountStore)
     let sessions = try accountStore.loadAll()
     guard
       let userSession = sessions.first(where: { $0.storeID == accountStore.activeStoreID })
@@ -141,14 +142,28 @@ public class MatrixClient {
     return try await MatrixClient(userSession: userSession, accountStore: accountStore)
   }
 
+  /// Deletes store directories left behind by abandoned logins.
+  static func removeOrphanedStores(accountStore: AccountStore) {
+    do {
+      // An unmigrated legacy session's store isn't listed yet, so it must not be swept.
+      guard try !accountStore.hasLegacySession() else { return }
+      StoreDirectories.removeOrphans(
+        in: [StoreDirectories.dataRoot, StoreDirectories.cachesRoot],
+        keeping: try accountStore.allStoreIDs(),
+        createdBefore: Date.now.addingTimeInterval(-10 * 60))
+    } catch {
+      Logger.matrixClient.error("Skipping orphaned store cleanup: \(error)")
+    }
+  }
+
   public func reset() async throws {
     recentReactions.invalidate()
     isResettingSession = true
     await roomSubscriptions.invalidate()
     Logger.matrixClient.debug("matrix client sign out")
     try? await client.logout()
-    try? FileManager.default.removeItem(at: .sessionData(for: storeID))
-    try? FileManager.default.removeItem(at: .sessionCaches(for: storeID))
+    try? FileManager.default.removeItem(at: StoreDirectories.data(for: storeID))
+    try? FileManager.default.removeItem(at: StoreDirectories.caches(for: storeID))
     try accountStore.remove(storeID: storeID)
     Logger.matrixClient.debug("matrix client sign out complete")
   }
@@ -336,19 +351,5 @@ extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
     } catch {
       Logger.matrixClient.error("failed to save session in keychain: \(error)")
     }
-  }
-}
-
-extension URL {
-  fileprivate static func sessionData(for sessionID: String) -> URL {
-    applicationSupportDirectory
-      .appending(component: "dk.qpqp.mactrix")
-      .appending(component: sessionID)
-  }
-
-  fileprivate static func sessionCaches(for sessionID: String) -> URL {
-    cachesDirectory
-      .appending(component: "dk.qpqp.mactrix")
-      .appending(component: sessionID)
   }
 }

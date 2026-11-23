@@ -136,6 +136,8 @@ extension MatrixClient: MatrixRustSDK.ClientDelegate {
         "did receive auth error: soft logout \(isSoftLogout, privacy: .public)")
       if !isSoftLogout {
         authenticationFailed = true
+        // The session is gone; keep the account listed but stop using it.
+        await syncService?.stop()
       }
     }
   }

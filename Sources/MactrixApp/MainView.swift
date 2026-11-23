@@ -146,12 +146,6 @@ public struct MainView: View {
         showWelcomeSheet = true
       }
     }
-    .onChange(of: appState.matrixClient?.authenticationFailed) { _, authFailed in
-      if authFailed == true {
-        Logger.viewCycle.info("Logging out since auth failed")
-        appState.matrixClient = nil
-      }
-    }
     .onOpenURL { url in
       Logger.viewCycle.debug("onOpenUrl \(url)")
 

@@ -38,11 +38,8 @@ public struct AccountStore: Sendable {
 
   /// Returns all stored sessions in display order. Unreadable items are skipped.
   func loadAll() throws -> [UserSession] {
-    let storeIDs = try keychain.keys(withPrefix: Self.sessionKeyPrefix)
-      .map { String($0.dropFirst(Self.sessionKeyPrefix.count)) }
-
     var sessions: [String: UserSession] = [:]
-    for storeID in storeIDs {
+    for storeID in try allStoreIDs() {
       do {
         if let session = try load(storeID: storeID) {
           sessions[storeID] = session
@@ -54,6 +51,18 @@ public struct AccountStore: Sendable {
 
     let order = orderedStoreIDs(existing: Set(sessions.keys))
     return order.compactMap { sessions[$0] }
+  }
+
+  /// The store IDs of every stored session, including ones that can't be decoded.
+  func allStoreIDs() throws -> Set<String> {
+    Set(
+      try keychain.keys(withPrefix: Self.sessionKeyPrefix)
+        .map { String($0.dropFirst(Self.sessionKeyPrefix.count)) })
+  }
+
+  /// Whether a session from before per-account storage is still present.
+  func hasLegacySession() throws -> Bool {
+    try keychain.load(forKey: Self.legacySessionKey) != nil
   }
 
   func load(storeID: String) throws -> UserSession? {

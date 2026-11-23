@@ -100,6 +100,7 @@ struct SidebarView: View {
 
   private var statusContent: some View {
     VStack(spacing: 8) {
+      SidebarSignedOutView()
       SidebarSyncStateView()
       SessionVerificationStatusView()
     }
