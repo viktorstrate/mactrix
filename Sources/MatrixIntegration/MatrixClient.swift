@@ -15,6 +15,7 @@ public class MatrixClient {
   @ObservationIgnored public private(set) lazy var recentReactions = RecentReactionsStore(
     client: SDKRecentReactionsClient(client: client))
   private let storePassphrase: String
+  @ObservationIgnored nonisolated let accountStore: AccountStore
   public internal(set) var client: ClientProtocol!
 
   public internal(set) var rooms: [SidebarRoom] = []
@@ -35,9 +36,10 @@ public class MatrixClient {
     return (hints + viaServers).filter { seen.insert($0).inserted }
   }
 
-  init(userSession: UserSession) async throws {
+  init(userSession: UserSession, accountStore: AccountStore) async throws {
     storeID = userSession.storeID
     storePassphrase = userSession.storePassphrase
+    self.accountStore = accountStore
 
     client = try await Self.clientBuilder(
       homeServer: userSession.homeserverURL, storeId: storeID, storePassphrase: storePassphrase
@@ -53,9 +55,12 @@ public class MatrixClient {
     observeDockIconUnreadCount()
   }
 
-  init(storeID: String, storePassphrase: String, client: ClientProtocol) async {
+  init(
+    storeID: String, storePassphrase: String, client: ClientProtocol, accountStore: AccountStore
+  ) async {
     self.storeID = storeID
     self.storePassphrase = storePassphrase
+    self.accountStore = accountStore
     self.client = client
 
     spaceService = LiveSpaceService(client: self.client, spaceService: await client.spaceService())
@@ -123,10 +128,17 @@ public class MatrixClient {
       loginDetails: details)
   }
 
-  public static func attemptRestore() async throws -> MatrixClient? {
-    guard let userSession = try UserSession.loadUserFromKeychain() else { return nil }
+  public static func attemptRestore(accountStore: AccountStore = AccountStore()) async throws
+    -> MatrixClient?
+  {
+    try accountStore.migrateLegacyIfNeeded()
+    let sessions = try accountStore.loadAll()
+    guard
+      let userSession = sessions.first(where: { $0.storeID == accountStore.activeStoreID })
+        ?? sessions.first
+    else { return nil }
 
-    return try await MatrixClient(userSession: userSession)
+    return try await MatrixClient(userSession: userSession, accountStore: accountStore)
   }
 
   public func reset() async throws {
@@ -137,7 +149,7 @@ public class MatrixClient {
     try? await client.logout()
     try? FileManager.default.removeItem(at: .sessionData(for: storeID))
     try? FileManager.default.removeItem(at: .sessionCaches(for: storeID))
-    try AppKeychain().removeAll()
+    try accountStore.remove(storeID: storeID)
     Logger.matrixClient.debug("matrix client sign out complete")
   }
 
@@ -304,26 +316,23 @@ extension MatrixClient: MatrixRustSDK.ClientSessionDelegate {
     Logger.matrixClient.debug(
       "client session delegate: retrieve session from keychain: \(userId, privacy: .sensitive)")
 
-    let userSession = try UserSession.loadUserFromKeychain()
-    if let userSession {
-      if userSession.userID == userId {
-        return userSession.session
-      } else {
-        Logger.matrixClient.debug(
-          "restored user session has wrong userId: \(userSession.userID, privacy: .sensitive), expected \(userId, privacy: .sensitive)"
-        )
-        throw MatrixClientRestoreSessionError.wrongUserId
-      }
-    } else {
+    guard let userSession = try accountStore.load(storeID: storeID) else {
       throw MatrixClientRestoreSessionError.sessionNotFound
     }
+    guard userSession.userID == userId else {
+      Logger.matrixClient.debug(
+        "restored user session has wrong userId: \(userSession.userID, privacy: .sensitive), expected \(userId, privacy: .sensitive)"
+      )
+      throw MatrixClientRestoreSessionError.wrongUserId
+    }
+    return userSession.session
   }
 
   public nonisolated func saveSessionInKeychain(session: MatrixRustSDK.Session) {
     Logger.matrixClient.debug("client session delegate: save session in keychain")
     do {
-      try UserSession(session: session, storeID: storeID, storePassphrase: storePassphrase)
-        .saveUserToKeychain()
+      try accountStore.save(
+        UserSession(session: session, storeID: storeID, storePassphrase: storePassphrase))
     } catch {
       Logger.matrixClient.error("failed to save session in keychain: \(error)")
     }
