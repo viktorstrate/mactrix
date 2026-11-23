@@ -1,6 +1,7 @@
 import AuthenticationServices
 import MatrixIntegration
 import MatrixRustSDK
+import OSLog
 import SwiftUI
 
 struct WelcomeSheetView: View {
@@ -51,6 +52,17 @@ struct WelcomeSheetView: View {
     }
   }
 
+  /// Replaces the spent login with a fresh one, since a client can't sign in a second time.
+  ///
+  /// Failures are ignored so the sign-in error stays on screen.
+  private func renewHomeserverLogin() async {
+    do {
+      homeserverLogin = try await MatrixClient.loginDetails(homeServer: homeserverField)
+    } catch {
+      Logger.viewCycle.error("Failed to renew homeserver login: \(error)")
+    }
+  }
+
   func signInPassword() {
     Task {
       guard let homeserverLogin = homeserverLogin else { return }
@@ -64,6 +76,7 @@ struct WelcomeSheetView: View {
         dismiss()
       } catch {
         showError = error
+        await renewHomeserverLogin()
       }
     }
   }
@@ -80,6 +93,7 @@ struct WelcomeSheetView: View {
         dismiss()
       } catch {
         showError = error
+        await renewHomeserverLogin()
       }
     }
   }

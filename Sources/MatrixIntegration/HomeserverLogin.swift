@@ -4,6 +4,9 @@ import MatrixRustSDK
 import OSLog
 import SwiftUI
 
+/// Login details and the client that signs in with them.
+///
+/// Single use: after a login attempt, request new login details.
 public struct HomeserverLogin {
   public let storeID: String
   private let storePassphrase: String
