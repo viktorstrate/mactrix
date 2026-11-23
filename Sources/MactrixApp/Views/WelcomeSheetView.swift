@@ -4,6 +4,8 @@ import MatrixRustSDK
 import SwiftUI
 
 struct WelcomeSheetView: View {
+  var request: LoginSheet = .firstAccount
+
   @Environment(AppState.self) private var appState
   @Environment(\.dismiss) private var dismiss
 
@@ -113,7 +115,7 @@ struct WelcomeSheetView: View {
   @ViewBuilder
   var content: some View {
     VStack {
-      Text("Welcome to Mactrix")
+      Text(title)
         .font(.headline)
         .padding(.bottom)
 
@@ -159,8 +161,29 @@ struct WelcomeSheetView: View {
           .foregroundStyle(Color.red)
           .textSelection(.enabled)
       }
+
+      if request != .firstAccount {
+        Button("Cancel", role: .cancel) { dismiss() }
+          .keyboardShortcut(.cancelAction)
+          .padding(.top)
+      }
     }
     .padding()
+    .onAppear {
+      // Look up the homeserver straight away when signing in to a known account again.
+      if case .signInAgain(let userID) = request, homeserverField.isEmpty {
+        homeserverField = userID
+        loadHomeserver()
+      }
+    }
+  }
+
+  private var title: String {
+    switch request {
+    case .firstAccount: "Welcome to Mactrix"
+    case .addAccount: "Add Account"
+    case .signInAgain(let userID): "Sign In Again as \(userID)"
+    }
   }
 
   var body: some View {

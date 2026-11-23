@@ -120,6 +120,16 @@ struct SessionsSettingsView: View {
   var body: some View {
     if let matrixClient = appState.matrixClient {
       Form {
+        Section {
+          AccountLabel(account: matrixClient)
+        } header: {
+          Text("Active Account")
+        } footer: {
+          if appState.accounts.count > 1 {
+            Text("Switch accounts from the sidebar or the Account menu.")
+          }
+        }
+
         Section("Device Verification") {
           sessionVerificationView(matrixClient: matrixClient)
           if matrixClient.verificationState == .unverified {

@@ -63,12 +63,18 @@ struct SidebarView: View {
   }
 
   var content: some View {
-    HStack(spacing: 0) {
-      SidebarGroupsList()
+    VStack(spacing: 0) {
+      AccountSwitcher()
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
       Divider()
-      listView
-        // force list view to re-render to avoid a rendering bug
-        .id(windowState.selectedSpaceId)
+      HStack(spacing: 0) {
+        SidebarGroupsList()
+        Divider()
+        listView
+          // force list view to re-render to avoid a rendering bug
+          .id(windowState.selectedSpaceId)
+      }
     }
     .task(id: selectedSpace?.id) {
       await selectedSpace?.loadChildren()

@@ -70,6 +70,23 @@ public final class SelectedScreen: Identifiable {
   public static var none: SelectedScreen { SelectedScreen(.none) }
 }
 
+/// Why the sign-in sheet is shown.
+public enum LoginSheet: Identifiable, Equatable {
+  /// No account is signed in.
+  case firstAccount
+  case addAccount
+  /// The server ended this account's session.
+  case signInAgain(userID: String)
+
+  public var id: String {
+    switch self {
+    case .firstAccount: "first"
+    case .addAccount: "add"
+    case .signInAgain(let userID): "again:\(userID)"
+    }
+  }
+}
+
 @MainActor @Observable
 public final class WindowState {
   public var selectedScreen: SelectedScreen = .none {
@@ -132,6 +149,8 @@ public final class WindowState {
   public var inspectorContent: InspectorContent = .roomInfo
 
   public var requestedVerification = false
+
+  public var loginSheet: LoginSheet?
 
   public var searchQuery: String = ""
   public var searchTokens: [SearchToken] = []

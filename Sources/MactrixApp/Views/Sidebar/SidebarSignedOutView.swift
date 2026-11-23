@@ -1,12 +1,12 @@
-import OSLog
 import SwiftUI
 
 /// Shown when the server has ended the active account's session.
 struct SidebarSignedOutView: View {
   @Environment(AppState.self) var appState
+  @Environment(WindowState.self) var windowState
   @Environment(\.colorScheme) var colorScheme
 
-  @State private var signingOut = false
+  @State private var removing = false
 
   var body: some View {
     if let matrixClient = appState.matrixClient, matrixClient.authenticationFailed {
@@ -23,18 +23,19 @@ struct SidebarSignedOutView: View {
         .labelStyle(.multiline)
         .frame(maxWidth: .infinity)
 
-        Button("Sign In Again…") {
-          Task {
-            signingOut = true
-            defer { signingOut = false }
-            do {
-              try await appState.reset()
-            } catch {
-              Logger.viewCycle.error("Failed to remove signed out account: \(error)")
+        HStack {
+          Button("Sign In Again…") {
+            windowState.loginSheet = .signInAgain(userID: matrixClient.userID)
+          }
+          Button("Remove Account") {
+            Task {
+              removing = true
+              defer { removing = false }
+              await appState.remove(matrixClient)
             }
           }
         }
-        .disabled(signingOut)
+        .disabled(removing)
       }
       .padding(10)
       .background(Color.orange.opacity(0.2))

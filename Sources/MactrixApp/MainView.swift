@@ -11,8 +11,6 @@ public struct MainView: View {
   @SceneStorage("MainView.windowState")
   private var windowState: WindowState = .init()
 
-  @State private var showWelcomeSheet: Bool = false
-
   let x: Bool = false
 
   public init() {}
@@ -102,8 +100,8 @@ public struct MainView: View {
         })
     }
     .task { await attemptLoadUserSession() }
-    .sheet(isPresented: $showWelcomeSheet, onDismiss: onLoginModalDismiss) {
-      WelcomeSheetView()
+    .sheet(item: $windowState.loginSheet, onDismiss: onLoginModalDismiss) { request in
+      WelcomeSheetView(request: request)
     }
     .sheet(
       isPresented: verificationSheetPresented,
@@ -146,7 +144,7 @@ public struct MainView: View {
         activeAccountID, knownAccountIDs: Set(appState.accounts.map(\.storeID)))
       if activeAccountID == nil {
         Logger.viewCycle.info("No signed in accounts, present welcome sheet")
-        showWelcomeSheet = true
+        windowState.loginSheet = .firstAccount
       }
     }
     .onOpenURL { url in

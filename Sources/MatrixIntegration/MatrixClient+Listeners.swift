@@ -51,7 +51,8 @@ extension MatrixClient {
     }
   }
 
-  var unreadRoomCount: Int {
+  /// The number of rooms with unread messages, notifications, or mentions.
+  public var unreadRoomCount: Int {
     rooms.reduce(0) { count, room in
       guard let info = room.roomInfo else { return count }
       let isUnread =

@@ -1,10 +1,13 @@
 import SwiftUI
 
 public struct AppCommands: Commands {
+  let appState: AppState
   @FocusedValue(WindowState.self) private var windowState: WindowState?
   @AppStorage("fontSize") var fontSize: Int = 13
 
-  public init() {}
+  public init(appState: AppState) {
+    self.appState = appState
+  }
 
   public var body: some Commands {
     SidebarCommands()
@@ -17,7 +20,35 @@ public struct AppCommands: Commands {
     createRoom
     quickNavigation
     fontSizeCommands
+    accountCommands
     conversationCommands
+  }
+
+  var accountCommands: some Commands {
+    CommandMenu("Account") {
+      ForEach(Array(appState.accounts.enumerated()), id: \.element.storeID) { index, account in
+        Toggle(
+          isOn: Binding(
+            get: { appState.activeAccountID == account.storeID },
+            set: { if $0 { appState.activate(account) } })
+        ) {
+          Text(account.accountName)
+        }
+        .keyboardShortcut(
+          index < 9
+            ? KeyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: [.command, .control])
+            : nil)
+      }
+
+      if !appState.accounts.isEmpty {
+        Divider()
+      }
+
+      Button("Add Account…") {
+        windowState?.loginSheet = .addAccount
+      }
+      .disabled(windowState == nil)
+    }
   }
 
   var about: some Commands {

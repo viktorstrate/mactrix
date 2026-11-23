@@ -50,18 +50,30 @@ struct AccountSettingsView: View {
   var body: some View {
     if let matrixClient = appState.matrixClient {
       Form {
+        Section {
+          AccountLabel(account: matrixClient)
+        } header: {
+          Text("Active Account")
+        } footer: {
+          if appState.accounts.count > 1 {
+            Text("Switch accounts from the sidebar or the Account menu.")
+          }
+        }
+
         ChangableField(
           name: "Display name", value: displayName ?? String(localized: "Loading…"),
           onSave: { newDisplayName in
             do {
               try await matrixClient.client.setDisplayName(name: newDisplayName)
               displayName = newDisplayName
+              await matrixClient.refreshOwnProfile()
             } catch {
               Logger.viewCycle.error("Failed to update display name: \(error)")
             }
           }
         )
-        .task {
+        .task(id: matrixClient.storeID) {
+          displayName = nil
           do {
             displayName = try await matrixClient.client.displayName()
           } catch {
@@ -80,7 +92,7 @@ struct AccountSettingsView: View {
         }
 
         HStack {
-          Button("Sign out", role: .destructive) {
+          Button(appState.accounts.count > 1 ? "Sign Out of This Account" : "Sign out", role: .destructive) {
             Task {
               do {
                 try await appState.reset()

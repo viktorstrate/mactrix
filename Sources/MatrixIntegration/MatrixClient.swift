@@ -29,6 +29,10 @@ public class MatrixClient {
   private var clientDelegateHandle: TaskHandle?
   public internal(set) var authenticationFailed: Bool = false
 
+  /// This account's own display name and avatar, for identifying the account in the UI.
+  public private(set) var ownDisplayName: String?
+  public private(set) var ownAvatarUrl: String?
+
   public let notifications: MatrixNotifications = .init()
 
   public let viaServers = ["matrix.org"]
@@ -296,9 +300,23 @@ public class MatrixClient {
     ignoredUsersHandle = client.subscribeToIgnoredUsers(listener: self)
     ignoredUserIds = try await client.ignoredUsers()
 
+    Task { [weak self] in await self?.refreshOwnProfile() }
+
     // Start the sync loop.
     await _syncService.start()
     Logger.matrixClient.info("Matrix sync started")
+  }
+
+  /// Reloads `ownDisplayName` and `ownAvatarUrl`, falling back to cached values when offline.
+  public func refreshOwnProfile() async {
+    if let displayName = try? await client.displayName() {
+      ownDisplayName = displayName
+    }
+    if let avatarUrl = try? await client.avatarUrl() {
+      ownAvatarUrl = avatarUrl
+    } else if ownAvatarUrl == nil {
+      ownAvatarUrl = try? await client.cachedAvatarUrl()
+    }
   }
 
   public func clearCache() async throws {
