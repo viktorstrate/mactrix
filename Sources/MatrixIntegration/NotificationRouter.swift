@@ -17,6 +17,10 @@ import UserNotifications
   /// The room of the most recently clicked notification, until the app has shown it.
   public var pendingTarget: Target?
 
+  /// The `storeID` of the account shown in the app, whose notifications stay silent while the app
+  /// is frontmost.
+  @ObservationIgnored public var activeAccountID: String?
+
   public override init() {
     super.init()
     UNUserNotificationCenter.current().delegate = self
@@ -32,5 +36,22 @@ extension NotificationRouter: @MainActor UNUserNotificationCenterDelegate {
     let accountID = userInfo[MatrixNotifications.UserInfoKey.accountID] as? String
     Logger.notification.info("Notification clicked for room \(roomId) in store \(accountID ?? "?")")
     pendingTarget = Target(accountID: accountID, roomId: roomId)
+  }
+
+  /// Shows notifications from accounts other than the active one while the app is frontmost,
+  /// since their rooms aren't visible. macOS would otherwise hide them.
+  public func userNotificationCenter(
+    _ center: UNUserNotificationCenter, willPresent notification: UNNotification
+  ) async -> UNNotificationPresentationOptions {
+    let accountID =
+      notification.request.content.userInfo[MatrixNotifications.UserInfoKey.accountID] as? String
+    return Self.foregroundPresentation(forAccountID: accountID, activeAccountID: activeAccountID)
+  }
+
+  static func foregroundPresentation(forAccountID accountID: String?, activeAccountID: String?)
+    -> UNNotificationPresentationOptions
+  {
+    guard let accountID, accountID != activeAccountID else { return [] }
+    return [.banner, .list, .sound]
   }
 }

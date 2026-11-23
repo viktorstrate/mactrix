@@ -106,6 +106,7 @@ public final class AppState {
   public func activate(_ client: MatrixClient?) {
     activeAccountID = client?.storeID
     accountStore.activeStoreID = client?.storeID
+    notificationRouter.activeAccountID = client?.storeID
   }
 
   /// Signs out of `client` and removes it, activating another account if it was active.
