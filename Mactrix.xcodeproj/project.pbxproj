@@ -114,6 +114,7 @@
 				en,
 				Base,
 				de,
+				da,
 			);
 			mainGroup = 343858392EB394590010922A;
 			minimizedProjectReferenceProxies = 1;
@@ -409,7 +410,7 @@
 /* Begin XCLocalSwiftPackageReference section */
 		3444A621306CF7A000673405 /* XCLocalSwiftPackageReference "." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ".";
+			relativePath = .;
 		};
 /* End XCLocalSwiftPackageReference section */
 

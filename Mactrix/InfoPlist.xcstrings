@@ -24,6 +24,12 @@
       "comment" : "Privacy - Contacts Usage Description",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Mactrix viser navne og billeder af Matrix brugere som du tilknytter til dine kontakter."
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
@@ -42,6 +48,12 @@
       "comment" : "Copyright (human-readable)",
       "extractionState" : "extracted_with_value",
       "localizations" : {
+        "da" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Matrix er licenseret under GPL-3.0"
+          }
+        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
