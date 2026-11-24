@@ -146,42 +146,51 @@ final class MessageTextContentView: NSView, MessageContentRowView {
         return attributedText(for: notice, font: font, color: .secondaryLabelColor)
       case .emote(let emote):
         if let formatted = emote.formatted, formatted.format == .html {
-          let result = NSMutableAttributedString(attributedString: plain("Emote: "))
+          let result = NSMutableAttributedString(
+            attributedString: plain(String(localized: "Emote: ")))
           result.append(attributedText(for: emote, font: font, color: .labelColor))
           return result
         }
-        return plain("Emote: \(emote.body)")
+        return plain(String(localized: "Emote: \(emote.body)"))
       case .audio(let audio):
         if let formatted = audio.formattedCaption, formatted.format == .html {
-          let result = NSMutableAttributedString(attributedString: plain("Audio: "))
+          let result = NSMutableAttributedString(
+            attributedString: plain(String(localized: "Audio: ")))
           result.append(attributedCaption(audio.caption, formatted: formatted))
           result.append(plain(" \(audio.filename)"))
           return result
         }
-        return plain("Audio: \(audio.caption ?? "no caption") \(audio.filename)")
+        return plain(
+          String(
+            localized:
+              "Audio: \(audio.caption ?? String(localized: "no caption")) \(audio.filename)"))
       case .gallery(let gallery):
-        return plain("Gallery: \(gallery.body)")
+        return plain(String(localized: "Gallery: \(gallery.body)"))
       case .location(let location):
-        return plain("Location: \(location.body) \(location.geoUri)")
+        return plain(String(localized: "Location: \(location.body) \(location.geoUri)"))
       case .other(let msgtype, let body):
-        return plain("Other: \(msgtype) \(body)")
+        return plain(String(localized: "Other: \(msgtype) \(body)"))
       case .image, .video, .file:
         return NSAttributedString()
       }
     case .sticker(let body, info: _, source: _):
-      return plain("Sticker: \(body)")
+      return plain(String(localized: "Sticker: \(body)"))
     case .poll(
       let question, kind: _, maxSelections: _, answers: _, votes: _, endTime: _,
       hasBeenEdited: _):
-      return plain("Poll: \(question)")
+      return plain(String(localized: "Poll: \(question)"))
     case .redacted:
-      return plain("Message redacted", color: .secondaryLabelColor, italic: true)
+      return plain(String(localized: "Message redacted"), color: .secondaryLabelColor, italic: true)
     case .unableToDecrypt:
-      return plain("Unable to decrypt", color: .secondaryLabelColor, italic: true)
+      return plain(
+        String(localized: "Unable to decrypt"), color: .secondaryLabelColor, italic: true)
     case .other(let eventType):
-      return plain("Custom event: \(eventType.userInterfaceText)")
+      return plain(String(localized: "Custom event: \(eventType.userInterfaceText)"))
     case .liveLocation(content: let location):
-      return plain("Live location: \(location.description ?? "no description")")
+      return plain(
+        String(
+          localized:
+            "Live location: \(location.description ?? String(localized: "no description"))"))
     }
   }
 

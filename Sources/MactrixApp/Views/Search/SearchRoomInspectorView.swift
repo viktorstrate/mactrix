@@ -18,15 +18,15 @@ struct SearchRoomInspectorView: View {
       Section("Room search results") {
         if searching {
           Group {
-            Text("First room")
-            Text("Second room")
-            Text("Third room")
+            Text(verbatim: "First room")
+            Text(verbatim: "Second room")
+            Text(verbatim: "Third room")
           }.redacted(reason: .placeholder)
         } else {
           ForEach(roomSearch?.rooms ?? [], id: \.roomId) { room in
             VStack(alignment: .leading) {
-              Text(room.name ?? "unknown name")
-                .help(room.name ?? "unknown name")
+              Text(room.name ?? String(localized: "Unknown name"))
+                .help(room.name ?? String(localized: "Unknown name"))
                 .lineLimit(1)
                 .truncationMode(.tail)
               Text(room.roomId)

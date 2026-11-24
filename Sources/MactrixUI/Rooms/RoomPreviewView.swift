@@ -43,12 +43,11 @@ public struct RoomPreviewView<RoomPreview: RoomPreviewInfo>: View {
     self.actions = actions
   }
 
-  var kindName: String {
+  /// Picks the variant for the previewed kind, so each sentence can be translated as a whole.
+  func kindText(room: LocalizedStringKey, space: LocalizedStringKey) -> LocalizedStringKey {
     switch preview.roomKind {
-    case .space:
-      "space"
-    default:
-      "room"
+    case .space: space
+    default: room
     }
   }
 
@@ -61,7 +60,7 @@ public struct RoomPreviewView<RoomPreview: RoomPreviewInfo>: View {
       .frame(width: 72, height: 72)
 
       VStack(alignment: .leading) {
-        Text(preview.name ?? "Unknown name")
+        Text(preview.name ?? String(localized: "Unknown name"))
           .font(.title)
           .textSelection(.enabled)
 
@@ -72,24 +71,34 @@ public struct RoomPreviewView<RoomPreview: RoomPreviewInfo>: View {
         }
 
         HStack {
-          Text("^[\(preview.numJoinedMembers) member](inflect: true)")
+          Text("\(preview.numJoinedMembers) members")
             .modifier(SmallBadgeModifier(color: .green))
             .help(
-              "^[\(preview.numJoinedMembers) member](inflect: true) have joined this \(kindName)")
+              kindText(
+                room: "\(preview.numJoinedMembers) members have joined this room",
+                space: "\(preview.numJoinedMembers) members have joined this space"))
 
           switch preview.joinRuleInfo {
           case .public:
             Label("Public", systemImage: "globe")
               .modifier(SmallBadgeModifier(color: .gray))
-              .help("Everyone can join this room")
+              .help(
+                kindText(
+                  room: "Everyone can join this room", space: "Everyone can join this space"))
           case .invite:
             Label("Invite only", systemImage: "lock")
               .modifier(SmallBadgeModifier(color: .gray))
-              .help("You need an invitation to join this \(kindName)")
+              .help(
+                kindText(
+                  room: "You need an invitation to join this room",
+                  space: "You need an invitation to join this space"))
           case .knock where preview.userMembership != .knocked:
             Label("Knock", systemImage: "hand.wave")
               .modifier(SmallBadgeModifier(color: .gray))
-              .help("Send a request to join the \(kindName)")
+              .help(
+                kindText(
+                  room: "Send a request to join the room", space: "Send a request to join the space"
+                ))
           default:
             EmptyView()
           }
@@ -98,19 +107,29 @@ public struct RoomPreviewView<RoomPreview: RoomPreviewInfo>: View {
           case .invited:
             Label("Invited", systemImage: "envelope.badge")
               .modifier(SmallBadgeModifier(color: .gray))
-              .help("You have been invited to join this \(kindName)")
+              .help(
+                kindText(
+                  room: "You have been invited to join this room",
+                  space: "You have been invited to join this space"))
           case .joined:
             Label("Joined", systemImage: "checkmark.square.fill")
               .modifier(SmallBadgeModifier(color: .gray))
-              .help("You are a member of this \(kindName)")
+              .help(
+                kindText(
+                  room: "You are a member of this room", space: "You are a member of this space"))
           case .knocked:
             Label("Knocked", systemImage: "envelope")
               .modifier(SmallBadgeModifier(color: .gray))
-              .help("You have requested to join this \(kindName)")
+              .help(
+                kindText(
+                  room: "You have requested to join this room",
+                  space: "You have requested to join this space"))
           case .banned:
             Label("Banned", systemImage: "exclamationmark.square")
               .modifier(SmallBadgeModifier(color: .gray))
-              .help("You are banned from this \(kindName)")
+              .help(
+                kindText(
+                  room: "You are banned from this room", space: "You are banned from this space"))
           default:
             EmptyView()
           }
@@ -136,7 +155,7 @@ public struct RoomPreviewView<RoomPreview: RoomPreviewInfo>: View {
       switch preview.joinRuleInfo {
       case .public, .other, nil:
         if preview.userMembership != .joined {
-          Button("Join \(kindName)") {
+          Button(kindText(room: "Join room", space: "Join space")) {
             guard let actions = self.actions else { return }
             Task {
               actionLoading = true
@@ -155,18 +174,18 @@ public struct RoomPreviewView<RoomPreview: RoomPreviewInfo>: View {
             ProgressView()
               .scaleEffect(0.5)
 
-            Text("Joining \(kindName)...")
+            Text(kindText(room: "Joining room…", space: "Joining space…"))
           }
           .foregroundStyle(.secondary)
           .opacity(actionLoading ? 1 : 0)
         } else {
-          Button("Visit \(kindName)") {
+          Button(kindText(room: "Visit room", space: "Visit space")) {
             actions?.visitRoom()
           }
           .disabled(actions == nil || actionLoading)
         }
       case .knock where preview.userMembership != .knocked:
-        Button("Request to join \(kindName)") {
+        Button(kindText(room: "Request to join room", space: "Request to join space")) {
           guard let actions = self.actions else { return }
           Task {
             actionLoading = true
@@ -185,7 +204,7 @@ public struct RoomPreviewView<RoomPreview: RoomPreviewInfo>: View {
           ProgressView()
             .scaleEffect(0.5)
 
-          Text("Requesting to join \(kindName)...")
+          Text(kindText(room: "Requesting to join room…", space: "Requesting to join space…"))
         }
         .foregroundStyle(.secondary)
         .opacity(actionLoading ? 1 : 0)

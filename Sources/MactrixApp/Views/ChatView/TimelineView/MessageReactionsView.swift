@@ -117,7 +117,8 @@ private final class ReactionButton: NSButton {
     reactionKey = reaction.key
     label.stringValue = "\(reaction.key)  \(reaction.senders.count)"
     setAccessibilityLabel(label.stringValue)
-    toolTip = "Reacted by " + reaction.senders.prefix(5).map(\.senderId).joined(separator: ", ")
+    let senders = reaction.senders.prefix(5).map(\.senderId).formatted(.list(type: .and))
+    toolTip = String(localized: "Reacted by \(senders)")
     let active = ownUserId.map { id in reaction.senders.contains { $0.senderId == id } } ?? false
     layer?.borderColor = (active ? NSColor.systemBlue : .systemGray).cgColor
     layer?.backgroundColor =

@@ -10,17 +10,17 @@ struct SidebarSyncStateView: View {
   var syncState: String {
     switch appState.matrixClient?.syncState {
     case .idle:
-      "idle"
+      String(localized: "idle")
     case .running:
-      "online"
+      String(localized: "online")
     case .terminated:
-      "terminated"
+      String(localized: "terminated")
     case .error:
-      "error"
+      String(localized: "error")
     case .offline:
-      "offline"
+      String(localized: "offline")
     case nil:
-      "logged out"
+      String(localized: "logged out")
     }
   }
 

@@ -75,7 +75,7 @@ struct MessageDownloadAttachment {
   ) async {
     guard let window = view.window else { return }
     let panel = NSSavePanel()
-    panel.title = "Download Attachment"
+    panel.title = String(localized: "Download Attachment")
     panel.nameFieldStringValue = attachment.suggestedFilename
     panel.canCreateDirectories = true
     panel.isExtensionHidden = false
@@ -112,7 +112,7 @@ struct MessageDownloadAttachment {
       Logger.timelineTableView.error("Failed to download attachment: \(error)")
       let alert = NSAlert()
       alert.alertStyle = .warning
-      alert.messageText = "Could not save attachment"
+      alert.messageText = String(localized: "Could not save attachment")
       alert.informativeText = error.localizedDescription
       await alert.beginSheetModal(for: window)
     }

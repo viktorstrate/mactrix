@@ -34,7 +34,8 @@ struct ChatJoinedRoom: View {
       .ignoresSafeArea(edges: .vertical)
       .navigationTitle(
         ContactDirectory.shared.roomTitle(
-          roomName: room.room.displayName(), roomInfo: room.roomInfo) ?? "Unknown room"
+          roomName: room.room.displayName(), roomInfo: room.roomInfo)
+          ?? String(localized: "Unknown room")
       )
       .navigationSubtitle(toolbarSubtitle)
       .frame(minWidth: 250, minHeight: 200)

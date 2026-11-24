@@ -20,6 +20,178 @@ enum StateEventSummaryFormatter {
     case knocked, knockAccepted, knockRetracted, knockDenied
     case displayName, avatar, displayNameAndAvatar
     case setting(Setting)
+
+    init?(_ change: MembershipChange) {
+      switch change {
+      case .joined: self = .joined
+      case .left: self = .left
+      case .invitationAccepted: self = .invitationAccepted
+      case .invitationRejected: self = .invitationRejected
+      case .knocked: self = .knocked
+      case .knockRetracted: self = .knockRetracted
+      case .invited: self = .invited
+      case .banned: self = .banned
+      case .unbanned: self = .unbanned
+      case .kicked: self = .kicked
+      case .kickedAndBanned: self = .kickedAndBanned
+      case .invitationRevoked: self = .invitationRevoked
+      case .knockAccepted: self = .knockAccepted
+      case .knockDenied: self = .knockDenied
+      default: return nil
+      }
+    }
+
+    var isImportant: Bool {
+      switch self {
+      case .banned, .unbanned, .kicked, .kickedAndBanned, .invitationRevoked, .knockDenied:
+        true
+      case .setting(let setting): setting.isImportant
+      default: false
+      }
+    }
+
+    /// The membership sentence. Profile and setting changes have their templates elsewhere.
+    var template: Template? {
+      switch self {
+      case .joined:
+        .subjects(
+          { String(localized: "stateSummary.joined.one", defaultValue: "\($0) joined") },
+          { String(localized: "stateSummary.joined.other", defaultValue: "\($0) joined") })
+      case .left:
+        .subjects(
+          { String(localized: "stateSummary.left.one", defaultValue: "\($0) left the room") },
+          { String(localized: "stateSummary.left.other", defaultValue: "\($0) left the room") })
+      case .invitationAccepted:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.invitationAccepted.one",
+              defaultValue: "\($0) accepted an invitation")
+          },
+          {
+            String(
+              localized: "stateSummary.invitationAccepted.other",
+              defaultValue: "\($0) accepted an invitation")
+          })
+      case .invitationRejected:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.invitationRejected.one",
+              defaultValue: "\($0) rejected an invitation")
+          },
+          {
+            String(
+              localized: "stateSummary.invitationRejected.other",
+              defaultValue: "\($0) rejected an invitation")
+          })
+      case .knocked:
+        .subjects(
+          {
+            String(localized: "stateSummary.knocked.one", defaultValue: "\($0) requested to join")
+          },
+          {
+            String(localized: "stateSummary.knocked.other", defaultValue: "\($0) requested to join")
+          })
+      case .knockRetracted:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.knockRetracted.one",
+              defaultValue: "\($0) retracted their join request")
+          },
+          {
+            String(
+              localized: "stateSummary.knockRetracted.other",
+              defaultValue: "\($0) retracted their join request")
+          })
+      case .invited:
+        .targeted {
+          String(localized: "stateSummary.invited", defaultValue: "\($0) invited \($1)")
+        }
+      case .banned:
+        .targeted {
+          String(localized: "stateSummary.banned", defaultValue: "\($0) banned \($1)")
+        }
+      case .unbanned:
+        .targeted {
+          String(localized: "stateSummary.unbanned", defaultValue: "\($0) unbanned \($1)")
+        }
+      case .kicked:
+        .targeted {
+          String(localized: "stateSummary.kicked", defaultValue: "\($0) kicked \($1)")
+        }
+      case .kickedAndBanned:
+        .targeted {
+          String(
+            localized: "stateSummary.kickedAndBanned", defaultValue: "\($0) kicked and banned \($1)"
+          )
+        }
+      case .invitationRevoked:
+        .targeted {
+          String(
+            localized: "stateSummary.invitationRevoked",
+            defaultValue: "\($0) revoked the invitation for \($1)")
+        }
+      case .knockAccepted:
+        .targeted {
+          String(
+            localized: "stateSummary.knockAccepted",
+            defaultValue: "\($0) accepted the join request from \($1)")
+        }
+      case .knockDenied:
+        .targeted {
+          String(
+            localized: "stateSummary.knockDenied",
+            defaultValue: "\($0) denied the join request from \($1)")
+        }
+      default: nil
+      }
+    }
+
+    /// The sentence for a self-service change that someone else sent, or nil for actions that
+    /// always have an actor and a target.
+    var recordedTemplate: Template? {
+      switch self {
+      case .joined:
+        .recorded {
+          String(
+            localized: "stateSummary.joined.recorded",
+            defaultValue: "\($0) recorded that \($1) joined")
+        }
+      case .left:
+        .recorded {
+          String(
+            localized: "stateSummary.left.recorded",
+            defaultValue: "\($0) recorded that \($1) left the room")
+        }
+      case .invitationAccepted:
+        .recorded {
+          String(
+            localized: "stateSummary.invitationAccepted.recorded",
+            defaultValue: "\($0) recorded that \($1) accepted an invitation")
+        }
+      case .invitationRejected:
+        .recorded {
+          String(
+            localized: "stateSummary.invitationRejected.recorded",
+            defaultValue: "\($0) recorded that \($1) rejected an invitation")
+        }
+      case .knocked:
+        .recorded {
+          String(
+            localized: "stateSummary.knocked.recorded",
+            defaultValue: "\($0) recorded that \($1) requested to join")
+        }
+      case .knockRetracted:
+        .recorded {
+          String(
+            localized: "stateSummary.knockRetracted.recorded",
+            defaultValue: "\($0) recorded that \($1) retracted their join request")
+        }
+      default: nil
+      }
+    }
   }
 
   private enum Setting: String, Hashable {
@@ -27,24 +199,187 @@ enum StateEventSummaryFormatter {
     case joinRules, name, pinnedEvents, powerLevels, serverAcl, thirdPartyInvite
     case tombstone, topic, spaceChild, spaceParent
 
-    var phrase: String {
+    var template: Template {
       switch self {
-      case .avatar: "changed room avatar"
-      case .canonicalAlias: "changed room canonical alias"
-      case .create: "created room"
-      case .encryption: "changed room encryption"
-      case .guestAccess: "changed room guest access"
-      case .historyVisibility: "changed room history visibility"
-      case .joinRules: "changed room join rules"
-      case .name: "changed room name"
-      case .pinnedEvents: "changed room pinned events"
-      case .powerLevels: "changed room power levels"
-      case .serverAcl: "changed room server ACL"
-      case .thirdPartyInvite: "changed room third party invite"
-      case .tombstone: "replaced the room"
-      case .topic: "changed room topic"
-      case .spaceChild: "changed space child"
-      case .spaceParent: "changed space parent"
+      case .avatar:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.avatar.one", defaultValue: "\($0) changed room avatar")
+          },
+          {
+            String(
+              localized: "stateSummary.room.avatar.other", defaultValue: "\($0) changed room avatar"
+            )
+          })
+      case .canonicalAlias:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.canonicalAlias.one",
+              defaultValue: "\($0) changed room canonical alias")
+          },
+          {
+            String(
+              localized: "stateSummary.room.canonicalAlias.other",
+              defaultValue: "\($0) changed room canonical alias")
+          })
+      case .create:
+        .subjects(
+          { String(localized: "stateSummary.room.create.one", defaultValue: "\($0) created room") },
+          {
+            String(localized: "stateSummary.room.create.other", defaultValue: "\($0) created room")
+          })
+      case .encryption:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.encryption.one",
+              defaultValue: "\($0) changed room encryption")
+          },
+          {
+            String(
+              localized: "stateSummary.room.encryption.other",
+              defaultValue: "\($0) changed room encryption")
+          })
+      case .guestAccess:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.guestAccess.one",
+              defaultValue: "\($0) changed room guest access")
+          },
+          {
+            String(
+              localized: "stateSummary.room.guestAccess.other",
+              defaultValue: "\($0) changed room guest access")
+          })
+      case .historyVisibility:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.historyVisibility.one",
+              defaultValue: "\($0) changed room history visibility")
+          },
+          {
+            String(
+              localized: "stateSummary.room.historyVisibility.other",
+              defaultValue: "\($0) changed room history visibility")
+          })
+      case .joinRules:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.joinRules.one",
+              defaultValue: "\($0) changed room join rules")
+          },
+          {
+            String(
+              localized: "stateSummary.room.joinRules.other",
+              defaultValue: "\($0) changed room join rules")
+          })
+      case .name:
+        .subjects(
+          {
+            String(localized: "stateSummary.room.name.one", defaultValue: "\($0) changed room name")
+          },
+          {
+            String(
+              localized: "stateSummary.room.name.other", defaultValue: "\($0) changed room name")
+          })
+      case .pinnedEvents:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.pinnedEvents.one",
+              defaultValue: "\($0) changed room pinned events")
+          },
+          {
+            String(
+              localized: "stateSummary.room.pinnedEvents.other",
+              defaultValue: "\($0) changed room pinned events")
+          })
+      case .powerLevels:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.powerLevels.one",
+              defaultValue: "\($0) changed room power levels")
+          },
+          {
+            String(
+              localized: "stateSummary.room.powerLevels.other",
+              defaultValue: "\($0) changed room power levels")
+          })
+      case .serverAcl:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.serverAcl.one",
+              defaultValue: "\($0) changed room server ACL")
+          },
+          {
+            String(
+              localized: "stateSummary.room.serverAcl.other",
+              defaultValue: "\($0) changed room server ACL")
+          })
+      case .thirdPartyInvite:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.thirdPartyInvite.one",
+              defaultValue: "\($0) changed room third party invite")
+          },
+          {
+            String(
+              localized: "stateSummary.room.thirdPartyInvite.other",
+              defaultValue: "\($0) changed room third party invite")
+          })
+      case .tombstone:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.tombstone.one", defaultValue: "\($0) replaced the room")
+          },
+          {
+            String(
+              localized: "stateSummary.room.tombstone.other",
+              defaultValue: "\($0) replaced the room")
+          })
+      case .topic:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.topic.one", defaultValue: "\($0) changed room topic")
+          },
+          {
+            String(
+              localized: "stateSummary.room.topic.other", defaultValue: "\($0) changed room topic")
+          })
+      case .spaceChild:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.spaceChild.one",
+              defaultValue: "\($0) changed space child")
+          },
+          {
+            String(
+              localized: "stateSummary.room.spaceChild.other",
+              defaultValue: "\($0) changed space child")
+          })
+      case .spaceParent:
+        .subjects(
+          {
+            String(
+              localized: "stateSummary.room.spaceParent.one",
+              defaultValue: "\($0) changed space parent")
+          },
+          {
+            String(
+              localized: "stateSummary.room.spaceParent.other",
+              defaultValue: "\($0) changed space parent")
+          })
       }
     }
 
@@ -66,13 +401,24 @@ enum StateEventSummaryFormatter {
     var stateKey: String? = nil
   }
 
+  /// A localized sentence. Names are passed in as placeholders and later replaced by segments,
+  /// so translations can reorder them and pick the verb form for one or several subjects.
+  private enum Template {
+    /// The participants did something themselves: "Alice and Bob joined".
+    case subjects(_ one: (String) -> String, _ other: (String) -> String)
+    /// The actor did something to the participants: "Alice banned Bob and Charlie".
+    case targeted((_ actor: String, _ targets: String) -> String)
+    /// The participants recorded a self-service change for the target: "Alice recorded that Bob
+    /// joined".
+    case recorded((_ actors: String, _ target: String) -> String)
+  }
+
   private struct Descriptor {
     let key: Key
-    let phrase: String
+    let template: Template
     var targetID: String? = nil
     var targetName: String? = nil
     var actorName: String? = nil
-    var targetSuffix: String = ""
     var isImportant = false
   }
 
@@ -152,7 +498,11 @@ enum StateEventSummaryFormatter {
       let omitted = events.count - ordered.reduce(0) { $0 + $1.eventCount }
       var members = ordered.map(\.segments)
       if omitted > 0 {
-        members.append([Segment(text: "\(omitted) other \(omitted == 1 ? "event" : "events")")])
+        members.append([
+          Segment(
+            text: omitted == 1
+              ? String(localized: "1 other event") : String(localized: "\(omitted) other events"))
+        ])
       }
       var segments: [Segment] = []
       for (index, member) in members.enumerated() {
@@ -180,30 +530,26 @@ enum StateEventSummaryFormatter {
   }
 
   private static func clause(for participants: [Participant], descriptor: Descriptor) -> Clause {
+    let subjects = participantSegments(participants)
     var segments: [Segment]
-    if let actor = descriptor.actorName {
-      segments = [
-        Segment(text: actor, userId: descriptor.key.actor),
-        Segment(text: " " + descriptor.phrase + " "),
-      ]
-      segments += participantSegments(participants)
-    } else {
-      segments = participantSegments(participants)
-      segments.append(Segment(text: " " + descriptor.phrase))
-      if let target = descriptor.targetName {
-        segments += [
-          Segment(text: " "),
-          Segment(text: target, userId: descriptor.key.target),
-        ]
-        if !descriptor.targetSuffix.isEmpty {
-          segments.append(Segment(text: descriptor.targetSuffix))
-        }
-      }
+    switch descriptor.template {
+    case .subjects(let one, let other):
+      let template = participants.count == 1 ? one : other
+      segments = compose(template(placeholder(0)), [subjects])
+    case .targeted(let template):
+      let actor = Segment(text: descriptor.actorName ?? "", userId: descriptor.key.actor)
+      segments = compose(template(placeholder(0), placeholder(1)), [[actor], subjects])
+    case .recorded(let template):
+      let target = Segment(text: descriptor.targetName ?? "", userId: descriptor.key.target)
+      segments = compose(template(placeholder(0), placeholder(1)), [subjects, [target]])
     }
-    if let reason = descriptor.key.reason { segments.append(Segment(text: " because " + reason)) }
+    if let reason = descriptor.key.reason {
+      segments = compose(
+        String(localized: "\(placeholder(0)) because \(reason)"), [segments])
+    }
     let count = participants.reduce(0) { $0 + $1.count }
     if participants.count == 1 && count > 1 {
-      segments.append(Segment(text: " \(count) times"))
+      segments = compose(String(localized: "\(placeholder(0)) \(count) times"), [segments])
     }
     return Clause(
       segments: segments, eventCount: count, firstIndex: participants[0].firstIndex,
@@ -211,18 +557,43 @@ enum StateEventSummaryFormatter {
   }
 
   private static func participantSegments(_ participants: [Participant]) -> [Segment] {
-    var segments = [
-      Segment(text: participants[0].name, userId: participants[0].id)
-    ]
+    let first = [Segment(text: participants[0].name, userId: participants[0].id)]
     if participants.count == 2 {
-      segments += [
-        Segment(text: " and "),
-        Segment(text: participants[1].name, userId: participants[1].id),
-      ]
+      return compose(
+        String(localized: "\(placeholder(0)) and \(placeholder(1))"),
+        [first, [Segment(text: participants[1].name, userId: participants[1].id)]])
     } else if participants.count > 2 {
-      segments.append(Segment(text: " and \(participants.count - 1) others"))
+      return compose(
+        String(localized: "\(placeholder(0)) and \(participants.count - 1) others"), [first])
     }
-    return segments
+    return first
+  }
+
+  /// Marks where argument `index` goes in a localized template. Private-use characters can't
+  /// appear in translations, so they are safe to split on.
+  static func placeholder(_ index: Int) -> String {
+    String(Character(UnicodeScalar(0xF8F0 + UInt32(index))!))
+  }
+
+  /// Replaces the placeholders in a localized template with the argument segments, keeping
+  /// their user IDs. Adjacent plain text is merged into a single segment.
+  static func compose(_ template: String, _ arguments: [[Segment]]) -> [Segment] {
+    var result: [Segment] = []
+    func append(_ segment: Segment) {
+      if segment.userId == nil, let last = result.last, last.userId == nil {
+        result[result.count - 1] = Segment(text: last.text + segment.text)
+      } else {
+        result.append(segment)
+      }
+    }
+    for character in template {
+      if let index = arguments.indices.first(where: { placeholder($0) == String(character) }) {
+        arguments[index].forEach(append)
+      } else {
+        append(Segment(text: String(character)))
+      }
+    }
+    return result
   }
 
   private static func senderName(_ event: EventTimelineItem) -> String {
@@ -238,72 +609,68 @@ enum StateEventSummaryFormatter {
       switch (nameChanged, avatarChanged) {
       case (true, true):
         return Descriptor(
-          key: Key(action: .displayNameAndAvatar), phrase: "changed their display name and avatar")
+          key: Key(action: .displayNameAndAvatar),
+          template:
+            .subjects(
+              {
+                String(
+                  localized: "stateSummary.displayNameAndAvatar.one",
+                  defaultValue: "\($0) changed their display name and avatar")
+              },
+              {
+                String(
+                  localized: "stateSummary.displayNameAndAvatar.other",
+                  defaultValue: "\($0) changed their display name and avatar")
+              }))
       case (true, false):
-        return Descriptor(key: Key(action: .displayName), phrase: "changed their display name")
+        return Descriptor(
+          key: Key(action: .displayName),
+          template:
+            .subjects(
+              {
+                String(
+                  localized: "stateSummary.displayName.one",
+                  defaultValue: "\($0) changed their display name")
+              },
+              {
+                String(
+                  localized: "stateSummary.displayName.other",
+                  defaultValue: "\($0) changed their display name")
+              }))
       case (false, true):
-        return Descriptor(key: Key(action: .avatar), phrase: "changed their avatar")
+        return Descriptor(
+          key: Key(action: .avatar),
+          template:
+            .subjects(
+              {
+                String(
+                  localized: "stateSummary.avatar.one", defaultValue: "\($0) changed their avatar")
+              },
+              {
+                String(
+                  localized: "stateSummary.avatar.other", defaultValue: "\($0) changed their avatar"
+                )
+              }))
       case (false, false): return nil
       }
     case .roomMembership(let target, let targetName, let change, let reason):
-      let action: Action
-      let phrase: String
-      let targeted: Bool
-      let important: Bool
-      switch change {
-      case .joined: (action, phrase, targeted, important) = (.joined, "joined", false, false)
-      case .left: (action, phrase, targeted, important) = (.left, "left the room", false, false)
-      case .invitationAccepted:
-        (action, phrase, targeted, important) = (
-          .invitationAccepted, "accepted an invitation", false, false
-        )
-      case .invitationRejected:
-        (action, phrase, targeted, important) = (
-          .invitationRejected, "rejected an invitation", false, false
-        )
-      case .knocked:
-        (action, phrase, targeted, important) = (.knocked, "requested to join", false, false)
-      case .knockRetracted:
-        (action, phrase, targeted, important) = (
-          .knockRetracted, "retracted their join request", false, false
-        )
-      case .invited: (action, phrase, targeted, important) = (.invited, "invited", true, false)
-      case .banned: (action, phrase, targeted, important) = (.banned, "banned", true, true)
-      case .unbanned: (action, phrase, targeted, important) = (.unbanned, "unbanned", true, true)
-      case .kicked: (action, phrase, targeted, important) = (.kicked, "kicked", true, true)
-      case .kickedAndBanned:
-        (action, phrase, targeted, important) = (.kickedAndBanned, "kicked and banned", true, true)
-      case .invitationRevoked:
-        (action, phrase, targeted, important) = (
-          .invitationRevoked, "revoked the invitation for", true, true
-        )
-      case .knockAccepted:
-        (action, phrase, targeted, important) = (
-          .knockAccepted, "accepted the join request from", true, false
-        )
-      case .knockDenied:
-        (action, phrase, targeted, important) = (
-          .knockDenied, "denied the join request from", true, true
-        )
-      default: return nil
-      }
+      guard let change, let action = Action(change) else { return nil }
+      let targetName = targetName.flatMap { $0.isEmpty ? nil : $0 } ?? target
       // Self-service transitions with a different sender are ambiguous. Preserve both identities.
-      if !targeted && target != event.sender {
+      if let recorded = action.recordedTemplate, target != event.sender {
         return Descriptor(
           key: Key(action: action, actor: event.sender, target: target, reason: reason),
-          phrase: "recorded that",
-          targetName: targetName.flatMap { $0.isEmpty ? nil : $0 } ?? target,
-          targetSuffix: " " + phrase,
-          isImportant: important)
+          template: recorded, targetName: targetName, isImportant: action.isImportant)
       }
+      guard let template = action.template else { return nil }
+      let targeted = action.recordedTemplate == nil
       return Descriptor(
-        key: Key(
-          action: action, actor: targeted ? event.sender : nil, reason: reason),
-        phrase: phrase,
+        key: Key(action: action, actor: targeted ? event.sender : nil, reason: reason),
+        template: template,
         targetID: targeted ? target : nil,
-        targetName: targeted ? (targetName.flatMap { $0.isEmpty ? nil : $0 } ?? target) : nil,
+        targetName: targeted ? targetName : nil,
         actorName: targeted ? senderName(event) : nil,
-        isImportant: important)
+        isImportant: action.isImportant)
     case .state(let stateKey, let content):
       let setting: Setting
       switch content {
@@ -329,7 +696,7 @@ enum StateEventSummaryFormatter {
       guard stateKey.isEmpty else { return nil }
       return Descriptor(
         key: Key(action: .setting(setting), stateKey: stateKey),
-        phrase: setting.phrase, isImportant: setting.isImportant)
+        template: setting.template, isImportant: setting.isImportant)
     default: return nil
     }
   }
