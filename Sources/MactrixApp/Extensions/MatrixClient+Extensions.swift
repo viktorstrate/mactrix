@@ -11,14 +11,16 @@ extension MatrixClient {
     let matrixClient: MatrixClient
     let windowState: WindowState
     let sourceScreen: SelectedScreen
+    let eventId: String?
+    let routingVia: [String]
 
     func joinRoom() async throws {
       try Task.checkCancellation()
       guard windowState.selectedScreen === sourceScreen else { return }
       let room = try await matrixClient.client.joinRoomByIdOrAlias(
-        roomIdOrAlias: roomId, serverNames: matrixClient.viaServers)
+        roomIdOrAlias: roomId, serverNames: matrixClient.routingServers(hints: routingVia))
       try Task.checkCancellation()
-      open(room)
+      open(room: room)
     }
 
     func knockRoom() async throws {
@@ -26,38 +28,42 @@ extension MatrixClient {
       guard windowState.selectedScreen === sourceScreen else { return }
       let room = try await matrixClient.client.knock(
         roomIdOrAlias: roomId, reason: nil,
-        serverNames: matrixClient.viaServers)
+        serverNames: matrixClient.routingServers(hints: routingVia))
       try Task.checkCancellation()
-      open(room)
+      open(room: room)
     }
 
     func visitRoom() {
       guard windowState.selectedScreen === sourceScreen else { return }
       do {
         if let room = try matrixClient.client.getRoom(roomId: roomId) {
-          open(room)
-        } else {
-          windowState.selectedScreen = .loadingRoom(roomId)
+          open(room: room)
+        } else if eventId != nil {
+          Logger.viewCycle.warning("Cannot visit event: room \(roomId) is not available")
         }
+        // attempt to reload the room
+        windowState.selectedScreen = .loadingRoom(roomId)
       } catch {
         Logger.viewCycle.error("Failed to visit room \(roomId): \(error)")
       }
     }
 
-    private func open(_ room: Room) {
+    private func open(room: Room) {
       guard windowState.selectedScreen === sourceScreen else { return }
+      let focus: LiveTimeline.Focus = eventId.map { .event(eventId: $0) } ?? .live
       let timeline = LiveTimeline(
-        room: LiveRoom(matrixRoom: room, matrixClient: matrixClient))
+        room: LiveRoom(matrixRoom: room, matrixClient: matrixClient), focus: focus)
       windowState.selectedScreen = .joinedRoom(timeline: timeline)
     }
   }
 
   func roomPreviewActions(
-    forRoomWithId roomId: String, windowState: WindowState
+    forRoomWithId roomId: String, windowState: WindowState,
+    eventId: String? = nil, routingVia: [String] = []
   ) -> RoomPreviewActions {
     return MatrixClientRoomPreviewActions(
       roomId: roomId, matrixClient: self, windowState: windowState,
-      sourceScreen: windowState.selectedScreen)
+      sourceScreen: windowState.selectedScreen, eventId: eventId, routingVia: routingVia)
   }
 }
 

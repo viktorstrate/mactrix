@@ -96,18 +96,37 @@ struct LoadDestinationScreen: View {
             roomId: roomId, viaServers: matrixClient.viaServers))
       }
     case .loadMatrixUrl(let uri):
+      let roomId: String
+      var routingVia = uri.routingVia
       switch uri.kind {
       case .user(let userId):
         return .user(profile: try await matrixClient.client.getProfile(userId: userId))
-      case .roomId(let roomId):
-        return .previewRoom(
-          try await matrixClient.client.getRoomPreviewFromRoomId(
-            roomId: roomId, viaServers: matrixClient.routingServers(hints: uri.routingVia)))
+      case .roomId(let id):
+        roomId = id
       case .roomAlias(let alias):
-        return .previewRoom(
-          try await matrixClient.client.getRoomPreviewFromRoomAlias(roomAlias: alias))
+        guard let resolved = try await matrixClient.client.resolveRoomAlias(roomAlias: alias) else {
+          throw MatrixUriError.parserError(reason: "Room alias could not be resolved.")
+        }
+        roomId = resolved.roomId
+        routingVia.append(contentsOf: resolved.servers)
       }
 
+      try Task.checkCancellation()
+      guard windowState.selectedScreen === screen, appState.matrixClient === matrixClient else {
+        throw CancellationError()
+      }
+
+      if let room = try matrixClient.client.getRoom(roomId: roomId), room.membership() == .joined {
+        let focus: LiveTimeline.Focus = uri.event.map { .event(eventId: $0) } ?? .live
+        return .joinedRoom(
+          timeline: LiveTimeline(
+            room: LiveRoom(matrixRoom: room, matrixClient: matrixClient),
+            focus: focus))
+      } else {
+        let preview = try await matrixClient.client.getRoomPreviewFromRoomId(
+          roomId: roomId, viaServers: matrixClient.routingServers(hints: routingVia))
+        return .previewRoom(preview, eventId: uri.event, routingVia: routingVia)
+      }
     default:
       return screen
     }

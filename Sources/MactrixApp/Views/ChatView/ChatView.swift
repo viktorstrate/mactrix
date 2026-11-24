@@ -9,6 +9,7 @@ import SwiftUI
 private struct TimelineReadKey: Equatable {
   let count: Int
   let active: Bool
+  let focus: LiveTimeline.Focus
 }
 
 struct ChatJoinedRoom: View {
@@ -48,10 +49,12 @@ struct ChatJoinedRoom: View {
         }
       }
       .task(
-        id: TimelineReadKey(count: timeline.timelineItems.count, active: appearsActive),
+        id: TimelineReadKey(
+          count: timeline.timelineItems.count, active: appearsActive, focus: timeline.focus),
         priority: .background
       ) {
-        guard appearsActive else { return }
+        // Historical context is not the room's latest read position.
+        guard appearsActive, timeline.focusedEventId == nil else { return }
         do {
           try await Task.sleep(for: .seconds(1))
           Logger.viewCycle.debug("Mark room as read")
@@ -63,6 +66,7 @@ struct ChatJoinedRoom: View {
         }
       }
       .onDisappear {
+        guard timeline.focusedEventId == nil else { return }
         Task {
           guard let timeline = timeline.timeline else { return }
           do {

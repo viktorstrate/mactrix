@@ -22,12 +22,13 @@ public struct MainView: View {
     switch screen.content {
     case .joinedRoom(let timeline):
       ChatView(timeline: timeline).id(timeline.room.id)
-    case .previewRoom(let room):
+    case .previewRoom(let room, let eventId, let routingVia):
       MactrixUI.RoomPreviewView(
         preview: room.info(),
         imageLoader: appState.matrixClient,
         actions: appState.matrixClient?.roomPreviewActions(
-          forRoomWithId: room.info().roomId, windowState: windowState)
+          forRoomWithId: room.info().roomId, windowState: windowState,
+          eventId: eventId, routingVia: routingVia)
       )
       .id(screen.id)
     case .newRoom:

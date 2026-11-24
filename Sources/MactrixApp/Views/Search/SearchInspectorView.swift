@@ -16,7 +16,8 @@ struct SearchResolvedRoomInspectorView: View {
   var roomActions: RoomPreviewActions? {
     guard let preview = roomPreview else { return nil }
     return appState.matrixClient?.roomPreviewActions(
-      forRoomWithId: preview.info().roomId, windowState: windowState)
+      forRoomWithId: preview.info().roomId, windowState: windowState,
+      routingVia: resolvedRoom.servers)
   }
 
   var body: some View {

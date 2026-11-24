@@ -31,7 +31,7 @@ public final class SelectedScreen: Identifiable {
     case loadingRoom(String)
     case joinedRoom(timeline: LiveTimeline)
     case loadMatrixUrl(Utils.MatrixUriScheme)
-    case previewRoom(RoomPreview)
+    case previewRoom(RoomPreview, eventId: String?, routingVia: [String])
     case user(profile: UserProfile)
     case newRoom
     case none
@@ -56,8 +56,10 @@ public final class SelectedScreen: Identifiable {
     SelectedScreen(.loadMatrixUrl(url))
   }
 
-  public static func previewRoom(_ room: RoomPreview) -> SelectedScreen {
-    SelectedScreen(.previewRoom(room))
+  public static func previewRoom(
+    _ room: RoomPreview, eventId: String? = nil, routingVia: [String] = []
+  ) -> SelectedScreen {
+    SelectedScreen(.previewRoom(room, eventId: eventId, routingVia: routingVia))
   }
 
   public static func user(profile: UserProfile) -> SelectedScreen {
@@ -90,7 +92,7 @@ public final class WindowState {
       switch selectedScreen.content {
       case .loadingRoom(let roomId): roomId
       case .joinedRoom(let timeline): timeline.room.id
-      case .previewRoom(let room): room.info().roomId
+      case .previewRoom(let room, _, _): room.info().roomId
       case .loadMatrixUrl(let url):
         if case .roomId(let id) = url.kind { id } else { nil }
       case .user, .newRoom, .none: nil
@@ -153,6 +155,23 @@ public final class WindowState {
     }
 
     roomTimeline.focusEvent(id: .eventId(eventId: eventId))
+  }
+
+  /// Focus the event in the `sourceTimeline` if it is loaded,
+  /// otherwise load a new timeline focused at the given event.
+  func focusReply(eventId: String, from sourceTimeline: LiveTimeline) {
+    guard case .joinedRoom(let roomTimeline) = selectedScreen.content,
+      roomTimeline.room.id == sourceTimeline.room.id
+    else { return }
+
+    let target = EventOrTransactionId.eventId(eventId: eventId)
+    if roomTimeline.timelineItems.contains(where: { $0.asEvent()?.eventOrTransactionId == target })
+    {
+      roomTimeline.focusEvent(id: target)
+    } else {
+      selectedScreen = .joinedRoom(
+        timeline: LiveTimeline(room: roomTimeline.room, focus: .event(eventId: eventId)))
+    }
   }
 
   public func focusThread(rootEventId: String) {
