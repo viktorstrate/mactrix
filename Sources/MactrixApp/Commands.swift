@@ -10,10 +10,9 @@ public struct AppCommands: Commands {
   }
 
   public var body: some Commands {
-    SidebarCommands()
-    InspectorCommands()
-    TextEditingCommands()
-    ToolbarCommands()
+    // Older SDKs' CommandsBuilder accepts at most 10 children, so the
+    // built-in command sets are grouped into one property.
+    builtInCommands
 
     about
     newTab
@@ -22,6 +21,14 @@ public struct AppCommands: Commands {
     fontSizeCommands
     accountCommands
     conversationCommands
+  }
+
+  @CommandsBuilder
+  var builtInCommands: some Commands {
+    SidebarCommands()
+    InspectorCommands()
+    TextEditingCommands()
+    ToolbarCommands()
   }
 
   var accountCommands: some Commands {
