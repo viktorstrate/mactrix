@@ -10,6 +10,7 @@ final class MessageHoverOverlayView: NSView {
     case pin
     case edit
     case delete
+    case copyMessageLink
     case showSource
     case downloadToFile(Int)
   }
@@ -37,8 +38,10 @@ final class MessageHoverOverlayView: NSView {
     title: "Download to File", action: #selector(downloadToFile(_:)), keyEquivalent: "")
   private let pinMenuItem = NSMenuItem(
     title: "Pin Message", action: #selector(pinMessage), keyEquivalent: "")
+  private let copyLinkMenuItem = NSMenuItem(
+    title: "Copy Message Link", action: #selector(copyMessageLink), keyEquivalent: "")
   private let deleteMenuItem = NSMenuItem(
-    title: "Delete message", action: #selector(deleteMessage), keyEquivalent: "")
+    title: "Delete Message", action: #selector(deleteMessage), keyEquivalent: "")
   private let editButton = HoverActionButton(symbol: "pencil", label: "Edit message")
   private let replyButton = HoverActionButton(symbol: "arrowshape.turn.up.left", label: "Reply")
   private let threadButton = HoverActionButton(symbol: "ellipsis.message", label: "Reply in thread")
@@ -118,6 +121,11 @@ final class MessageHoverOverlayView: NSView {
       systemSymbolName: "arrow.down.to.line", accessibilityDescription: "Download to File")
     menu.addItem(downloadMenuItem)
 
+    copyLinkMenuItem.target = self
+    copyLinkMenuItem.image = NSImage(
+      systemSymbolName: "link", accessibilityDescription: "Copy Message Link")
+    menu.addItem(copyLinkMenuItem)
+
     sourceMenuItem.target = self
     sourceMenuItem.image = NSImage(
       systemSymbolName: "chevron.left.forwardslash.chevron.right",
@@ -149,7 +157,7 @@ final class MessageHoverOverlayView: NSView {
   func configure(
     canReply: Bool, canEdit: Bool = false, canDelete: Bool = false,
     canReact: Bool = true, canPin: Bool = false, isPinned: Bool = false,
-    downloadFilenames: [String] = []
+    canCopyLink: Bool = false, downloadFilenames: [String] = []
   ) {
     reactionPickerButton.isEnabled = canReact
     for button in quickReactionButtons {
@@ -175,6 +183,7 @@ final class MessageHoverOverlayView: NSView {
       accessibilityDescription: pinMenuItem.title)
     pinMenuItem.isEnabled = canPin
     deleteMenuItem.isEnabled = canDelete
+    copyLinkMenuItem.isEnabled = canCopyLink
     editButton.isHidden = !canEdit
     replyButton.isHidden = !canReply
     threadButton.isHidden = !canReply
@@ -218,6 +227,10 @@ final class MessageHoverOverlayView: NSView {
 
   @objc private func downloadToFile(_ sender: NSMenuItem) {
     onAction?(.downloadToFile(sender.tag))
+  }
+
+  @objc private func copyMessageLink() {
+    onAction?(.copyMessageLink)
   }
 
   @objc private func showSource() {

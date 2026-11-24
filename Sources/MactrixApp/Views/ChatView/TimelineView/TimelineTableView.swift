@@ -596,6 +596,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       canReact: canPerformMessageAction(.reactionPicker, for: event),
       canPin: canPerformMessageAction(.pin, for: event),
       isPinned: isMessagePinned(event),
+      canCopyLink: canPerformMessageAction(.copyMessageLink, for: event),
       downloadFilenames: MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename))
   }
 
@@ -760,6 +761,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         && timeline.room.roomInfo?.powerLevels?.canOwnUserPinUnpin() == true
     case .delete:
       return timeline.timeline != nil && canDeleteMessage(event)
+    case .copyMessageLink:
+      if case .eventId = event.eventOrTransactionId { return true }
+      return false
     case .showSource:
       return true
     case .downloadToFile(let index):
@@ -781,6 +785,20 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         try showReactionPicker(for: event, source: reactionPickerSource)
       } catch {
         Logger.timelineTableView.error("Failed to load reaction picker: \(error)")
+      }
+    case .copyMessageLink:
+      guard case .eventId(let eventId) = event.eventOrTransactionId else { return }
+      let room = timeline.room.room
+      startActionTask {
+        do {
+          let permalink = try await room.matrixToEventPermalink(eventId: eventId)
+          guard !Task.isCancelled else { return }
+          NSPasteboard.general.clearContents()
+          NSPasteboard.general.setString(permalink, forType: .string)
+        } catch {
+          guard !Task.isCancelled else { return }
+          Logger.timelineTableView.error("Failed to copy message link: \(error)")
+        }
       }
     case .showSource:
       MessageSourceWindowController.show(source: event.lazyProvider.latestJson())
