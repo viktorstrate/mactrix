@@ -1,66 +1,69 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
+    "" : {
+
+    },
     "%@ %lld times" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ %2$lld times"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ (%2$lld-mal)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ %2$lld times"
           }
         }
       }
     },
     "%@ and %@" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ and %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ und %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ and %2$@"
           }
         }
       }
     },
     "%@ and %lld others" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ and %2$lld others"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ und %2$lld weitere"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ and %2$lld others"
           }
         }
       }
     },
     "%@ because %@" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ because %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ (Grund: %2$@)"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ because %2$@"
           }
         }
       }
@@ -87,24 +90,6 @@
     },
     "%llu members" : {
       "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%llu member"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "%llu members"
-                }
-              }
-            }
-          }
-        },
         "de" : {
           "variations" : {
             "plural" : {
@@ -122,29 +107,29 @@
               }
             }
           }
-        }
-      }
-    },
-    "%llu members have joined this room" : {
-      "localizations" : {
+        },
         "en" : {
           "variations" : {
             "plural" : {
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%llu member has joined this room"
+                  "value" : "%llu member"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%llu members have joined this room"
+                  "value" : "%llu members"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "%llu members have joined this room" : {
+      "localizations" : {
         "de" : {
           "variations" : {
             "plural" : {
@@ -162,29 +147,29 @@
               }
             }
           }
-        }
-      }
-    },
-    "%llu members have joined this space" : {
-      "localizations" : {
+        },
         "en" : {
           "variations" : {
             "plural" : {
               "one" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%llu member has joined this space"
+                  "value" : "%llu member has joined this room"
                 }
               },
               "other" : {
                 "stringUnit" : {
                   "state" : "translated",
-                  "value" : "%llu members have joined this space"
+                  "value" : "%llu members have joined this room"
                 }
               }
             }
           }
-        },
+        }
+      }
+    },
+    "%llu members have joined this space" : {
+      "localizations" : {
         "de" : {
           "variations" : {
             "plural" : {
@@ -198,6 +183,24 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "%llu Mitglieder sind diesem Space beigetreten"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%llu member has joined this space"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%llu members have joined this space"
                 }
               }
             }
@@ -397,15 +400,15 @@
     },
     "Audio: %@ %@" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Audio: %1$@ %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
+            "value" : "Audio: %1$@ %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
             "value" : "Audio: %1$@ %2$@"
           }
         }
@@ -544,6 +547,9 @@
         }
       }
     },
+    "Close" : {
+
+    },
     "Close thread" : {
       "localizations" : {
         "de" : {
@@ -626,6 +632,12 @@
           }
         }
       }
+    },
+    "Copy Message Link" : {
+
+    },
+    "Could not open destination" : {
+
     },
     "Could not save attachment" : {
       "localizations" : {
@@ -1347,6 +1359,9 @@
         }
       }
     },
+    "Homeserver or\nUsername" : {
+
+    },
     "Ignore user" : {
       "localizations" : {
         "de" : {
@@ -1759,16 +1774,16 @@
     },
     "Location: %@ %@" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Location: %1$@ %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Standort: %1$@ %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Location: %1$@ %2$@"
           }
         }
       }
@@ -2205,16 +2220,16 @@
     },
     "Other: %@ %@" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Other: %1$@ %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Sonstiges: %1$@ %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Other: %1$@ %2$@"
           }
         }
       }
@@ -2339,6 +2354,9 @@
         }
       }
     },
+    "Quick Navigation" : {
+
+    },
     "RTC Notification" : {
       "localizations" : {
         "de" : {
@@ -2411,24 +2429,6 @@
     },
     "Read by %lld people" : {
       "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Read by %lld person"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Read by %lld people"
-                }
-              }
-            }
-          }
-        },
         "de" : {
           "variations" : {
             "plural" : {
@@ -2442,6 +2442,24 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "Gelesen von %lld Personen"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Read by %lld person"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Read by %lld people"
                 }
               }
             }
@@ -2691,6 +2709,9 @@
           }
         }
       }
+    },
+    "Room alias could not be resolved." : {
+
     },
     "Room encrypted" : {
       "localizations" : {
@@ -2985,6 +3006,9 @@
         }
       }
     },
+    "Sign in to continue." : {
+
+    },
     "Sign in with OAuth" : {
       "localizations" : {
         "de" : {
@@ -3105,6 +3129,9 @@
         }
       }
     },
+    "The original message isn't loaded." : {
+
+    },
     "The room will be shown in the published room list." : {
       "localizations" : {
         "de" : {
@@ -3207,24 +3234,6 @@
     },
     "Thread (%llu messages)" : {
       "localizations" : {
-        "en" : {
-          "variations" : {
-            "plural" : {
-              "one" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Thread (%llu message)"
-                }
-              },
-              "other" : {
-                "stringUnit" : {
-                  "state" : "translated",
-                  "value" : "Thread (%llu messages)"
-                }
-              }
-            }
-          }
-        },
         "de" : {
           "variations" : {
             "plural" : {
@@ -3238,6 +3247,24 @@
                 "stringUnit" : {
                   "state" : "translated",
                   "value" : "Thread (%llu Nachrichten)"
+                }
+              }
+            }
+          }
+        },
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Thread (%llu message)"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "Thread (%llu messages)"
                 }
               }
             }
@@ -3304,6 +3331,9 @@
           }
         }
       }
+    },
+    "Try Again" : {
+
     },
     "Try again" : {
       "localizations" : {
@@ -3457,16 +3487,16 @@
     },
     "Unsupported attachment (%@): %@" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Unsupported attachment (%1$@): %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "Nicht unterstützter Anhang (%1$@): %2$@"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Unsupported attachment (%1$@): %2$@"
           }
         }
       }
@@ -4103,16 +4133,16 @@
     },
     "changed their display name from %@ to %@" : {
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "changed their display name from %1$@ to %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "hat den Anzeigenamen von %1$@ in %2$@ geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "changed their display name from %1$@ to %2$@"
           }
         }
       }
@@ -4138,6 +4168,7 @@
       }
     },
     "did not match url structure" : {
+      "extractionState" : "stale",
       "localizations" : {
         "de" : {
           "stringUnit" : {
@@ -4177,6 +4208,30 @@
         }
       }
     },
+    "invalid event descriptor" : {
+
+    },
+    "invalid identifier" : {
+
+    },
+    "invalid identifier server name" : {
+
+    },
+    "invalid matrix path" : {
+
+    },
+    "invalid matrix uri" : {
+
+    },
+    "invalid matrix.to event" : {
+
+    },
+    "invalid matrix.to identifier" : {
+
+    },
+    "invalid matrix.to path" : {
+
+    },
     "invalid matrix.to url" : {
       "localizations" : {
         "de" : {
@@ -4186,6 +4241,12 @@
           }
         }
       }
+    },
+    "invalid percent encoding" : {
+
+    },
+    "invalid routing server name" : {
+
     },
     "invalid type %@" : {
       "localizations" : {
@@ -4256,6 +4317,9 @@
           }
         }
       }
+    },
+    "missing authority separator" : {
+
     },
     "no caption" : {
       "localizations" : {
@@ -4420,16 +4484,16 @@
     "stateSummary.avatar.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed their avatar"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat das Profilbild geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed their avatar"
           }
         }
       }
@@ -4437,16 +4501,16 @@
     "stateSummary.avatar.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed their avatar"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben ihre Profilbilder geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed their avatar"
           }
         }
       }
@@ -4454,16 +4518,16 @@
     "stateSummary.banned" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ banned %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat %2$@ gebannt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ banned %2$@"
           }
         }
       }
@@ -4471,16 +4535,16 @@
     "stateSummary.displayName.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed their display name"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat den Anzeigenamen geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed their display name"
           }
         }
       }
@@ -4488,16 +4552,16 @@
     "stateSummary.displayName.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed their display name"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben ihre Anzeigenamen geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed their display name"
           }
         }
       }
@@ -4505,16 +4569,16 @@
     "stateSummary.displayNameAndAvatar.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed their display name and avatar"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat Anzeigenamen und Profilbild geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed their display name and avatar"
           }
         }
       }
@@ -4522,16 +4586,16 @@
     "stateSummary.displayNameAndAvatar.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed their display name and avatar"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben ihre Anzeigenamen und Profilbilder geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed their display name and avatar"
           }
         }
       }
@@ -4539,16 +4603,16 @@
     "stateSummary.invitationAccepted.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ accepted an invitation"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat eine Einladung angenommen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ accepted an invitation"
           }
         }
       }
@@ -4556,16 +4620,16 @@
     "stateSummary.invitationAccepted.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ accepted an invitation"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben eine Einladung angenommen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ accepted an invitation"
           }
         }
       }
@@ -4573,16 +4637,16 @@
     "stateSummary.invitationAccepted.recorded" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ recorded that %2$@ accepted an invitation"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat vermerkt, dass %2$@ eine Einladung angenommen hat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ recorded that %2$@ accepted an invitation"
           }
         }
       }
@@ -4590,16 +4654,16 @@
     "stateSummary.invitationRejected.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ rejected an invitation"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat eine Einladung abgelehnt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ rejected an invitation"
           }
         }
       }
@@ -4607,16 +4671,16 @@
     "stateSummary.invitationRejected.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ rejected an invitation"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben eine Einladung abgelehnt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ rejected an invitation"
           }
         }
       }
@@ -4624,16 +4688,16 @@
     "stateSummary.invitationRejected.recorded" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ recorded that %2$@ rejected an invitation"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat vermerkt, dass %2$@ eine Einladung abgelehnt hat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ recorded that %2$@ rejected an invitation"
           }
         }
       }
@@ -4641,16 +4705,16 @@
     "stateSummary.invitationRevoked" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ revoked the invitation for %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat die Einladung für %2$@ zurückgezogen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ revoked the invitation for %2$@"
           }
         }
       }
@@ -4658,16 +4722,16 @@
     "stateSummary.invited" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ invited %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat %2$@ eingeladen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ invited %2$@"
           }
         }
       }
@@ -4675,16 +4739,16 @@
     "stateSummary.joined.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ joined"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ ist beigetreten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ joined"
           }
         }
       }
@@ -4692,16 +4756,16 @@
     "stateSummary.joined.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ joined"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ sind beigetreten"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ joined"
           }
         }
       }
@@ -4709,16 +4773,16 @@
     "stateSummary.joined.recorded" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ recorded that %2$@ joined"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat vermerkt, dass %2$@ beigetreten ist"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ recorded that %2$@ joined"
           }
         }
       }
@@ -4726,16 +4790,16 @@
     "stateSummary.kicked" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ kicked %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat %2$@ entfernt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ kicked %2$@"
           }
         }
       }
@@ -4743,16 +4807,16 @@
     "stateSummary.kickedAndBanned" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ kicked and banned %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat %2$@ entfernt und gebannt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ kicked and banned %2$@"
           }
         }
       }
@@ -4760,16 +4824,16 @@
     "stateSummary.knockAccepted" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ accepted the join request from %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat die Beitrittsanfrage von %2$@ angenommen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ accepted the join request from %2$@"
           }
         }
       }
@@ -4777,16 +4841,16 @@
     "stateSummary.knockDenied" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ denied the join request from %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat die Beitrittsanfrage von %2$@ abgelehnt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ denied the join request from %2$@"
           }
         }
       }
@@ -4794,16 +4858,16 @@
     "stateSummary.knockRetracted.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ retracted their join request"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat die Beitrittsanfrage zurückgezogen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ retracted their join request"
           }
         }
       }
@@ -4811,16 +4875,16 @@
     "stateSummary.knockRetracted.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ retracted their join request"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben ihre Beitrittsanfragen zurückgezogen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ retracted their join request"
           }
         }
       }
@@ -4828,16 +4892,16 @@
     "stateSummary.knockRetracted.recorded" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ recorded that %2$@ retracted their join request"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat vermerkt, dass %2$@ die Beitrittsanfrage zurückgezogen hat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ recorded that %2$@ retracted their join request"
           }
         }
       }
@@ -4845,16 +4909,16 @@
     "stateSummary.knocked.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ requested to join"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat den Beitritt angefragt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ requested to join"
           }
         }
       }
@@ -4862,16 +4926,16 @@
     "stateSummary.knocked.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ requested to join"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben den Beitritt angefragt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ requested to join"
           }
         }
       }
@@ -4879,16 +4943,16 @@
     "stateSummary.knocked.recorded" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ recorded that %2$@ requested to join"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat vermerkt, dass %2$@ den Beitritt angefragt hat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ recorded that %2$@ requested to join"
           }
         }
       }
@@ -4896,16 +4960,16 @@
     "stateSummary.left.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ left the room"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat den Raum verlassen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ left the room"
           }
         }
       }
@@ -4913,16 +4977,16 @@
     "stateSummary.left.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ left the room"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben den Raum verlassen"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ left the room"
           }
         }
       }
@@ -4930,16 +4994,16 @@
     "stateSummary.left.recorded" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ recorded that %2$@ left the room"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat vermerkt, dass %2$@ den Raum verlassen hat"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ recorded that %2$@ left the room"
           }
         }
       }
@@ -4947,16 +5011,16 @@
     "stateSummary.room.avatar.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room avatar"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat das Raumbild geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room avatar"
           }
         }
       }
@@ -4964,16 +5028,16 @@
     "stateSummary.room.avatar.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room avatar"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben das Raumbild geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room avatar"
           }
         }
       }
@@ -4981,16 +5045,16 @@
     "stateSummary.room.canonicalAlias.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room canonical alias"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat die Hauptadresse des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room canonical alias"
           }
         }
       }
@@ -4998,16 +5062,16 @@
     "stateSummary.room.canonicalAlias.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room canonical alias"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben die Hauptadresse des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room canonical alias"
           }
         }
       }
@@ -5015,16 +5079,16 @@
     "stateSummary.room.create.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ created room"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat den Raum erstellt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ created room"
           }
         }
       }
@@ -5032,16 +5096,16 @@
     "stateSummary.room.create.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ created room"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben den Raum erstellt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ created room"
           }
         }
       }
@@ -5049,16 +5113,16 @@
     "stateSummary.room.encryption.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room encryption"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat die Verschlüsselung des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room encryption"
           }
         }
       }
@@ -5066,16 +5130,16 @@
     "stateSummary.room.encryption.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room encryption"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben die Verschlüsselung des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room encryption"
           }
         }
       }
@@ -5083,16 +5147,16 @@
     "stateSummary.room.guestAccess.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room guest access"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat den Gastzugang des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room guest access"
           }
         }
       }
@@ -5100,16 +5164,16 @@
     "stateSummary.room.guestAccess.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room guest access"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben den Gastzugang des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room guest access"
           }
         }
       }
@@ -5117,16 +5181,16 @@
     "stateSummary.room.historyVisibility.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room history visibility"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat die Sichtbarkeit des Verlaufs geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room history visibility"
           }
         }
       }
@@ -5134,16 +5198,16 @@
     "stateSummary.room.historyVisibility.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room history visibility"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben die Sichtbarkeit des Verlaufs geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room history visibility"
           }
         }
       }
@@ -5151,16 +5215,16 @@
     "stateSummary.room.joinRules.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room join rules"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat die Beitrittsregeln des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room join rules"
           }
         }
       }
@@ -5168,16 +5232,16 @@
     "stateSummary.room.joinRules.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room join rules"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben die Beitrittsregeln des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room join rules"
           }
         }
       }
@@ -5185,16 +5249,16 @@
     "stateSummary.room.name.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room name"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat den Raumnamen geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room name"
           }
         }
       }
@@ -5202,16 +5266,16 @@
     "stateSummary.room.name.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room name"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben den Raumnamen geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room name"
           }
         }
       }
@@ -5219,16 +5283,16 @@
     "stateSummary.room.pinnedEvents.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room pinned events"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat die gepinnten Nachrichten geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room pinned events"
           }
         }
       }
@@ -5236,16 +5300,16 @@
     "stateSummary.room.pinnedEvents.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room pinned events"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben die gepinnten Nachrichten geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room pinned events"
           }
         }
       }
@@ -5253,16 +5317,16 @@
     "stateSummary.room.powerLevels.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room power levels"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat die Berechtigungen des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room power levels"
           }
         }
       }
@@ -5270,16 +5334,16 @@
     "stateSummary.room.powerLevels.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room power levels"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben die Berechtigungen des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room power levels"
           }
         }
       }
@@ -5287,16 +5351,16 @@
     "stateSummary.room.serverAcl.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room server ACL"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat die Server-ACL des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room server ACL"
           }
         }
       }
@@ -5304,16 +5368,16 @@
     "stateSummary.room.serverAcl.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room server ACL"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben die Server-ACL des Raums geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room server ACL"
           }
         }
       }
@@ -5321,16 +5385,16 @@
     "stateSummary.room.spaceChild.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed space child"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat einen untergeordneten Raum geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed space child"
           }
         }
       }
@@ -5338,16 +5402,16 @@
     "stateSummary.room.spaceChild.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed space child"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben einen untergeordneten Raum geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed space child"
           }
         }
       }
@@ -5355,16 +5419,16 @@
     "stateSummary.room.spaceParent.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed space parent"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat den übergeordneten Space geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed space parent"
           }
         }
       }
@@ -5372,16 +5436,16 @@
     "stateSummary.room.spaceParent.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed space parent"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben den übergeordneten Space geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed space parent"
           }
         }
       }
@@ -5389,16 +5453,16 @@
     "stateSummary.room.thirdPartyInvite.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room third party invite"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat eine Drittanbieter-Einladung geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room third party invite"
           }
         }
       }
@@ -5406,16 +5470,16 @@
     "stateSummary.room.thirdPartyInvite.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room third party invite"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben eine Drittanbieter-Einladung geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room third party invite"
           }
         }
       }
@@ -5423,16 +5487,16 @@
     "stateSummary.room.tombstone.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ replaced the room"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat den Raum ersetzt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ replaced the room"
           }
         }
       }
@@ -5440,16 +5504,16 @@
     "stateSummary.room.tombstone.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ replaced the room"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben den Raum ersetzt"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ replaced the room"
           }
         }
       }
@@ -5457,16 +5521,16 @@
     "stateSummary.room.topic.one" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room topic"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ hat das Raumthema geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room topic"
           }
         }
       }
@@ -5474,16 +5538,16 @@
     "stateSummary.room.topic.other" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%@ changed room topic"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%@ haben das Raumthema geändert"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%@ changed room topic"
           }
         }
       }
@@ -5491,16 +5555,16 @@
     "stateSummary.unbanned" : {
       "extractionState" : "extracted_with_value",
       "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "%1$@ unbanned %2$@"
-          }
-        },
         "de" : {
           "stringUnit" : {
             "state" : "translated",
             "value" : "%1$@ hat den Bann von %2$@ aufgehoben"
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@ unbanned %2$@"
           }
         }
       }
@@ -5524,6 +5588,9 @@
           }
         }
       }
+    },
+    "unexpected leading slash" : {
+
     },
     "unknown membership change event" : {
       "localizations" : {
