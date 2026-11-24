@@ -30,6 +30,7 @@ struct ChatJoinedRoom: View {
 
   var body: some View {
     ChatRoomViewRepresentable(timeline: timeline, composer: composer)
+      .id(ObjectIdentifier(timeline))
       .ignoresSafeArea(edges: .vertical)
       .navigationTitle(
         ContactDirectory.shared.roomTitle(

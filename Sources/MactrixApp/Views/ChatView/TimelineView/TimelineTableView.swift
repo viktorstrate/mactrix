@@ -394,6 +394,12 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       name: NSView.boundsDidChangeNotification,
       object: scrollView.contentView
     )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(userDidScroll(_:)),
+      name: NSScrollView.didLiveScrollNotification,
+      object: scrollView
+    )
 
     timeline.focusDelegate = self
     timeline.diffDelegate = self
@@ -892,6 +898,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       }
     }
     updatePaginationSpinners(showTop: state.fetchingOlder, showBottom: state.fetchingNewer)
+    if !state.fetchingNewer {
+      returnToLiveIfNeeded()
+    }
     if state.isConfigured {
       positionInitiallyIfNeeded()
       paginateIfNeeded(onlyIfUnderfilled: true)
@@ -969,6 +978,22 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private var timelineFetchTask: Task<Void, Never>?
   private var timelineForwardFetchTask: Task<Void, Never>?
   private var lastAutoFillItemCount: Int?
+  private var didScrolToBottom = false
+
+  @objc private func userDidScroll(_ notification: Notification) {
+    guard positionedInitially, !updatingTimelineItems, !tornDown,
+      timeline.focusedEventId != nil
+    else { return }
+    didScrolToBottom = documentView.isAtBottom
+    returnToLiveIfNeeded()
+  }
+
+  private func returnToLiveIfNeeded() {
+    guard timeline.focusedEventId != nil, timeline.hitTimelineEnd, didScrolToBottom, !tornDown,
+      !showBottomPaginationSpinner, documentView.isAtBottom
+    else { return }
+    windowState.returnToLive(from: timeline)
+  }
 
   @objc func viewDidScroll(_ notification: Notification) {
     guard positionedInitially, !updatingTimelineItems, !tornDown else { return }
@@ -1786,11 +1811,12 @@ final class TimelineDocumentView: NSView {
     return frame.maxY - clipView.bounds.height + clipView.contentInsets.bottom
   }
 
-  var shouldFollowBottom: Bool {
-    guard allowsBottomFollowing else { return false }
+  var isAtBottom: Bool {
     guard let clipView = enclosingScrollView?.contentView else { return true }
     return bottomAlignedOriginY - clipView.bounds.minY <= 2
   }
+
+  var shouldFollowBottom: Bool { allowsBottomFollowing && isAtBottom }
 
   func updateGeometry() {
     guard !updatingGeometry, let scrollView = enclosingScrollView else { return }

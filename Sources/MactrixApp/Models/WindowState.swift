@@ -174,6 +174,15 @@ public final class WindowState {
     }
   }
 
+  /// Return a historical timeline to a live one.
+  func returnToLive(from history: LiveTimeline) {
+    guard case .joinedRoom(let current) = selectedScreen.content, current === history else {
+      return
+    }
+    selectedScreen = .joinedRoom(timeline: LiveTimeline(room: history.room))
+    Logger.windowState.debug("Return to live timeline")
+  }
+
   public func focusThread(rootEventId: String) {
     guard case .joinedRoom(timeline: let roomTimeline) = selectedScreen.content else { return }
 
