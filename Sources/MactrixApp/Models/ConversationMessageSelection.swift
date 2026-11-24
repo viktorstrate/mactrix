@@ -8,7 +8,7 @@ struct ConversationMessageSelection {
 
   private var event: EventTimelineItem? {
     guard let owner,
-      case .joinedRoom(let activeTimeline) = owner.windowState.selectedScreen,
+      case .joinedRoom(let activeTimeline) = owner.windowState.selectedScreen.content,
       activeTimeline.room.id == owner.timeline.room.id
     else { return nil }
     return owner.selectedMessageEvent(matching: messageID)
