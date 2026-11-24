@@ -18,25 +18,34 @@ public struct MainView: View {
   public init() {}
 
   @ViewBuilder var details: some View {
-    switch windowState.selectedScreen {
+    let screen = windowState.selectedScreen
+    switch screen.content {
     case .joinedRoom(let timeline):
       ChatView(timeline: timeline).id(timeline.room.id)
-    case .previewRoom(let room):
+    case .previewRoom(let room, let eventId, let routingVia):
       MactrixUI.RoomPreviewView(
         preview: room.info(),
         imageLoader: appState.matrixClient,
         actions: appState.matrixClient?.roomPreviewActions(
-          forRoomWithId: room.info().roomId, windowState: windowState)
+          forRoomWithId: room.info().roomId, windowState: windowState,
+          eventId: eventId, routingVia: routingVia)
       )
+      .id(screen.id)
     case .newRoom:
       MactrixUI.CreateRoomScreen(onSubmit: { params in
         guard let matrixClient = appState.matrixClient else { return }
+        guard windowState.selectedScreen === screen else { return }
         let newRoom = try await matrixClient.client.createRoom(
           request: params.asMatrixRequest)
-        windowState.selectedRoomId = newRoom
+        try Task.checkCancellation()
+        guard windowState.selectedScreen === screen, appState.matrixClient === matrixClient else {
+          return
+        }
+        windowState.selectRoom(newRoom)
       })
-    case .loadMatrixUrl(let matrixUri):
-      LoadMatrixUriScreen(matrixUri: matrixUri)
+    case .loadingRoom, .loadMatrixUrl:
+      LoadDestinationScreen(screen: screen)
+        .id(screen.id)
     case .user(let profile):
       UserProfileView(
         profile: profile,
@@ -88,14 +97,8 @@ public struct MainView: View {
       let matrixClient = appState.matrixClient
       QuickNavigationOverlayAttachment(
         coordinator: windowState.quickNavigation, matrixClient: matrixClient,
-        onSelectRoom: { [weak windowState, weak matrixClient] roomID in
-          guard let windowState, let matrixClient else { return }
-          if windowState.selectedRoomId != roomID {
-            windowState.selectedRoomId = roomID
-          } else {
-            // The ID may still refer to this room while a profile or another screen is showing.
-            Task { await windowState.loadSelectedRoom(using: matrixClient) }
-          }
+        onSelectRoom: { [weak windowState] roomID in
+          windowState?.selectRoom(roomID)
         })
     }
     .task { await attemptLoadUserSession() }
@@ -142,9 +145,6 @@ public struct MainView: View {
         Logger.viewCycle.info("Matrix client is nil, present welcome sheet")
         showWelcomeSheet = true
       }
-    }
-    .task(id: windowState.selectedRoomId) {
-      await onRoomSelected()
     }
     .onChange(of: appState.matrixClient?.authenticationFailed) { _, authFailed in
       if authFailed == true {
@@ -194,9 +194,6 @@ public struct MainView: View {
       } catch {
         Logger.matrixClient.error("Failed to start sync: \(error)")
       }
-
-      // check if a room is selected and load it
-      await onRoomSelected()
     }
   }
 
@@ -215,11 +212,5 @@ public struct MainView: View {
         Logger.matrixClient.error("Failed in onLoginModalDismiss: \(error)")
       }
     }
-  }
-
-  func onRoomSelected() async {
-    guard let matrixClient = appState.matrixClient else { return }
-
-    await windowState.loadSelectedRoom(using: matrixClient)
   }
 }

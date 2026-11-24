@@ -7,6 +7,34 @@ import UniformTypeIdentifiers
 
 @MainActor
 struct ChatComposerStateTests {
+  @Test func replyOutsideLoadedContextSurvivesSubmissionCapture() {
+    let composer = ChatComposerState()
+    composer.restoreReply(eventId: "$outside-context")
+    let snapshot = composer.captureSubmission(
+      content: ComposerTextContent(markdown: "reply", mentionedUserIDs: []))
+
+    guard case .unresolved(let eventId) = composer.reply else {
+      Issue.record("Expected an unresolved reply")
+      return
+    }
+    #expect(eventId == "$outside-context")
+    #expect(snapshot.replyEventIdentifier == "$outside-context")
+
+    composer.finishSending(snapshot: snapshot)
+    #expect(composer.reply == nil)
+  }
+
+  @Test func unresolvedReplyCanBeCancelledWithoutLosingText() {
+    let composer = ChatComposerState()
+    composer.text = "reply text"
+    composer.restoreReply(eventId: "$outside-context")
+
+    composer.cancelReply()
+
+    #expect(composer.reply == nil)
+    #expect(composer.text == "reply text")
+  }
+
   @Test func attachmentsAppendInOrderAndDeduplicate() {
     let composer = ChatComposerState()
     let first = attachment(filename: "first.txt", identity: .absolutePath("/one/first.txt"))
@@ -94,7 +122,7 @@ struct ChatComposerStateTests {
     composer.reset()
 
     #expect(composer.text.isEmpty)
-    #expect(composer.replyTarget == nil)
+    #expect(composer.reply == nil)
     #expect(composer.attachments.isEmpty)
   }
 

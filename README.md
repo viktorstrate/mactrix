@@ -33,7 +33,7 @@ If you want to test out unreleased features, you can download automatically buil
 
 ### Requirements
 
-- macOS 15.7 or later
+- macOS 15 or later
 - Up-to-date Xcode installed
 
 Xcode will automatically download all dependencies when building the project for the first time.
@@ -54,6 +54,7 @@ Then open the project in Xcode and build using `Cmd+B`.
   - [x] Password
   - [x] OAuth
   - [ ] Email and Phone
+  - [ ] Legacy SSO
 - [ ] Multi account
 - [ ] Timeline
   - [x] Messages

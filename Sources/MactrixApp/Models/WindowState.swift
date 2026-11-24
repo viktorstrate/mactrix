@@ -24,21 +24,58 @@ public enum SearchDirectResult {
   case resolvedUser(profile: MatrixRustSDK.UserProfile)
 }
 
-public enum SelectedScreen {
-  case joinedRoom(timeline: LiveTimeline)
-  case loadMatrixUrl(_ url: Utils.MatrixUriScheme)
-  case previewRoom(_ room: RoomPreview)
-  case user(profile: UserProfile)
-  case newRoom
-  case none
+/// A destination's identity distinguishes separate visits, even to the same room or URL.
+@MainActor
+public final class SelectedScreen: Identifiable {
+  public enum Content {
+    case loadingRoom(String)
+    case joinedRoom(timeline: LiveTimeline)
+    case loadMatrixUrl(Utils.MatrixUriScheme)
+    case previewRoom(RoomPreview, eventId: String?, routingVia: [String])
+    case user(profile: UserProfile)
+    case newRoom
+    case none
+  }
+
+  public let content: Content
+  public nonisolated var id: ObjectIdentifier { ObjectIdentifier(self) }
+
+  private init(_ content: Content) {
+    self.content = content
+  }
+
+  public static func loadingRoom(_ roomId: String) -> SelectedScreen {
+    SelectedScreen(.loadingRoom(roomId))
+  }
+
+  public static func joinedRoom(timeline: LiveTimeline) -> SelectedScreen {
+    SelectedScreen(.joinedRoom(timeline: timeline))
+  }
+
+  public static func loadMatrixUrl(_ url: Utils.MatrixUriScheme) -> SelectedScreen {
+    SelectedScreen(.loadMatrixUrl(url))
+  }
+
+  public static func previewRoom(
+    _ room: RoomPreview, eventId: String? = nil, routingVia: [String] = []
+  ) -> SelectedScreen {
+    SelectedScreen(.previewRoom(room, eventId: eventId, routingVia: routingVia))
+  }
+
+  public static func user(profile: UserProfile) -> SelectedScreen {
+    SelectedScreen(.user(profile: profile))
+  }
+
+  public static var newRoom: SelectedScreen { SelectedScreen(.newRoom) }
+  public static var none: SelectedScreen { SelectedScreen(.none) }
 }
 
 @MainActor @Observable
 public final class WindowState {
   public var selectedScreen: SelectedScreen = .none {
     didSet {
-      if case .joinedRoom(let previous) = oldValue,
-        case .joinedRoom(let current) = selectedScreen, previous === current
+      if case .joinedRoom(let previous) = oldValue.content,
+        case .joinedRoom(let current) = selectedScreen.content, previous === current
       {
         return
       }
@@ -50,7 +87,24 @@ public final class WindowState {
 
   var conversationSelection: ConversationMessageSelection?
 
-  public var selectedRoomId: String?
+  public var selectedRoomId: String? {
+    get {
+      switch selectedScreen.content {
+      case .loadingRoom(let roomId): roomId
+      case .joinedRoom(let timeline): timeline.room.id
+      case .previewRoom(let room, _, _): room.info().roomId
+      case .loadMatrixUrl(let url):
+        if case .roomId(let id) = url.kind { id } else { nil }
+      case .user, .newRoom, .none: nil
+      }
+    }
+    set { selectRoom(newValue) }
+  }
+
+  public func selectRoom(_ roomId: String?) {
+    guard roomId != selectedRoomId else { return }
+    selectedScreen = roomId.map(SelectedScreen.loadingRoom) ?? .none
+  }
   public var selectedSpaceId: String?
   public var inspectorVisible: Bool = false
 
@@ -81,36 +135,6 @@ public final class WindowState {
     )
   }
 
-  func loadSelectedRoom(using matrixClient: MatrixClient) async {
-    let roomID = selectedRoomId
-    do {
-      Logger.viewCycle.debug("Selected room: \(roomID.debugDescription)")
-      guard let roomID else {
-        selectedScreen = .none
-        return
-      }
-
-      if case .joinedRoom(let timeline) = selectedScreen, timeline.room.id == roomID {
-        return
-      }
-
-      if let room = try matrixClient.client.getRoom(roomId: roomID) {
-        selectedScreen = .joinedRoom(
-          timeline: LiveTimeline(room: LiveRoom(matrixRoom: room, matrixClient: matrixClient)))
-      } else {
-        let preview = try await matrixClient.client.getRoomPreviewFromRoomId(
-          roomId: roomID, viaServers: ["matrix.org"])
-        try Task.checkCancellation()
-        guard selectedRoomId == roomID else { return }
-        selectedScreen = .previewRoom(preview)
-      }
-    } catch is CancellationError {
-      // A subsequent room selection superseded this request.
-    } catch {
-      Logger.viewCycle.error("Failed to get room \(error)")
-    }
-  }
-
   public func toggleInspector() {
     if inspectorVisible {
       if inspectorContent == .roomInfo {
@@ -125,17 +149,42 @@ public final class WindowState {
   }
 
   public func focusMessage(eventId: String) {
-    guard case .joinedRoom(timeline: let roomTimeline) = selectedScreen else {
+    guard case .joinedRoom(timeline: let roomTimeline) = selectedScreen.content else {
       Logger.windowState.warning("focus message failed, no active timeline")
       return
     }
 
-    Logger.windowState.warning("scrolling to message \(eventId)")
     roomTimeline.focusEvent(id: .eventId(eventId: eventId))
   }
 
+  /// Focus the event in the `sourceTimeline` if it is loaded,
+  /// otherwise load a new timeline focused at the given event.
+  func focusReply(eventId: String, from sourceTimeline: LiveTimeline) {
+    guard case .joinedRoom(let roomTimeline) = selectedScreen.content,
+      roomTimeline.room.id == sourceTimeline.room.id
+    else { return }
+
+    let target = EventOrTransactionId.eventId(eventId: eventId)
+    if roomTimeline.timelineItems.contains(where: { $0.asEvent()?.eventOrTransactionId == target })
+    {
+      roomTimeline.focusEvent(id: target)
+    } else {
+      selectedScreen = .joinedRoom(
+        timeline: LiveTimeline(room: roomTimeline.room, focus: .event(eventId: eventId)))
+    }
+  }
+
+  /// Return a historical timeline to a live one.
+  func returnToLive(from history: LiveTimeline) {
+    guard case .joinedRoom(let current) = selectedScreen.content, current === history else {
+      return
+    }
+    selectedScreen = .joinedRoom(timeline: LiveTimeline(room: history.room))
+    Logger.windowState.debug("Return to live timeline")
+  }
+
   public func focusThread(rootEventId: String) {
-    guard case .joinedRoom(timeline: let roomTimeline) = selectedScreen else { return }
+    guard case .joinedRoom(timeline: let roomTimeline) = selectedScreen.content else { return }
 
     inspectorVisible = true
     inspectorContent = .focusThread(

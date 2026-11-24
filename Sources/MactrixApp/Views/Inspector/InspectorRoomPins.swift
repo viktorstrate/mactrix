@@ -48,7 +48,7 @@ struct InspectorRoomPins: View {
   @State var selectedId: String?
 
   var timeline: LiveTimeline? {
-    guard case .joinedRoom(timeline: let timeline) = windowState.selectedScreen else {
+    guard case .joinedRoom(timeline: let timeline) = windowState.selectedScreen.content else {
       return nil
     }
 

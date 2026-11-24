@@ -112,8 +112,10 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   let scrollView = NSScrollView()
   let tableView = TimelineTableView()
-  private lazy var documentView = TimelineDocumentView(tableView: tableView)
+  private lazy var documentView = TimelineDocumentView(
+    tableView: tableView, allowsBottomFollowing: timeline.focusedEventId == nil)
   private var positionedInitially = false
+  private var tornDown = false
   private let hoverOverlay = MessageHoverOverlayView()
   private weak var hoveredMessageView: MessageRowView?
   private var hoveredMessageId: String?
@@ -180,6 +182,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
     timelineFetchTask?.cancel()
     timelineFetchTask = nil
+    timelineForwardFetchTask?.cancel()
+    timelineForwardFetchTask = nil
+    tornDown = true
 
     for task in actionTasks.values {
       task.cancel()
@@ -389,10 +394,17 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       name: NSView.boundsDidChangeNotification,
       object: scrollView.contentView
     )
+    NotificationCenter.default.addObserver(
+      self,
+      selector: #selector(userDidScroll(_:)),
+      name: NSScrollView.didLiveScrollNotification,
+      object: scrollView
+    )
 
     timeline.focusDelegate = self
     timeline.diffDelegate = self
     showTopPaginationSpinner = timeline.fetchingOlderMessages
+    showBottomPaginationSpinner = timeline.fetchingNewerMessages
     applyProjectedRows(changedIDs: [])
     listenForTypingUsers()
     listenForContactChanges()
@@ -410,10 +422,38 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   override func viewDidLayout() {
     super.viewDidLayout()
     documentView.updateGeometry()
-    guard !positionedInitially, scrollView.contentView.bounds.height > 0 else { return }
-    positionedInitially = true
-    tableView.layoutSubtreeIfNeeded()
-    tableView.scrollToBottom()
+    positionInitiallyIfNeeded()
+    paginateIfNeeded(onlyIfUnderfilled: true)
+  }
+
+  private func positionInitiallyIfNeeded() {
+    guard !positionedInitially, !updatingTimelineItems, timeline.isConfigured,
+      scrollView.contentView.bounds.height > 0
+    else { return }
+    let wasUpdating = updatingTimelineItems
+    updatingTimelineItems = true
+    defer { updatingTimelineItems = wasUpdating }
+    if let eventId = timeline.focusedEventId {
+      guard let row = rowForEventId(id: .eventId(eventId: eventId)) else { return }
+      positionedInitially = true
+      tableView.layoutSubtreeIfNeeded()
+      tableView.selectRowIndexes(IndexSet(integer: row), byExtendingSelection: false)
+      updateSelectedMessage(makeActive: true)
+      let clipView = scrollView.contentView
+      let rect = tableView.rect(ofRow: row)
+      let center = clipView.convert(NSPoint(x: rect.midX, y: rect.midY), from: tableView)
+      clipView.scroll(
+        to: clipView.constrainBoundsRect(
+          NSRect(
+            x: clipView.bounds.minX, y: center.y - clipView.bounds.height / 2,
+            width: clipView.bounds.width, height: clipView.bounds.height)
+        ).origin)
+      scrollView.reflectScrolledClipView(clipView)
+    } else {
+      positionedInitially = true
+      tableView.layoutSubtreeIfNeeded()
+      tableView.scrollToBottom()
+    }
   }
 
   func updateFontSize(_ fontSize: Int) {
@@ -422,7 +462,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     guard isViewLoaded else { return }
 
     let clipView = scrollView.contentView
-    let followBottom = documentView.isAtBottom
+    let followBottom = documentView.shouldFollowBottom
     let candidates = readingAnchorCandidates()
     let oldOrigin = clipView.bounds.origin
     let wasUpdating = updatingTimelineItems
@@ -467,7 +507,12 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     guard let replyId = content.inReplyTo?.eventId() else { return nil }
     return { [weak self] in
       guard let self else { return }
-      self.timeline.focusEvent(id: .eventId(eventId: replyId))
+      let target = MatrixRustSDK.EventOrTransactionId.eventId(eventId: replyId)
+      if self.rowForEventId(id: target) != nil {
+        self.focusTimelineEvent(id: target)
+      } else {
+        self.windowState.focusReply(eventId: replyId, from: self.timeline)
+      }
     }
   }
 
@@ -551,6 +596,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       canReact: canPerformMessageAction(.reactionPicker, for: event),
       canPin: canPerformMessageAction(.pin, for: event),
       isPinned: isMessagePinned(event),
+      canCopyLink: canPerformMessageAction(.copyMessageLink, for: event),
       downloadFilenames: MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename))
   }
 
@@ -715,6 +761,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         && timeline.room.roomInfo?.powerLevels?.canOwnUserPinUnpin() == true
     case .delete:
       return timeline.timeline != nil && canDeleteMessage(event)
+    case .copyMessageLink:
+      if case .eventId = event.eventOrTransactionId { return true }
+      return false
     case .showSource:
       return true
     case .downloadToFile(let index):
@@ -736,6 +785,20 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         try showReactionPicker(for: event, source: reactionPickerSource)
       } catch {
         Logger.timelineTableView.error("Failed to load reaction picker: \(error)")
+      }
+    case .copyMessageLink:
+      guard case .eventId(let eventId) = event.eventOrTransactionId else { return }
+      let room = timeline.room.room
+      startActionTask {
+        do {
+          let permalink = try await room.matrixToEventPermalink(eventId: eventId)
+          guard !Task.isCancelled else { return }
+          NSPasteboard.general.clearContents()
+          NSPasteboard.general.setString(permalink, forType: .string)
+        } catch {
+          guard !Task.isCancelled else { return }
+          Logger.timelineTableView.error("Failed to copy message link: \(error)")
+        }
       }
     case .showSource:
       MessageSourceWindowController.show(source: event.lazyProvider.latestJson())
@@ -840,15 +903,26 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func listenForTimelinePagination() {
-    let fetchingOlderMessages = withObservationTracking {
-      timeline.fetchingOlderMessages
+    guard !tornDown else { return }
+    let state = withObservationTracking {
+      (
+        fetchingOlder: timeline.fetchingOlderMessages,
+        fetchingNewer: timeline.fetchingNewerMessages,
+        isConfigured: timeline.isConfigured
+      )
     } onChange: { [weak self] in
       Task { @MainActor [weak self] in
         self?.listenForTimelinePagination()
       }
     }
-    // Forward pagination is not implemented yet so we just return `false`
-    updatePaginationSpinners(showTop: fetchingOlderMessages, showBottom: false)
+    updatePaginationSpinners(showTop: state.fetchingOlder, showBottom: state.fetchingNewer)
+    if !state.fetchingNewer {
+      returnToLiveIfNeeded()
+    }
+    if state.isConfigured {
+      positionInitiallyIfNeeded()
+      paginateIfNeeded(onlyIfUnderfilled: true)
+    }
   }
 
   private func updatePaginationSpinners(showTop: Bool, showBottom: Bool) {
@@ -919,21 +993,74 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
   }
 
-  var timelineFetchTask: Task<Void, Never>?
+  private var timelineFetchTask: Task<Void, Never>?
+  private var timelineForwardFetchTask: Task<Void, Never>?
+  private var lastAutoFillItemCount: Int?
+  private var didScrolToBottom = false
+
+  @objc private func userDidScroll(_ notification: Notification) {
+    guard positionedInitially, !updatingTimelineItems, !tornDown,
+      timeline.focusedEventId != nil
+    else { return }
+    didScrolToBottom = documentView.isAtBottom
+    returnToLiveIfNeeded()
+  }
+
+  private func returnToLiveIfNeeded() {
+    guard timeline.focusedEventId != nil, timeline.hitTimelineEnd, didScrolToBottom, !tornDown,
+      !showBottomPaginationSpinner, documentView.isAtBottom
+    else { return }
+    windowState.returnToLive(from: timeline)
+  }
 
   @objc func viewDidScroll(_ notification: Notification) {
-    guard positionedInitially, !updatingTimelineItems else { return }
+    guard positionedInitially, !updatingTimelineItems, !tornDown else { return }
     closeReactionPicker()
-    let distanceFromTop = tableView.visibleRect.minY - tableView.bounds.minY
-    let threshold: CGFloat = 200.0  // Pixels from the top to trigger load
+    paginateIfNeeded()
+  }
 
-    if distanceFromTop <= threshold, timelineFetchTask == nil {
-      Logger.timelineTableView.info("Fetching older messages (scroll near top)")
+  private func paginateIfNeeded(onlyIfUnderfilled: Bool = false) {
+    guard positionedInitially, !updatingTimelineItems, !tornDown, timeline.isConfigured else {
+      return
+    }
+    let underfilled = tableView.bounds.height < scrollView.contentView.bounds.height
+    if onlyIfUnderfilled {
+      guard timeline.focusedEventId != nil, underfilled, timeline.paginationErrorMessage == nil,
+        lastAutoFillItemCount != timeline.timelineItems.count
+      else { return }
+    }
+
+    let threshold: CGFloat = 200
+    let distanceFromTop = tableView.visibleRect.minY - tableView.bounds.minY
+    let distanceFromBottom = documentView.bottomAlignedOriginY - scrollView.contentView.bounds.minY
+    var requested = false
+
+    // Fetch older messages
+    if underfilled || distanceFromTop <= threshold, timelineFetchTask == nil,
+      !timeline.fetchingOlderMessages, !timeline.hitTimelineStart
+    {
+      requested = true
       timelineFetchTask = Task { [weak self] in
         await self?.timeline.fetchOlderMessages()
         self?.timelineFetchTask = nil
+        self?.paginateIfNeeded(onlyIfUnderfilled: true)
       }
     }
+
+    // Fetch newer messages
+    if underfilled || distanceFromBottom <= threshold, timelineForwardFetchTask == nil,
+      timeline.focusedEventId != nil, !timeline.fetchingNewerMessages, !timeline.hitTimelineEnd
+    {
+      requested = true
+      timelineForwardFetchTask = Task { [weak self] in
+        await self?.timeline.fetchNewerMessages()
+        self?.timelineForwardFetchTask = nil
+        self?.paginateIfNeeded(onlyIfUnderfilled: true)
+      }
+    }
+
+    // An empty or fully filtered page must not cause an automatic request loop.
+    if requested { lastAutoFillItemCount = timeline.timelineItems.count }
   }
 
   func rowForEventId(id eventId: MatrixRustSDK.EventOrTransactionId) -> Int? {
@@ -941,6 +1068,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       switch item {
       case .message(item: _, let event, content: _):
         return event.eventOrTransactionId == eventId
+      case .state(let entries):
+        return entries.contains { $0.event.eventOrTransactionId == eventId }
       default:
         return false
       }
@@ -1028,7 +1157,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   private func readingAnchorCandidates() -> [ReadingAnchor] {
     let clipView = scrollView.contentView
-    guard !documentView.isAtBottom else { return [] }
+    guard !documentView.shouldFollowBottom else { return [] }
     let visibleRows = tableView.rows(in: tableView.visibleRect)
     guard visibleRows.location != NSNotFound, visibleRows.length > 0 else { return [] }
 
@@ -1091,13 +1220,15 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       )
       return change.changedIDs
     }
+    positionInitiallyIfNeeded()
+    paginateIfNeeded(onlyIfUnderfilled: true)
   }
 
   private func updateTimelineRows(
     revealingTopSpinner: Bool = false, _ update: () -> Set<String>
   ) {
     let clipView = scrollView.contentView
-    let followBottom = documentView.isAtBottom
+    let followBottom = documentView.shouldFollowBottom
     let oldOrigin = clipView.bounds.origin
     // At the top edge, anchoring to the first message would hide the new spinner.
     let keepTopVisible =
@@ -1151,7 +1282,8 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
     if showBottomPaginationSpinner {
       // Keep the typing indicator last, where the typing listener expects it.
-      rows.insert(.paginationSpinner(position: .bottom), at: rows.count - 1)
+      let index = rows.last?.id == "typing-indicator" ? rows.count - 1 : rows.count
+      rows.insert(.paginationSpinner(position: .bottom), at: index)
     }
     timelineItems = rows
     let newIDs = rows.map(\.id)
@@ -1587,7 +1719,7 @@ class TimelineTableView: NSTableView {
 
   func withBottomFollowing(_ update: () -> Void) {
     let followBottom =
-      (superview as? TimelineDocumentView)?.isAtBottom ?? false
+      (superview as? TimelineDocumentView)?.shouldFollowBottom ?? false
     NSAnimationContext.runAnimationGroup { context in
       context.duration = 0
       context.allowsImplicitAnimation = false
@@ -1674,14 +1806,16 @@ class TimelineTableView: NSTableView {
 /// Keeps unused space above the table while leaving scrolling geometry to AppKit.
 final class TimelineDocumentView: NSView {
   private let tableView: TimelineTableView
+  private let allowsBottomFollowing: Bool
   private var updatingGeometry = false
   private var previousViewportHeight: CGFloat?
   private var previousBottomInset: CGFloat?
 
   override var isFlipped: Bool { true }
 
-  init(tableView: TimelineTableView) {
+  init(tableView: TimelineTableView, allowsBottomFollowing: Bool) {
     self.tableView = tableView
+    self.allowsBottomFollowing = allowsBottomFollowing
     super.init(frame: .zero)
     addSubview(tableView)
   }
@@ -1700,6 +1834,8 @@ final class TimelineDocumentView: NSView {
     return bottomAlignedOriginY - clipView.bounds.minY <= 2
   }
 
+  var shouldFollowBottom: Bool { allowsBottomFollowing && isAtBottom }
+
   func updateGeometry() {
     guard !updatingGeometry, let scrollView = enclosingScrollView else { return }
     updatingGeometry = true
@@ -1712,7 +1848,7 @@ final class TimelineDocumentView: NSView {
     let bottomInsetChanged = previousBottomInset != nil && previousBottomInset != insets.bottom
 
     let followBottom =
-      (resized || bottomInsetChanged)
+      allowsBottomFollowing && (resized || bottomInsetChanged)
       && frame.maxY - (previousViewportHeight ?? viewportHeight)
         + (previousBottomInset ?? insets.bottom) - clipView.bounds.minY <= 2
 

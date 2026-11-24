@@ -16,7 +16,8 @@ struct SearchResolvedRoomInspectorView: View {
   var roomActions: RoomPreviewActions? {
     guard let preview = roomPreview else { return nil }
     return appState.matrixClient?.roomPreviewActions(
-      forRoomWithId: preview.info().roomId, windowState: windowState)
+      forRoomWithId: preview.info().roomId, windowState: windowState,
+      routingVia: resolvedRoom.servers)
   }
 
   var body: some View {
@@ -38,8 +39,10 @@ struct SearchResolvedRoomInspectorView: View {
     }
     .task(id: alias, priority: .utility) {
       do {
-        let preview = try await appState.matrixClient?.client.getRoomPreviewFromRoomId(
-          roomId: resolvedRoom.roomId, viaServers: resolvedRoom.servers)
+        guard let matrixClient = appState.matrixClient else { return }
+        let preview = try await matrixClient.client.getRoomPreviewFromRoomId(
+          roomId: resolvedRoom.roomId,
+          viaServers: matrixClient.routingServers(hints: resolvedRoom.servers))
         self.roomPreview = preview
       } catch {
         Logger.viewCycle.error("failed to get room preview: \(error)")

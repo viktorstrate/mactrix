@@ -120,6 +120,8 @@ public struct AppCommands: Commands {
           .keyboardShortcut("s", modifiers: [.command, .shift])
           .disabled(filenames.isEmpty)
       }
+      messageActionButton("Copy Message Link", action: .copyMessageLink)
+        .keyboardShortcut("c", modifiers: [.command, .shift])
       messageActionButton("Show Source", action: .showSource)
         .keyboardShortcut("u", modifiers: [.command, .option])
 

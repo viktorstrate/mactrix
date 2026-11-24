@@ -162,7 +162,7 @@ struct SearchViewModifier: ViewModifier {
         windowState.searchDirectResult = .lookingForRoom(alias: query)
         do {
           let roomPreview = try await matrixClient.client.getRoomPreviewFromRoomId(
-            roomId: query, viaServers: ["matrix.org"])
+            roomId: query, viaServers: matrixClient.viaServers)
           windowState.searchDirectResult = .resolvedRoomId(roomPreview: roomPreview)
         } catch {
           Logger.viewCycle.error("failed to resolve room id \(query): \(error)")

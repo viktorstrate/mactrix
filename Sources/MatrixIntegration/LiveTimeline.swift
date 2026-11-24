@@ -17,12 +17,31 @@ public protocol LiveTimelineDiffDelegate: AnyObject {
 @MainActor @Observable
 public final class LiveTimeline {
   public let room: LiveRoom
-  public let focusedThreadId: String?
+  public enum Focus: Hashable, Sendable {
+    case live
+    case thread(rootEventId: String)
+    case event(eventId: String)
+  }
+
+  public let focus: Focus
+
+  public var focusedThreadId: String? {
+    guard case .thread(let id) = focus else { return nil }
+    return id
+  }
+
+  public var focusedEventId: String? {
+    guard case .event(let id) = focus else { return nil }
+    return id
+  }
+
+  public var isLive: Bool { focus == .live }
 
   public var timeline: Timeline?
 
   @ObservationIgnored private var timelineHandle: TaskHandle?
   @ObservationIgnored private var paginateHandle: TaskHandle?
+  @ObservationIgnored private var listenerTasks: [Task<Void, Never>] = []
 
   public var errorMessage: String?
 
@@ -34,11 +53,14 @@ public final class LiveTimeline {
 
   public private(set) var paginating: PaginationStatus = .idle(hitTimelineStart: false)
   public private(set) var hitTimelineStart: Bool = false
-  private var fetchMessagesAgain: Bool = false
+  public private(set) var hitTimelineEnd: Bool = false
   public private(set) var fetchingOlderMessages: Bool = false
+  public private(set) var fetchingNewerMessages: Bool = false
+  public private(set) var isConfigured: Bool = false
+  public private(set) var paginationErrorMessage: String?
 
-  public init(room: LiveRoom) {
-    self.focusedThreadId = nil
+  public init(room: LiveRoom, focus: Focus = .live) {
+    self.focus = focus
     self.room = room
     Task {
       do {
@@ -50,35 +72,34 @@ public final class LiveTimeline {
     }
   }
 
-  public init(room: LiveRoom, focusThread threadId: String) {
-    self.focusedThreadId = threadId
-    self.room = room
-    Task {
-      do {
-        try await configureTimeline(threadId: threadId)
-      } catch {
-        Logger.liveTimeline.error("failed to configure timeline: \(error)")
-        self.errorMessage = error.localizedDescription
-      }
-    }
+  public convenience init(room: LiveRoom, focusThread threadId: String) {
+    self.init(room: room, focus: .thread(rootEventId: threadId))
   }
 
   deinit {
+    timelineHandle?.cancel()
+    paginateHandle?.cancel()
+    for task in listenerTasks { task.cancel() }
     Logger.liveTimeline.debug("Timeline deinit")
   }
 
-  private func configureTimeline(threadId: String? = nil) async throws {
+  private func configureTimeline() async throws {
     Logger.liveTimeline.debug("configure timeline")
 
-    let focus =
-      if let threadId {
-        TimelineFocus.thread(rootEventId: threadId)
-      } else {
-        TimelineFocus.live(hideThreadedEvents: true)
-      }
+    let sdkFocus: TimelineFocus
+    switch focus {
+    case .live:
+      sdkFocus = .live(hideThreadedEvents: true)
+    case .thread(let rootEventId):
+      sdkFocus = .thread(rootEventId: rootEventId)
+    case .event(let eventId):
+      sdkFocus = .event(
+        eventId: eventId, numContextEvents: 50,
+        threadMode: .automatic(hideThreadedEvents: true))
+    }
 
     let config = TimelineConfiguration(
-      focus: focus,
+      focus: sdkFocus,
       filter: .all,
       internalIdPrefix: nil,
       dateDividerMode: .daily,
@@ -89,10 +110,16 @@ public final class LiveTimeline {
 
     await listenToTimelineChanges()
 
-    do {
-      try await listenToPaginationStatus(threadId: threadId)
-    } catch {
-      Logger.liveTimeline.error("Failed to listen to pagination status: \(error)")
+    isConfigured = true
+    if isLive {
+      do {
+        try await listenToPaginationStatus()
+      } catch {
+        Logger.liveTimeline.error("Failed to listen to pagination status: \(error)")
+        await fetchOlderMessages()
+      }
+    } else if focusedThreadId != nil {
+      await fetchOlderMessages()
     }
   }
 
@@ -102,67 +129,75 @@ public final class LiveTimeline {
     let listener = AsyncSDKListener<[TimelineDiff]>()
     timelineHandle = await timeline.addListener(listener: listener)
 
-    Task { [weak self] in
-      for await diff in listener {
-        guard let self else { break }
-        updateTimeline(diff: diff)
-      }
-    }
+    listenerTasks.append(
+      Task { [weak self] in
+        for await diff in listener {
+          guard let self, !Task.isCancelled else { break }
+          updateTimeline(diff: diff)
+        }
+      })
   }
 
-  private func listenToPaginationStatus(threadId: String?) async throws {
+  private func listenToPaginationStatus() async throws {
     guard let timeline else { return }
 
     let listener = AsyncSDKListener<PaginationStatus>()
-    // Only main timelines can subscibe to back pagination status
-    if threadId == nil {
-      paginateHandle = try await timeline.subscribeToBackPaginationStatus(listener: listener)
-    } else {
-      // if in a thread, instead push one initial status manually to kick off message fetching
-      listener.publishValue(.idle(hitTimelineStart: false))
-    }
+    // Focused timelines do not support this subscription.
+    paginateHandle = try await timeline.subscribeToBackPaginationStatus(listener: listener)
 
-    Task { [weak self] in
-      for await status in listener {
-        guard let self else { break }
+    listenerTasks.append(
+      Task { [weak self] in
+        for await status in listener {
+          guard let self, !Task.isCancelled else { break }
 
-        Logger.liveTimeline.debug("updating timeline paginating: \(status.debugDescription)")
-        paginating = status
+          Logger.liveTimeline.debug("updating timeline paginating: \(status.debugDescription)")
+          paginating = status
+          if case .idle(let hitStart) = status {
+            hitTimelineStart = hitStart
+          }
 
-        if paginating == .idle(hitTimelineStart: false) && timelineItems.count < 100 {
-          await fetchOlderMessages()
+          if paginating == .idle(hitTimelineStart: false) && timelineItems.count < 100 {
+            await fetchOlderMessages()
+          }
         }
-      }
-    }
+      })
   }
 
   public func fetchOlderMessages() async {
-    guard !fetchingOlderMessages else {
-      Logger.liveTimeline.debug("fetchOlderMessages deferred, already fetching messages")
-      fetchMessagesAgain = true
-      return
-    }
-    guard !hitTimelineStart else {
-      Logger.liveTimeline.debug("fetchOlderMessages cancelled, timeline start already reached")
-      return
-    }
-
-    guard let timeline else { return }
+    guard !fetchingOlderMessages, !hitTimelineStart, !Task.isCancelled,
+      let timeline
+    else { return }
 
     fetchingOlderMessages = true
-    defer {
-      fetchingOlderMessages = false
-      fetchMessagesAgain = false
-    }
+    paginationErrorMessage = nil
+    defer { fetchingOlderMessages = false }
 
     do {
-      repeat {
-        fetchMessagesAgain = false
-        Logger.liveTimeline.info("fetch more messages")
-        _ = try await timeline.paginateBackwards(numEvents: 100)
-      } while fetchMessagesAgain && !hitTimelineStart && !Task.isCancelled
+      hitTimelineStart = try await timeline.paginateBackwards(numEvents: 100)
+    } catch is CancellationError {
+      // Navigation can cancel a pending page request.
     } catch {
+      paginationErrorMessage = error.localizedDescription
       Logger.liveTimeline.error("Failed to paginate backwards: \(error)")
+    }
+  }
+
+  public func fetchNewerMessages() async {
+    guard focusedEventId != nil, !fetchingNewerMessages, !hitTimelineEnd,
+      !Task.isCancelled, let timeline
+    else { return }
+
+    fetchingNewerMessages = true
+    paginationErrorMessage = nil
+    defer { fetchingNewerMessages = false }
+
+    do {
+      hitTimelineEnd = try await timeline.paginateForwards(numEvents: 100)
+    } catch is CancellationError {
+      // Navigation can cancel a pending page request.
+    } catch {
+      paginationErrorMessage = error.localizedDescription
+      Logger.liveTimeline.error("Failed to paginate forwards: \(error)")
     }
   }
 
@@ -236,6 +271,6 @@ extension LiveTimeline {
 
 extension LiveTimeline: Equatable {
   public nonisolated static func == (lhs: LiveTimeline, rhs: LiveTimeline) -> Bool {
-    lhs.room.id == rhs.room.id && lhs.focusedThreadId == rhs.focusedThreadId
+    lhs.room.id == rhs.room.id && lhs.focus == rhs.focus
   }
 }

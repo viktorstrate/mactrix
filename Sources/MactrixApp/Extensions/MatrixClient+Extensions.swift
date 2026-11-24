@@ -10,30 +10,60 @@ extension MatrixClient {
     let roomId: String
     let matrixClient: MatrixClient
     let windowState: WindowState
+    let sourceScreen: SelectedScreen
+    let eventId: String?
+    let routingVia: [String]
 
     func joinRoom() async throws {
-      let room = try await matrixClient.client.joinRoomById(roomId: roomId)
-      let timeline = LiveTimeline(room: LiveRoom(matrixRoom: room, matrixClient: matrixClient))
-      windowState.selectedScreen = .joinedRoom(timeline: timeline)
+      try Task.checkCancellation()
+      guard windowState.selectedScreen === sourceScreen else { return }
+      let room = try await matrixClient.client.joinRoomByIdOrAlias(
+        roomIdOrAlias: roomId, serverNames: matrixClient.routingServers(hints: routingVia))
+      try Task.checkCancellation()
+      open(room: room)
     }
 
     func knockRoom() async throws {
+      try Task.checkCancellation()
+      guard windowState.selectedScreen === sourceScreen else { return }
       let room = try await matrixClient.client.knock(
-        roomIdOrAlias: roomId, reason: nil, serverNames: ["matrix.org"])
-      let timeline = LiveTimeline(room: LiveRoom(matrixRoom: room, matrixClient: matrixClient))
-      windowState.selectedScreen = .joinedRoom(timeline: timeline)
+        roomIdOrAlias: roomId, reason: nil,
+        serverNames: matrixClient.routingServers(hints: routingVia))
+      try Task.checkCancellation()
+      open(room: room)
     }
 
     func visitRoom() {
-      windowState.selectedRoomId = roomId
+      guard windowState.selectedScreen === sourceScreen else { return }
+      do {
+        if let room = try matrixClient.client.getRoom(roomId: roomId) {
+          open(room: room)
+        } else if eventId != nil {
+          Logger.viewCycle.warning("Cannot visit event: room \(roomId) is not available")
+        }
+        // attempt to reload the room
+        windowState.selectedScreen = .loadingRoom(roomId)
+      } catch {
+        Logger.viewCycle.error("Failed to visit room \(roomId): \(error)")
+      }
+    }
+
+    private func open(room: Room) {
+      guard windowState.selectedScreen === sourceScreen else { return }
+      let focus: LiveTimeline.Focus = eventId.map { .event(eventId: $0) } ?? .live
+      let timeline = LiveTimeline(
+        room: LiveRoom(matrixRoom: room, matrixClient: matrixClient), focus: focus)
+      windowState.selectedScreen = .joinedRoom(timeline: timeline)
     }
   }
 
-  func roomPreviewActions(forRoomWithId roomId: String, windowState: WindowState)
-    -> RoomPreviewActions
-  {
+  func roomPreviewActions(
+    forRoomWithId roomId: String, windowState: WindowState,
+    eventId: String? = nil, routingVia: [String] = []
+  ) -> RoomPreviewActions {
     return MatrixClientRoomPreviewActions(
-      roomId: roomId, matrixClient: self, windowState: windowState)
+      roomId: roomId, matrixClient: self, windowState: windowState,
+      sourceScreen: windowState.selectedScreen, eventId: eventId, routingVia: routingVia)
   }
 }
 
@@ -118,9 +148,12 @@ extension MatrixClient {
     let windowState: WindowState
 
     func sendMessage() async {
+      let sourceScreen = windowState.selectedScreen
       do {
+        try Task.checkCancellation()
         if let room = try matrixClient.client.getDmRoom(userId: userId) {
-          windowState.selectedRoomId = room.id
+          guard windowState.selectedScreen === sourceScreen else { return }
+          windowState.selectRoom(room.id)
           return
         }
 
@@ -129,7 +162,9 @@ extension MatrixClient {
           preset: .privateChat, invite: [userId]
         )
         let roomId = try await matrixClient.client.createRoom(request: createRoomParams)
-        windowState.selectedRoomId = roomId
+        try Task.checkCancellation()
+        guard windowState.selectedScreen === sourceScreen else { return }
+        windowState.selectRoom(roomId)
       } catch {
         Logger.viewCycle.error("failed to get DM room for user \(userId): \(error)")
       }

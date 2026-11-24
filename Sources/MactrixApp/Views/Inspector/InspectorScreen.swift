@@ -34,13 +34,13 @@ struct InspectorScreen: View {
       }
       .inspectorColumnWidth(min: 200, ideal: 400, max: 900)
     case .roomInfo:
-      switch windowState.selectedScreen {
+      switch windowState.selectedScreen.content {
       case .joinedRoom(let timeline):
         MactrixUI.RoomInspectorView(
           room: timeline.room, members: timeline.room.members, roomInfo: timeline.room.roomInfo,
           imageLoader: appState.matrixClient, onSelectUser: onSelectUser,
           inspectorVisible: $windowState.inspectorVisible)
-      case .none, .newRoom, .previewRoom, .loadMatrixUrl(_), .user(profile: _):
+      case .none, .newRoom, .previewRoom, .loadMatrixUrl(_), .loadingRoom, .user(profile: _):
         Text("No room selected")
           .inspectorColumnWidth(min: 200, ideal: 250, max: 900)
       }

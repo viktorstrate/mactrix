@@ -117,7 +117,7 @@
 			mainGroup = 343858392EB394590010922A;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
-				3444A621306CF7A000673405 /* XCLocalSwiftPackageReference "../Mactrix" */,
+				3444A621306CF7A000673405 /* XCLocalSwiftPackageReference "." */,
 			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 343858432EB394590010922A /* Products */;
@@ -406,9 +406,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		3444A621306CF7A000673405 /* XCLocalSwiftPackageReference "../Mactrix" */ = {
+		3444A621306CF7A000673405 /* XCLocalSwiftPackageReference "." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../Mactrix;
+			relativePath = ".";
 		};
 /* End XCLocalSwiftPackageReference section */
 
