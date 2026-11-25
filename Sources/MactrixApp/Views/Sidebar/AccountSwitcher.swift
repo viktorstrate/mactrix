@@ -1,5 +1,6 @@
 import MactrixUI
 import MatrixIntegration
+import MatrixRustSDK
 import SwiftUI
 
 extension MatrixClient {
@@ -14,7 +15,7 @@ extension MatrixClient {
   }
 }
 
-/// An account's avatar, display name, and Matrix ID.
+/// An account's avatar with its sync state, display name, and Matrix ID.
 struct AccountLabel: View {
   let account: MatrixClient
   var showsUserID = true
@@ -27,6 +28,13 @@ struct AccountLabel: View {
         avatarUrl: account.ownAvatarUrl, imageLoader: account
       )
       .frame(width: avatarSize, height: avatarSize)
+      .overlay(alignment: .bottomTrailing) {
+        SyncStateDot(state: account.syncState)
+          .padding(1.5)
+          .background(.background, in: Circle())
+          .offset(x: 2, y: 2)
+          .help(String(localized: "Sync: \(account.syncState.label)"))
+      }
 
       VStack(alignment: .leading, spacing: 1) {
         Text(account.accountName)
@@ -45,8 +53,8 @@ struct AccountLabel: View {
   }
 }
 
-/// A button at the top of the sidebar that opens a popover for switching, adding, and signing
-/// out of accounts.
+/// A button at the bottom of the sidebar that shows the active account's status and opens a
+/// popover for switching, adding, and signing out of accounts.
 struct AccountSwitcher: View {
   @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
@@ -86,7 +94,7 @@ struct AccountSwitcher: View {
     .onHover { isHovered = $0 }
     .help("Switch account")
     .accessibilityLabel(accessibilityLabel)
-    .popover(isPresented: $isPresented, arrowEdge: .bottom) {
+    .popover(isPresented: $isPresented, arrowEdge: .top) {
       popoverContent
     }
     .confirmationDialog(
@@ -106,7 +114,10 @@ struct AccountSwitcher: View {
 
   private var accessibilityLabel: String {
     guard let active = appState.matrixClient else { return String(localized: "Switch account") }
-    let label = String(localized: "Switch account, current: \(active.accountMenuTitle)")
+    var label = String(localized: "Switch account, current: \(active.accountMenuTitle)")
+    if active.syncState != .running {
+      label = String(localized: "\(label), sync: \(active.syncState.label)")
+    }
     let unread = appState.inactiveUnreadRoomCount
     return unread > 0
       ? String(localized: "\(label), \(unread) unread in other accounts") : label
@@ -114,6 +125,12 @@ struct AccountSwitcher: View {
 
   private var popoverContent: some View {
     VStack(alignment: .leading, spacing: 2) {
+      if let active = appState.matrixClient, active.hasStatus {
+        AccountStatusSection(account: active)
+        Divider()
+          .padding(.vertical, 4)
+      }
+
       ForEach(appState.accounts, id: \.storeID) { account in
         AccountRow(account: account, isActive: appState.activeAccountID == account.storeID) {
           appState.activate(account)
@@ -188,8 +205,14 @@ private struct AccountRow: View {
 
   private var accessibilityValue: String {
     if account.authenticationFailed { return String(localized: "Signed out") }
-    if account.unreadRoomCount > 0 { return String(localized: "\(account.unreadRoomCount) unread") }
-    return ""
+    var values: [String] = []
+    if account.syncState != .running {
+      values.append(String(localized: "Sync: \(account.syncState.label)"))
+    }
+    if account.unreadRoomCount > 0 {
+      values.append(String(localized: "\(account.unreadRoomCount) unread"))
+    }
+    return values.joined(separator: ", ")
   }
 }
 

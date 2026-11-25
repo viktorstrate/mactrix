@@ -63,18 +63,12 @@ struct SidebarView: View {
   }
 
   var content: some View {
-    VStack(spacing: 0) {
-      AccountSwitcher()
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
+    HStack(spacing: 0) {
+      SidebarGroupsList()
       Divider()
-      HStack(spacing: 0) {
-        SidebarGroupsList()
-        Divider()
-        listView
-          // force list view to re-render to avoid a rendering bug
-          .id(windowState.selectedSpaceId)
-      }
+      listView
+        // force list view to re-render to avoid a rendering bug
+        .id(windowState.selectedSpaceId)
     }
     .task(id: selectedSpace?.id) {
       await selectedSpace?.loadChildren()
@@ -107,11 +101,11 @@ struct SidebarView: View {
   private var statusContent: some View {
     VStack(spacing: 8) {
       SidebarSignedOutView()
-      SidebarSyncStateView()
       SessionVerificationStatusView()
+      AccountSwitcher()
     }
     .frame(maxWidth: .infinity)
-    .padding(12)
+    .padding(6)
   }
 
   /// The room name, or the linked contact's name for direct chats.
