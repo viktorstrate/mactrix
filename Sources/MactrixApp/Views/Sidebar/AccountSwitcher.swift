@@ -75,6 +75,10 @@ struct AccountSwitcher: View {
             .font(.body.weight(.semibold))
         }
         Spacer(minLength: 0)
+        if appState.matrixClient?.needsAttention == true {
+          Image(systemName: "exclamationmark.circle.fill")
+            .foregroundStyle(.orange)
+        }
         if appState.inactiveUnreadRoomCount > 0 {
           UnreadBadge(count: appState.inactiveUnreadRoomCount)
             .help("Unread rooms in your other accounts")
@@ -118,6 +122,9 @@ struct AccountSwitcher: View {
     if active.syncState != .running {
       label = String(localized: "\(label), sync: \(active.syncState.label)")
     }
+    if active.needsAttention {
+      label = String(localized: "\(label), needs attention")
+    }
     let unread = appState.inactiveUnreadRoomCount
     return unread > 0
       ? String(localized: "\(label), \(unread) unread in other accounts") : label
@@ -126,7 +133,7 @@ struct AccountSwitcher: View {
   private var popoverContent: some View {
     VStack(alignment: .leading, spacing: 2) {
       if let active = appState.matrixClient, active.hasStatus {
-        AccountStatusSection(account: active)
+        AccountStatusSection(account: active) { isPresented = false }
         Divider()
           .padding(.vertical, 4)
       }

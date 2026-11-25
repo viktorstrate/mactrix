@@ -34,9 +34,14 @@ extension SyncServiceState {
 }
 
 extension MatrixClient {
+  /// Whether this account needs the user to act, which the account switcher flags.
+  var needsAttention: Bool {
+    authenticationFailed
+  }
+
   /// Whether the account switcher popover has anything to say about this account's status.
   var hasStatus: Bool {
-    syncState != .running
+    needsAttention || syncState != .running
   }
 }
 
@@ -55,15 +60,45 @@ struct SyncStateDot: View {
 /// The active account's status at the top of the account switcher popover: its sync state, and
 /// anything that needs the user's attention.
 struct AccountStatusSection: View {
+  @Environment(AppState.self) var appState
+  @Environment(WindowState.self) var windowState
+
   let account: MatrixClient
+  /// Closes the popover, before presenting a sheet.
+  let dismiss: () -> Void
 
   @State private var restarting = false
+  @State private var removing = false
 
   var body: some View {
     VStack(alignment: .leading, spacing: 10) {
-      if account.syncState != .running {
+      if account.authenticationFailed {
+        signedOut
+      } else if account.syncState != .running {
         syncStatus
       }
+    }
+  }
+
+  /// Shown when the server has ended the account's session.
+  private var signedOut: some View {
+    AccountStatusItem(systemImage: "person.crop.circle.badge.exclamationmark", tint: .orange) {
+      Text("You were signed out.")
+    } message: {
+      Text("This session was ended by the server or another device.")
+    } actions: {
+      Button("Sign In Again…") {
+        dismiss()
+        windowState.loginSheet = .signInAgain(userID: account.userID)
+      }
+      Button("Remove Account") {
+        Task {
+          removing = true
+          defer { removing = false }
+          await appState.remove(account)
+        }
+      }
+      .disabled(removing)
     }
   }
 
