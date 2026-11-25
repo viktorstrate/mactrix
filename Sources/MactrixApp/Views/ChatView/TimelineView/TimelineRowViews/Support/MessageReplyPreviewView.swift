@@ -72,7 +72,7 @@ final class MessageReplyPreviewView: NSButton {
     message.font = Self.messageFont
     let text = Self.text(for: details)
     name.stringValue = text.name
-    message.stringValue = text.message
+    message.attributedStringValue = text.message
     isPending = text.isPending
     updateOpacity()
   }
@@ -88,7 +88,13 @@ final class MessageReplyPreviewView: NSButton {
           attributes: [.font: font]
         ).height)
     }
-    return 16 + height(text.name, font: nameFont) + height(text.message, font: messageFont)
+
+    let messageHeight = text.message.boundingRect(
+      with: NSSize(width: textWidth, height: .greatestFiniteMagnitude),
+      options: [.usesLineFragmentOrigin, .usesFontLeading],
+    ).height
+
+    return 16 + height(text.name, font: nameFont) + messageHeight
   }
 
   override func hitTest(_ point: NSPoint) -> NSView? {
@@ -116,20 +122,41 @@ final class MessageReplyPreviewView: NSButton {
   }
 
   private static func text(for details: EmbeddedEventDetails) -> (
-    name: String, message: String, isPending: Bool
+    name: String, message: NSAttributedString, isPending: Bool
   ) {
+    func plain(string: String) -> NSAttributedString {
+      return NSAttributedString(
+        string: string,
+        attributes: [
+          .font: Self.messageFont,
+          .foregroundColor: NSColor.labelColor,
+        ])
+    }
+
     switch details {
     case .unavailable, .pending:
-      return (String(localized: "Loading reply…"), "", true)
+      return (String(localized: "Loading reply…"), plain(string: ""), true)
     case .ready(let content, let sender, let senderProfile, _, _):
       var matrixName: String?
       if case .ready(let name, _, _, _, _) = senderProfile {
         matrixName = name
       }
       let displayName = ContactDirectory.shared.resolvedName(userID: sender, matrixName: matrixName)
-      return (displayName, content.userInterfaceText, false)
+
+      // Use proper formatting only for text messages for now.
+      let body: NSAttributedString
+      if case .msgLike(content: let msgLike) = content,
+        case .message(content: let msgContent) = msgLike.kind,
+        case .text = msgContent.msgType
+      {
+        body = MessageTextContentView.attributedBody(for: msgLike)
+      } else {
+        body = plain(string: content.userInterfaceText)
+      }
+
+      return (displayName, body, false)
     case .error(let message):
-      return (String(localized: "Reply unavailable"), message, false)
+      return (String(localized: "Reply unavailable"), plain(string: message), false)
     }
   }
 

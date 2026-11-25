@@ -120,7 +120,7 @@ final class MessageTextContentView: NSView, MessageContentRowView {
     return result
   }
 
-  private static func attributedBody(for content: MatrixRustSDK.MsgLikeContent)
+  static func attributedBody(for content: MatrixRustSDK.MsgLikeContent)
     -> NSAttributedString
   {
     let fontSize = TimelineTypography.fontSize
