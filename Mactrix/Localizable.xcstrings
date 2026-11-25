@@ -14,6 +14,17 @@
         }
       }
     },
+    "%@, needs attention" : {},
+    "%@, sync: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, sync: %2$@"
+          }
+        }
+      }
+    },
     "%lld unread" : {},
     "(edited)" : {
       "localizations" : {
@@ -3560,6 +3571,7 @@
       }
     },
     "logged out" : {
+      "extractionState" : "stale",
       "localizations" : {
         "da" : {
           "stringUnit" : {
