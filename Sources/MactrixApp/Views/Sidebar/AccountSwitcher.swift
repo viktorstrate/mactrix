@@ -101,6 +101,10 @@ struct AccountSwitcher: View {
     .popover(isPresented: $isPresented, arrowEdge: .top) {
       popoverContent
     }
+    // Verification requests time out, so don't leave one waiting behind a closed popover.
+    .onChange(of: appState.matrixClient?.sessionVerificationRequest?.flowId) { _, flowID in
+      if flowID != nil { isPresented = true }
+    }
     .confirmationDialog(
       "Sign out of \(accountToSignOut?.userID ?? "")?",
       isPresented: Binding(

@@ -99,12 +99,9 @@ struct SidebarView: View {
   }
 
   private var statusContent: some View {
-    VStack(spacing: 8) {
-      SessionVerificationStatusView()
-      AccountSwitcher()
-    }
-    .frame(maxWidth: .infinity)
-    .padding(6)
+    AccountSwitcher()
+      .frame(maxWidth: .infinity)
+      .padding(6)
   }
 
   /// The room name, or the linked contact's name for direct chats.

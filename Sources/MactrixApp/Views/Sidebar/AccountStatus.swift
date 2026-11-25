@@ -36,12 +36,12 @@ extension SyncServiceState {
 extension MatrixClient {
   /// Whether this account needs the user to act, which the account switcher flags.
   var needsAttention: Bool {
-    authenticationFailed
+    authenticationFailed || sessionVerificationRequest != nil || verificationState == .unverified
   }
 
   /// Whether the account switcher popover has anything to say about this account's status.
   var hasStatus: Bool {
-    needsAttention || syncState != .running
+    needsAttention || verificationState == .unknown || syncState != .running
   }
 }
 
@@ -74,8 +74,83 @@ struct AccountStatusSection: View {
     VStack(alignment: .leading, spacing: 10) {
       if account.authenticationFailed {
         signedOut
-      } else if account.syncState != .running {
-        syncStatus
+      } else {
+        if let request = account.sessionVerificationRequest {
+          verificationRequest(request)
+        } else {
+          switch account.verificationState {
+          case .unverified:
+            unverified
+          case .unknown:
+            AccountStatusItem(systemImage: "questionmark.circle", tint: .secondary) {
+              Text("Unknown verification state")
+            }
+          case .verified, nil:
+            EmptyView()
+          }
+        }
+        if account.syncState != .running {
+          syncStatus
+        }
+      }
+    }
+  }
+
+  /// Another of the user's devices asked to verify this session.
+  private func verificationRequest(_ request: SessionVerificationRequestDetails) -> some View {
+    AccountStatusItem(systemImage: "person.badge.key", tint: .green) {
+      Text("Verification request from \(request.senderProfile.userId)")
+    } actions: {
+      Button("Start Verification") {
+        dismiss()
+        Task {
+          do {
+            try await account.acceptVerificationRequest(request: request)
+          } catch {
+            Logger.viewCycle.error("failed to accept verification request: \(error)")
+            account.sessionVerificationRequest = nil
+          }
+        }
+      }
+      .buttonStyle(.borderedProminent)
+
+      Button("Decline") {
+        Task {
+          do {
+            try await account.declineVerificationRequest(request: request)
+          } catch {
+            Logger.viewCycle.error("failed to decline verification request: \(error)")
+            account.sessionVerificationRequest = nil
+          }
+        }
+      }
+    }
+  }
+
+  private var unverified: some View {
+    AccountStatusItem(systemImage: "exclamationmark.shield", tint: .red) {
+      Text("This session is unverified.")
+    } message: {
+      VStack(alignment: .leading, spacing: 4) {
+        Text("Verify the session for better security and to decrypt all messages.")
+        if windowState.requestedVerification {
+          HStack(spacing: 6) {
+            ProgressView()
+              .controlSize(.mini)
+            Text("Requesting verification from your trusted devices...")
+          }
+        }
+      }
+    } actions: {
+      Button(windowState.requestedVerification ? "Try again" : "Verify session...") {
+        Task {
+          do {
+            try await account.requestDeviceVerification()
+            windowState.requestedVerification = true
+          } catch {
+            Logger.viewCycle.error("request device verification failed: \(error)")
+          }
+        }
       }
     }
   }
