@@ -8,6 +8,15 @@ struct MactrixApp: App {
   @State var appState = AppState()
   @FocusedValue(WindowState.self) private var windowState: WindowState?
 
+  init() {
+    switch handleLaunchProfileArguments() {
+    case .exit(let code):
+      exit(code)
+    case .continue:
+      break
+    }
+  }
+
   var body: some Scene {
     WindowGroup(id: "main") {
       MainView()
