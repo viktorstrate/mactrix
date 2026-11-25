@@ -1,5 +1,7 @@
 import AppKit
 
+/// The controller for the "Show Message Source" window,
+/// that presents the raw JSON source in a text view to the user.
 @MainActor
 final class MessageSourceWindowController: NSWindowController, NSWindowDelegate {
   // Source windows can outlive the timeline that opened them.
