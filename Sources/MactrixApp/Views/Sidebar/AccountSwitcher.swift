@@ -105,10 +105,11 @@ struct AccountSwitcher: View {
   }
 
   private var accessibilityLabel: String {
-    guard let active = appState.matrixClient else { return "Switch account" }
-    let label = "Switch account, current: \(active.accountMenuTitle)"
+    guard let active = appState.matrixClient else { return String(localized: "Switch account") }
+    let label = String(localized: "Switch account, current: \(active.accountMenuTitle)")
     let unread = appState.inactiveUnreadRoomCount
-    return unread > 0 ? "\(label), \(unread) unread in other accounts" : label
+    return unread > 0
+      ? String(localized: "\(label), \(unread) unread in other accounts") : label
   }
 
   private var popoverContent: some View {
@@ -123,14 +124,14 @@ struct AccountSwitcher: View {
       Divider()
         .padding(.vertical, 4)
 
-      PopoverActionRow(title: "Add Account…", systemImage: "plus") {
+      PopoverActionRow(title: String(localized: "Add Account…"), systemImage: "plus") {
         isPresented = false
         windowState.loginSheet = .addAccount
       }
 
       if let active = appState.matrixClient {
         PopoverActionRow(
-          title: "Sign Out of \(active.accountName)…",
+          title: String(localized: "Sign Out of \(active.accountName)…"),
           systemImage: "rectangle.portrait.and.arrow.right"
         ) {
           isPresented = false
@@ -186,8 +187,8 @@ private struct AccountRow: View {
   }
 
   private var accessibilityValue: String {
-    if account.authenticationFailed { return "Signed out" }
-    if account.unreadRoomCount > 0 { return "\(account.unreadRoomCount) unread" }
+    if account.authenticationFailed { return String(localized: "Signed out") }
+    if account.unreadRoomCount > 0 { return String(localized: "\(account.unreadRoomCount) unread") }
     return ""
   }
 }
@@ -197,7 +198,7 @@ private struct UnreadBadge: View {
   let count: Int
 
   var body: some View {
-    Text("\(count)")
+    Text(verbatim: "\(count)")
       .font(.caption.weight(.semibold).monospacedDigit())
       .foregroundStyle(.white)
       .padding(.horizontal, 6)

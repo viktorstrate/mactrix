@@ -21,7 +21,7 @@ public final class AppState {
     public var errorDescription: String? {
       switch self {
       case .alreadySignedIn(let userID):
-        "You're already signed in as \(userID)."
+        String(localized: "You're already signed in as \(userID).")
       }
     }
   }

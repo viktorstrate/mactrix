@@ -192,7 +192,7 @@ struct WelcomeSheetView: View {
     }
   }
 
-  private var title: String {
+  private var title: LocalizedStringKey {
     switch request {
     case .firstAccount: "Welcome to Mactrix"
     case .addAccount: "Add Account"

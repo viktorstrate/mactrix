@@ -92,7 +92,11 @@ struct AccountSettingsView: View {
         }
 
         HStack {
-          Button(appState.accounts.count > 1 ? "Sign Out of This Account" : "Sign out", role: .destructive) {
+          Button(
+            appState.accounts.count > 1
+              ? String(localized: "Sign Out of This Account") : String(localized: "Sign out"),
+            role: .destructive
+          ) {
             Task {
               do {
                 try await appState.reset()

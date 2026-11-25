@@ -4,6 +4,17 @@
     "" : {
       "shouldTranslate" : false
     },
+    "%@, %lld unread in other accounts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld unread in other accounts"
+          }
+        }
+      }
+    },
+    "%lld unread" : {},
     "(edited)" : {
       "localizations" : {
         "da" : {
@@ -458,6 +469,7 @@
         }
       }
     },
+    "Active Account" : {},
     "Activities" : {
       "localizations" : {
         "da" : {
@@ -474,6 +486,8 @@
         }
       }
     },
+    "Add Account" : {},
+    "Add Account…" : {},
     "Add Reaction" : {
       "localizations" : {
         "da" : {
@@ -3955,6 +3969,7 @@
         }
       }
     },
+    "No Account" : {},
     "No backup found" : {
       "localizations" : {
         "da" : {
@@ -4896,6 +4911,7 @@
         }
       }
     },
+    "Remove Account" : {},
     "Reply" : {
       "localizations" : {
         "da" : {
@@ -5773,6 +5789,8 @@
         }
       }
     },
+    "Sign In Again as %@" : {},
+    "Sign In Again…" : {},
     "Sign in to continue." : {
       "localizations" : {
         "da" : {
@@ -5815,6 +5833,12 @@
         }
       }
     },
+    "Sign Out" : {},
+    "Sign out of %@?" : {},
+    "Sign Out of %@…" : {},
+    "Sign Out of This Account" : {},
+    "Signed Out" : {},
+    "Signed out" : {},
     "Smileys & Emotion" : {
       "localizations" : {
         "da" : {
@@ -7415,6 +7439,9 @@
         }
       }
     },
+    "Switch account" : {},
+    "Switch account, current: %@" : {},
+    "Switch accounts from the sidebar or the Account menu." : {},
     "Symbols" : {
       "localizations" : {
         "da" : {
@@ -7537,6 +7564,7 @@
         }
       }
     },
+    "This account will be signed out on this Mac. Your other accounts stay signed in." : {},
     "This device is verified" : {
       "localizations" : {
         "da" : {
@@ -7601,6 +7629,7 @@
         }
       }
     },
+    "This session was ended by the server or another device." : {},
     "This will remove the message for everyone in the room. This action cannot be undone." : {
       "localizations" : {
         "da" : {
@@ -8095,6 +8124,7 @@
         }
       }
     },
+    "Unread rooms in your other accounts" : {},
     "Unsupported attachment (%@): %@" : {
       "localizations" : {
         "da" : {
@@ -8725,6 +8755,8 @@
         }
       }
     },
+    "You were signed out." : {},
+    "You're already signed in as %@." : {},
     "Your account recognizes this device as trusted." : {
       "localizations" : {
         "da" : {
