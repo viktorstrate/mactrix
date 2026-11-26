@@ -4159,6 +4159,8 @@
         }
       }
     },
+    "Not sent yet" : {},
+    "Not sent. %@ Click to retry or delete." : {},
     "Not signed in" : {
       "localizations" : {
         "da" : {
@@ -5166,6 +5168,7 @@
         }
       }
     },
+    "Retry Sending" : {},
     "revoked invitation for %@ to join the room" : {
       "localizations" : {
         "da" : {
@@ -5869,6 +5872,8 @@
         }
       }
     },
+    "Some devices in this room aren't verified." : {},
+    "Someone in this room changed their identity." : {},
     "Space" : {
       "localizations" : {
         "da" : {
@@ -7504,6 +7509,8 @@
         }
       }
     },
+    "The attachment is no longer available." : {},
+    "The attachment's file type isn't recognized." : {},
     "The original message isn't loaded." : {
       "localizations" : {
         "da" : {
@@ -7546,6 +7553,7 @@
         }
       }
     },
+    "The server couldn't be reached." : {},
     "They don't match" : {
       "localizations" : {
         "da" : {
@@ -8434,6 +8442,7 @@
         }
       }
     },
+    "Verify this session to send messages." : {},
     "Verify with Recovery Key" : {
       "localizations" : {
         "da" : {
@@ -8803,7 +8812,8 @@
           }
         }
       }
-    }
+    },
+    "Your session expired." : {}
   },
   "version" : "1.0"
 }

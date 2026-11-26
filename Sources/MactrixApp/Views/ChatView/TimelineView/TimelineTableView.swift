@@ -327,6 +327,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
           self.showMediaPreview(
             url: url, handle: handle, eventIdentifier: event.eventOrTransactionId.id)
         }
+        view.onSendStatusClick = { [weak self] anchor in
+          self?.showSendStatusMenu(for: event, from: anchor)
+        }
         view.configureEditing(messageEdit?.id == event.eventOrTransactionId ? messageEdit : nil)
         view.configure(
           event: event,
@@ -595,6 +598,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       canPin: canPerformMessageAction(.pin, for: event),
       isPinned: isMessagePinned(event),
       canCopyLink: canPerformMessageAction(.copyMessageLink, for: event),
+      canRetrySend: canPerformMessageAction(.retrySend, for: event),
       downloadFilenames: MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename))
   }
 
@@ -716,6 +720,35 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     }
   }
 
+  /// Shows what can be done with a message that hasn't been sent, below its send status icon.
+  private func showSendStatusMenu(for event: MatrixRustSDK.EventTimelineItem, from anchor: NSView) {
+    let menu = NSMenu()
+    menu.autoenablesItems = false
+    for (action, title, symbol) in [
+      (
+        MessageHoverOverlayView.Action.retrySend, String(localized: "Retry Sending"),
+        "arrow.clockwise"
+      ),
+      (.delete, String(localized: "Delete message"), "trash"),
+    ] where canPerformMessageAction(action, for: event) {
+      let item = NSMenuItem(
+        title: title, action: #selector(performSendStatusMenuItem(_:)), keyEquivalent: "")
+      item.target = self
+      item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+      item.representedObject = PendingMessageAction(action: action, event: event)
+      menu.addItem(item)
+    }
+    guard !menu.items.isEmpty else { return }
+    let origin = NSPoint(
+      x: anchor.bounds.minX, y: anchor.isFlipped ? anchor.bounds.maxY + 4 : anchor.bounds.minY - 4)
+    menu.popUp(positioning: nil, at: origin, in: anchor)
+  }
+
+  @objc private func performSendStatusMenuItem(_ sender: NSMenuItem) {
+    guard let pending = sender.representedObject as? PendingMessageAction else { return }
+    performMessageAction(pending.action, for: pending.event)
+  }
+
   private func canDeleteMessage(_ event: MatrixRustSDK.EventTimelineItem) -> Bool {
     guard let powerLevels = timeline.room.roomInfo?.powerLevels else { return false }
     return event.isOwn
@@ -759,6 +792,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         && timeline.room.roomInfo?.powerLevels?.canOwnUserPinUnpin() == true
     case .delete:
       return timeline.timeline != nil && canDeleteMessage(event)
+    case .retrySend:
+      guard case .sendingFailed = event.localSendState else { return false }
+      return event.lazyProvider.getSendHandle() != nil
     case .copyMessageLink:
       if case .eventId = event.eventOrTransactionId { return true }
       return false
@@ -796,6 +832,22 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         } catch {
           guard !Task.isCancelled else { return }
           Logger.timelineTableView.error("Failed to copy message link: \(error)")
+        }
+      }
+    case .retrySend:
+      guard case .sendingFailed = event.localSendState,
+        let sendHandle = event.lazyProvider.getSendHandle()
+      else { return }
+      let room = timeline.room.room
+      startActionTask {
+        // A network failure turned the room's send queue off; an unrecoverable one parked the
+        // message. Undo both, so the message goes out whichever it was.
+        room.enableSendQueue(enable: true)
+        do {
+          try await sendHandle.tryResend()
+        } catch {
+          guard !Task.isCancelled else { return }
+          Logger.timelineTableView.error("Failed to retry sending message: \(error)")
         }
       }
     case .showSource:
@@ -1879,5 +1931,16 @@ final class TimelineDocumentView: NSView {
       clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
     }
     scrollView.reflectScrolledClipView(clipView)
+  }
+}
+
+/// A message action waiting on a menu item, which can only hold an object.
+private final class PendingMessageAction: NSObject {
+  let action: MessageHoverOverlayView.Action
+  let event: MatrixRustSDK.EventTimelineItem
+
+  init(action: MessageHoverOverlayView.Action, event: MatrixRustSDK.EventTimelineItem) {
+    self.action = action
+    self.event = event
   }
 }

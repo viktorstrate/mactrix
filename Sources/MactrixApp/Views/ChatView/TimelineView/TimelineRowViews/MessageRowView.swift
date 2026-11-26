@@ -11,6 +11,8 @@ final class MessageRowView: NSView {
   var onHoverChange: ((MessageRowView, Bool, NSEvent) -> Bool)?
   var onSelectRequest: ((MessageRowView) -> Void)?
   var onArrowKey: ((TimelineSelectionDirection) -> Void)?
+  /// Called when the send status icon of an unsent message is clicked, with the icon to anchor to.
+  var onSendStatusClick: ((NSView) -> Void)?
   var onMediaPreviewRequest: (() -> Bool)? {
     didSet {
       (contentView as? any MessageMediaPreviewContentView)?.onMediaPreviewRequest =
@@ -34,6 +36,8 @@ final class MessageRowView: NSView {
 
   private let timestamp = NSTextField(labelWithString: "")
   private let editedLabel = NSTextField(labelWithString: String(localized: "(edited)"))
+  /// Takes the timestamp's place while the message hasn't reached the server.
+  private let sendStatusButton = NSButton()
   private lazy var timestampWidthConstraint = timestamp.widthAnchor.constraint(
     equalToConstant: Self.timestampWidth)
   private let contentView: any MessageContentRowView
@@ -94,6 +98,13 @@ final class MessageRowView: NSView {
     editedLabel.isHidden = true
     editedLabel.translatesAutoresizingMaskIntoConstraints = false
 
+    sendStatusButton.isBordered = false
+    sendStatusButton.imagePosition = .imageOnly
+    sendStatusButton.target = self
+    sendStatusButton.action = #selector(sendStatusClicked)
+    sendStatusButton.isHidden = true
+    sendStatusButton.translatesAutoresizingMaskIntoConstraints = false
+
     contentView.translatesAutoresizingMaskIntoConstraints = false
     contentView.onSelectRequest = { [weak self] in
       guard let self else { return }
@@ -115,6 +126,7 @@ final class MessageRowView: NSView {
 
     addSubview(timestamp)
     addSubview(editedLabel)
+    addSubview(sendStatusButton)
     addSubview(contentView)
 
     // NSTableView may retain an old encapsulated height while a reused row is reconfigured.
@@ -126,6 +138,8 @@ final class MessageRowView: NSView {
       editedLabel.leadingAnchor.constraint(equalTo: timestamp.leadingAnchor),
       editedLabel.trailingAnchor.constraint(equalTo: timestamp.trailingAnchor),
       editedLabel.topAnchor.constraint(equalTo: timestamp.bottomAnchor, constant: 1),
+      sendStatusButton.trailingAnchor.constraint(equalTo: timestamp.trailingAnchor),
+      sendStatusButton.centerYAnchor.constraint(equalTo: timestamp.centerYAnchor),
 
       contentView.leadingAnchor.constraint(equalTo: timestamp.trailingAnchor, constant: 16),
       contentView.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -10),
@@ -177,6 +191,7 @@ final class MessageRowView: NSView {
     let date = Date(timeIntervalSince1970: Double(event.timestamp) / 1000)
     timestamp.stringValue = Self.timeFormatter.string(from: date)
     editedLabel.isHidden = !Self.hasBeenEdited(content)
+    configureSendStatus(MessageSendStatus(event.localSendState))
     contentView.handleMatrixUri = handleMatrixUri
     contentView.configure(content: content, matrixClient: matrixClient)
     configureReply(details: replyDetails, onClick: onReplyClick)
@@ -187,6 +202,29 @@ final class MessageRowView: NSView {
       handleMatrixUri: handleMatrixUri)
     isHovered = false
     updateBackground()
+  }
+
+  private func configureSendStatus(_ status: MessageSendStatus?) {
+    timestamp.isHidden = status != nil
+    sendStatusButton.isHidden = status == nil
+    // Dimmed until the message reaches the server, so it doesn't pass for a sent one.
+    contentView.alphaValue = status == nil ? 1 : 0.5
+    guard let status else {
+      sendStatusButton.toolTip = nil
+      return
+    }
+    let configuration = NSImage.SymbolConfiguration(
+      pointSize: TimelineTypography.scaled(NSFont.labelFontSize), weight: .regular)
+    sendStatusButton.image = NSImage(
+      systemSymbolName: status.symbolName, accessibilityDescription: status.toolTip)?
+      .withSymbolConfiguration(configuration)
+    sendStatusButton.contentTintColor = status.tintColor
+    sendStatusButton.toolTip = status.toolTip
+    sendStatusButton.setAccessibilityLabel(status.toolTip)
+  }
+
+  @objc private func sendStatusClicked() {
+    onSendStatusClick?(sendStatusButton)
   }
 
   private func configureThread(summary: MatrixRustSDK.ThreadSummary?, onClick: (() -> Void)?) {
