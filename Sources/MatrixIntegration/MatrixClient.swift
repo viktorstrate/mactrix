@@ -298,6 +298,22 @@ public class MatrixClient {
 
   var notificationClient: NotificationClient?
 
+  /// Account setup that comes with syncing.
+  ///
+  /// Some steps fail while the homeserver can't be reached, so none of them stop the sync loop from
+  /// starting. A failed step is retried whenever sync comes back online.
+  enum SyncSetupStep: String, CaseIterable {
+    case roomList = "room list"
+    case notifications
+    case verification
+    case ignoredUsers = "ignored users"
+    case ownProfile = "own profile"
+  }
+
+  /// The setup steps that haven't succeeded yet.
+  @ObservationIgnored private var pendingSetupSteps = SyncSetupStep.allCases
+  @ObservationIgnored private var setupRetryTask: Task<Void, Never>?
+
   public func startSync() async throws {
     let _syncService = try await client.syncService().withOfflineMode().finish()
     syncService = _syncService
@@ -310,45 +326,98 @@ public class MatrixClient {
     syncIndicatorHandle = _roomListService.syncIndicator(
       delayBeforeShowingInMs: 200, delayBeforeHidingInMs: 200, listener: self)
 
-    let roomEntriesListener = AsyncSDKListener<[RoomListEntriesUpdate]>()
-    let _roomListEntriesHandle = try await _roomListService.allRooms().entriesWithDynamicAdapters(
-      pageSize: 100, listener: roomEntriesListener)
-    _ = _roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
-    roomListEntriesHandle = _roomListEntriesHandle
-
-    Task { [weak self] in
-      for await roomEntries in roomEntriesListener {
-        guard let self else { break }
-        self.updateRoomEntries(roomEntriesUpdate: roomEntries)
-      }
-    }
-
-    notificationClient = try await client.notificationClient(
-      processSetup: .singleProcess(syncService: _syncService))
-    await client.registerNotificationHandler(listener: notifications)
-
-    try await client.getSessionVerificationController().setDelegate(delegate: self)
-
     let encryption = client.encryption()
     verificationStateHandle = encryption.verificationStateListener(listener: self)
     recoveryStateHandle = encryption.recoveryStateListener(listener: self)
     backupStateHandle = encryption.backupStateListener(listener: self)
 
     ignoredUsersHandle = client.subscribeToIgnoredUsers(listener: self)
-    ignoredUserIds = try await client.ignoredUsers()
 
-    Task { [weak self] in await self?.refreshOwnProfile() }
+    // The room list and notification handler come from the local store. Set them up before the
+    // first sync, so it doesn't miss rooms or notifications. No retry can overlap this: retries
+    // only start once sync is running.
+    await runSetupSteps([.roomList, .notifications])
 
-    // Start the sync loop.
+    // Start the sync loop. In offline mode it keeps retrying until the homeserver can be reached.
     await _syncService.start()
     Logger.matrixClient.info("Matrix sync started, store \(self.storeID)")
+
+    retryPendingSetupSteps()
+  }
+
+  /// Retries the setup steps that haven't succeeded yet, unless a retry is already running.
+  func retryPendingSetupSteps() {
+    guard setupRetryTask == nil, !pendingSetupSteps.isEmpty, !isResettingSession else { return }
+    setupRetryTask = Task { [weak self] in
+      guard let self else { return }
+      await self.runSetupSteps(self.pendingSetupSteps)
+      self.setupRetryTask = nil
+    }
+  }
+
+  /// Runs each of `steps` that is still pending, keeping the ones that fail for a later retry.
+  private func runSetupSteps(_ steps: [SyncSetupStep]) async {
+    for step in steps where pendingSetupSteps.contains(step) {
+      guard !isResettingSession else { return }
+      do {
+        try await runSetupStep(step)
+        pendingSetupSteps.removeAll { $0 == step }
+      } catch {
+        Logger.matrixClient.error(
+          "Sync setup step \(step.rawValue, privacy: .public) failed, store \(self.storeID): \(error)"
+        )
+      }
+    }
+  }
+
+  private func runSetupStep(_ step: SyncSetupStep) async throws {
+    switch step {
+    case .roomList:
+      guard let roomListService else { return }
+      let roomEntriesListener = AsyncSDKListener<[RoomListEntriesUpdate]>()
+      let _roomListEntriesHandle = try await roomListService.allRooms()
+        .entriesWithDynamicAdapters(pageSize: 100, listener: roomEntriesListener)
+      _ = _roomListEntriesHandle.controller().setFilter(kind: .all(filters: []))
+      roomListEntriesHandle = _roomListEntriesHandle
+
+      Task { [weak self] in
+        for await roomEntries in roomEntriesListener {
+          guard let self else { break }
+          self.updateRoomEntries(roomEntriesUpdate: roomEntries)
+        }
+      }
+    case .notifications:
+      guard let syncService else { return }
+      notificationClient = try await client.notificationClient(
+        processSetup: .singleProcess(syncService: syncService))
+      await client.registerNotificationHandler(listener: notifications)
+    case .verification:
+      try await client.getSessionVerificationController().setDelegate(delegate: self)
+    case .ignoredUsers:
+      ignoredUserIds = try await client.ignoredUsers()
+    case .ownProfile:
+      try await loadOwnProfile()
+    }
   }
 
   /// Reloads `ownDisplayName` and `ownAvatarUrl`, falling back to cached values when offline.
   public func refreshOwnProfile() async {
-    if let displayName = try? await client.displayName() {
-      ownDisplayName = displayName
+    try? await loadOwnProfile()
+  }
+
+  /// Reloads `ownDisplayName` and `ownAvatarUrl`, throwing if the homeserver can't be reached. The
+  /// cached avatar fills in while there is none yet.
+  private func loadOwnProfile() async throws {
+    let displayName: String
+    do {
+      displayName = try await client.displayName()
+    } catch {
+      if ownAvatarUrl == nil {
+        ownAvatarUrl = try? await client.cachedAvatarUrl()
+      }
+      throw error
     }
+    ownDisplayName = displayName
     if let avatarUrl = try? await client.avatarUrl() {
       ownAvatarUrl = avatarUrl
     } else if ownAvatarUrl == nil {
