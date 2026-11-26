@@ -290,13 +290,7 @@ public final class AppState {
   }
 
   private func startSync(_ client: MatrixClient) {
-    Task {
-      do {
-        try await client.startSync()
-      } catch {
-        Logger.matrixClient.error("Failed to start sync: \(error)")
-      }
-    }
+    Task { await client.startSync() }
   }
 }
 

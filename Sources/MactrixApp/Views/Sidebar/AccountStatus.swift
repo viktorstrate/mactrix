@@ -27,10 +27,6 @@ extension SyncServiceState {
     case .terminated, .error: .red
     }
   }
-
-  var canRestart: Bool {
-    [.error, .offline, .terminated].contains(self)
-  }
 }
 
 extension MatrixClient {
@@ -67,7 +63,6 @@ struct AccountStatusSection: View {
   /// Closes the popover, before presenting a sheet.
   let dismiss: () -> Void
 
-  @State private var restarting = false
   @State private var removing = false
 
   var body: some View {
@@ -181,21 +176,18 @@ struct AccountStatusSection: View {
     AccountStatusItem(systemImage: "arrow.triangle.2.circlepath", tint: account.syncState.color) {
       Text("Sync: \(account.syncState.label)")
     } actions: {
-      if account.syncState.canRestart {
-        Button("Restart sync") {
-          Task {
-            restarting = true
-            defer { restarting = false }
-
-            do {
-              try await account.startSync()
-            } catch {
-              Logger.viewCycle.error("failed to restart sync: \(error)")
-            }
-          }
+      // The account tracks whether a start is in flight, so every window's button reflects it
+      // and repeated clicks join the same start.
+      Button {
+        Task { await account.startSync() }
+      } label: {
+        if account.isStartingSync {
+          Text("Restarting…")
+        } else {
+          Text("Restart sync")
         }
-        .disabled(restarting)
       }
+      .disabled(account.isStartingSync)
     }
   }
 }

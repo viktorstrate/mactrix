@@ -214,6 +214,9 @@ public class MatrixClient {
     recentReactions.invalidate()
     isResettingSession = true
     await roomSubscriptions.invalidate()
+    // A start in flight stops at its next step; wait so it can't start syncing a signed-out
+    // session after the stop below.
+    await syncStartTask?.value
     await syncService?.stop()
     Logger.matrixClient.debug("matrix client sign out, store \(self.storeID)")
     try? await client.logout()
@@ -314,8 +317,46 @@ public class MatrixClient {
   @ObservationIgnored private var pendingSetupSteps = SyncSetupStep.allCases
   @ObservationIgnored private var setupRetryTask: Task<Void, Never>?
 
-  public func startSync() async throws {
+  /// Whether a call to `startSync()` is in flight.
+  public private(set) var isStartingSync = false
+  @ObservationIgnored private var syncStartTask: Task<Void, Never>?
+
+  /// Starts syncing, or restarts a sync that stopped, failed, or went offline.
+  ///
+  /// Calls made while a start is in flight wait for it instead of starting another, so this is
+  /// safe to call repeatedly.
+  public func startSync() async {
+    if let syncStartTask {
+      await syncStartTask.value
+      return
+    }
+    let task = Task { await performStartSync() }
+    syncStartTask = task
+    isStartingSync = true
+    await task.value
+    syncStartTask = nil
+    isStartingSync = false
+  }
+
+  private func performStartSync() async {
+    guard !isResettingSession, !authenticationFailed else { return }
+    // Once built, the sync service is only restarted, keeping its listeners. Its `start()` does
+    // nothing while running, and reconnects straight away when offline.
+    if let syncService {
+      await syncService.start()
+      retryPendingSetupSteps()
+      return
+    }
+    do {
+      try await setUpSync()
+    } catch {
+      Logger.matrixClient.error("Failed to start sync, store \(self.storeID): \(error)")
+    }
+  }
+
+  private func setUpSync() async throws {
     let _syncService = try await client.syncService().withOfflineMode().finish()
+    guard !isResettingSession else { return }
     syncService = _syncService
 
     syncStateHandle = _syncService.state(listener: self)
@@ -337,6 +378,7 @@ public class MatrixClient {
     // first sync, so it doesn't miss rooms or notifications. No retry can overlap this: retries
     // only start once sync is running.
     await runSetupSteps([.roomList, .notifications])
+    guard !isResettingSession else { return }
 
     // Start the sync loop. In offline mode it keeps retrying until the homeserver can be reached.
     await _syncService.start()
