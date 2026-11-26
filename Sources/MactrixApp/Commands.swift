@@ -83,7 +83,7 @@ public struct AppCommands: Commands {
     }
     .help("Create a new room")
     .keyboardShortcut("N", modifiers: [.command, .shift])
-    .disabled(windowState != nil)
+    .disabled(windowState == nil)
   }
 
   var conversationCommands: some Commands {
