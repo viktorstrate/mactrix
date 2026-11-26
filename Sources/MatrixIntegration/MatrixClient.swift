@@ -348,6 +348,7 @@ public class MatrixClient {
       )
       await syncService.start()
       retryPendingSetupSteps()
+      await client.enableAllSendQueues(enable: true)
       return
     }
     do {

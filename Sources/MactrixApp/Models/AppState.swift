@@ -40,6 +40,7 @@ public final class AppState {
   @ObservationIgnored private let accountStore: AccountStore
   @ObservationIgnored private var restoreTask: Task<Void, Never>?
   @ObservationIgnored private var lastAppliedDockUnreadCount: Int?
+  @ObservationIgnored private var networkMonitor: NetworkMonitor?
 
   /// Routes clicked notifications from every account.
   public let notificationRouter = NotificationRouter()
@@ -88,6 +89,15 @@ public final class AppState {
       attach(window)
     }
     for client in clients {
+      startSync(client)
+    }
+    networkMonitor = NetworkMonitor { [weak self] in self?.reconnectAccounts() }
+  }
+
+  /// Restarts every account's sync, so accounts that went offline reconnect now that the network
+  /// is back instead of at their next scheduled check. Accounts already online are unaffected.
+  private func reconnectAccounts() {
+    for client in accounts {
       startSync(client)
     }
   }
