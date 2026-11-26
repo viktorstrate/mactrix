@@ -59,7 +59,7 @@ struct SearchInspectorView: View {
   var viewSelector: some View {
     switch windowState.searchTokens.first {
     case .messages:
-      Text("Search messages")
+      SearchMessagesInspectorView()
     case .rooms:
       SearchRoomInspectorView()
     case .users:

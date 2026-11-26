@@ -105,6 +105,22 @@ public final class WindowState {
     guard roomId != selectedRoomId else { return }
     selectedScreen = roomId.map(SelectedScreen.loadingRoom) ?? .none
   }
+
+  /// Select an event reusing the current timline if available, or loads it in a new one.
+  public func selectEvent(roomId: String, eventId: String) {
+    // if existing timeline contains the event, focus it without reloading.
+    let target = EventOrTransactionId.eventId(eventId: eventId)
+    if case .joinedRoom(timeline: let timeline) = selectedScreen.content,
+      timeline.room.id == roomId
+        && timeline.timelineItems.contains(where: { $0.asEvent()?.eventOrTransactionId == target })
+    {
+      timeline.focusEvent(id: target)
+      return
+    }
+
+    selectedScreen = SelectedScreen.loadMatrixUrl(.init(kind: .roomId(roomId), event: eventId))
+  }
+
   public var selectedSpaceId: String?
   public var inspectorVisible: Bool = false
 
@@ -148,7 +164,7 @@ public final class WindowState {
     }
   }
 
-  public func focusMessage(eventId: String) {
+  public func focusEventInCurrentTimeline(eventId: String) {
     guard case .joinedRoom(timeline: let roomTimeline) = selectedScreen.content else {
       Logger.windowState.warning("focus message failed, no active timeline")
       return

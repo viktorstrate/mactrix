@@ -613,3 +613,28 @@ extension MatrixRustSDK.RoomPreview: @retroactive Hashable {
     hasher.combine(info())
   }
 }
+
+extension SearchServiceResult: @retroactive Identifiable {
+  public var id: String {
+    switch self {
+    case .message(let roomId, let result):
+      return result.eventId
+    }
+  }
+}
+
+extension SearchServiceResult {
+  public var roomId: String {
+    switch self {
+    case .message(let roomId, _):
+      return roomId
+    }
+  }
+
+  public var message: MessageSearchResult {
+    switch self {
+    case .message(_, let result):
+      return result
+    }
+  }
+}

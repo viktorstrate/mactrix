@@ -216,10 +216,10 @@ public struct MatrixUriScheme: Hashable, Codable, Sendable {
     return (routingVia, action)
   }
 
-  public init(kind: Kind) {
+  public init(kind: Kind, routingVia: [String] = [], action: Action? = nil, event: String? = nil) {
     self.kind = kind
-    routingVia = []
-    action = nil
-    event = nil
+    self.routingVia = routingVia
+    self.action = action
+    self.event = event
   }
 }

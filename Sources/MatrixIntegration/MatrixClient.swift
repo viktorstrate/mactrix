@@ -80,6 +80,11 @@ public class MatrixClient {
     return ClientBuilder()
       .serverNameOrHomeserverUrl(serverNameOrUrl: homeServer)
       .sqliteStore(config: sqliteConfig)
+      .withSearchIndexStore(
+        path: URL.sessionCaches(for: storeId).appending(component: "SearchIndex")
+          .path(percentEncoded: false),
+        key: storePassphrase
+      )
       .slidingSyncVersionBuilder(versionBuilder: .discoverNative)
       .threadsEnabled(enabled: true, threadSubscriptions: true)
       .autoEnableCrossSigning(autoEnableCrossSigning: true)

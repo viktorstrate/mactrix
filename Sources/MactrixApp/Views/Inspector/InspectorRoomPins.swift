@@ -70,7 +70,7 @@ struct InspectorRoomPins: View {
       }
       .onChange(of: selectedId) {
         guard let selectedId else { return }
-        windowState.focusMessage(eventId: selectedId)
+        windowState.focusEventInCurrentTimeline(eventId: selectedId)
       }
     } else {
       ContentUnavailableView("No pinned messages", systemImage: "pin.circle")
