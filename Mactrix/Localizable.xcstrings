@@ -146,6 +146,7 @@
         }
       }
     },
+    "%@, verification requested in another account" : {},
     "%lld other events" : {
       "localizations" : {
         "da" : {
@@ -8351,6 +8352,7 @@
         }
       }
     },
+    "Verification requested" : {},
     "Verification status unknown" : {
       "localizations" : {
         "da" : {
