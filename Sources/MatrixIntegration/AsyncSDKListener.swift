@@ -30,6 +30,20 @@ extension AsyncSDKListener: TypingNotificationsListener where Element == [String
   }
 }
 
+extension AsyncSDKListener: SearchServiceResultsListener
+where Element == [MatrixRustSDK.SearchServiceResultsUpdate] {
+  func onUpdate(updates: [SearchServiceResultsUpdate]) {
+    publishValue(updates)
+  }
+}
+
+extension AsyncSDKListener: SearchServicePaginationStateListener
+where Element == MatrixRustSDK.SearchServicePaginationState {
+  func onUpdate(paginationState: SearchServicePaginationState) {
+    publishValue(paginationState)
+  }
+}
+
 extension AsyncSDKListener: RoomDirectorySearchEntriesListener
 where Element == [MatrixRustSDK.RoomDirectorySearchEntryUpdate] {
   func onUpdate(roomEntriesUpdate: [MatrixRustSDK.RoomDirectorySearchEntryUpdate]) {

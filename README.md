@@ -93,11 +93,11 @@ The script builds the app and syncs the catalog with the strings found in the pa
   - [x] Show spaces in sidebar
   - [ ] Details view when selecting a space
   - [ ] Drag and drop to organize spaces
-- [ ] Search bar
-  - [ ] Search in joined rooms and directs
+- [x] Searching
+  - [x] Search in joined rooms and directs (Quick navigation)
   - [x] Search for users
   - [x] Search for public rooms
-  - [ ] Search for messages
+  - [x] Search for messages
   - [x] Search for room or user ID directly
 - [ ] Settings
   - [x] Account details
