@@ -4,6 +4,24 @@ import MatrixRustSDK
 import OSLog
 import SwiftUI
 
+struct SearchMessageRow: View {
+  let result: SearchServiceResult
+
+  var body: some View {
+    VStack(alignment: .leading) {
+      Text(result.message.sender)
+        .help(result.message.sender)
+        .lineLimit(1)
+        .truncationMode(.tail)
+      Text(result.message.content.userInterfaceText)
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .lineLimit(1...3)
+        .truncationMode(.tail)
+    }
+  }
+}
+
 struct SearchMessagesInspectorView: View {
   @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
@@ -14,22 +32,28 @@ struct SearchMessagesInspectorView: View {
 
   @ViewBuilder
   var content: some View {
-    ForEach(searchService?.results ?? []) { searchResult in
-      VStack(alignment: .leading) {
-        Text(searchResult.message.sender)
-          .help(searchResult.message.sender)
-          .lineLimit(1)
-          .truncationMode(.tail)
-        Text(searchResult.message.content.userInterfaceText)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-          .lineLimit(1...3)
-          .truncationMode(.tail)
-      }
+    let results = searchService?.results ?? []
+    let query = windowState.searchQuery
+    ForEach(results) { searchResult in
+      let paginationQuery =
+        searchResult.id == results.last?.id && searchService?.activeQuery == query ? query : nil
+
+      SearchMessageRow(result: searchResult)
+        .task(id: paginationQuery) {
+          guard let paginationQuery, paginationQuery == windowState.searchQuery else { return }
+          do {
+            try await searchService?.loadMore(after: searchResult.id, for: paginationQuery)
+          } catch is CancellationError {
+            // The last row or search query changed before pagination started.
+          } catch {
+            Logger.viewCycle.error("message search pagination failed: \(error)")
+          }
+        }
     }
   }
 
   var body: some View {
+    let query = windowState.searchQuery
     List(selection: $selectedMessage) {
       Section(
         content: { content },
@@ -51,8 +75,9 @@ struct SearchMessagesInspectorView: View {
 
       windowState.selectEvent(roomId: message.roomId, eventId: message.id)
     }
-    .task(id: windowState.searchQuery) {
+    .task(id: query) {
       do {
+        try await Task.sleep(for: .milliseconds(500))
         guard let matrixClient = appState.matrixClient else { return }
 
         let searchService: LiveSearchService
@@ -61,12 +86,11 @@ struct SearchMessagesInspectorView: View {
         } else {
           searchService = await LiveSearchService(
             searchService: matrixClient.client.searchService())
+          try Task.checkCancellation()
           self.searchService = searchService
         }
 
-        try await Task.sleep(for: .milliseconds(500))
-
-        try await searchService.search(query: windowState.searchQuery)
+        try await searchService.search(query: query)
       } catch is CancellationError {
         /* search cancelled */
       } catch {

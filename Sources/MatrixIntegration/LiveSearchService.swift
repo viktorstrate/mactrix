@@ -8,7 +8,10 @@ public class LiveSearchService {
   public let searchService: SearchService
   public private(set) var results: [SearchServiceResult] = []
   public private(set) var paginationState: SearchServicePaginationState = .loading
+  public private(set) var activeQuery: String?
 
+  @ObservationIgnored private var request: Task<Void, Error>?
+  @ObservationIgnored private var lastPaginatedEventID: String?
   @ObservationIgnored fileprivate var resultsHandle: TaskHandle?
   @ObservationIgnored fileprivate var paginationHandle: TaskHandle?
 
@@ -69,6 +72,46 @@ public class LiveSearchService {
   }
 
   public func search(query: String) async throws {
-    try await searchService.setQuery(query: query)
+    try Task.checkCancellation()
+    activeQuery = nil
+    while let request {
+      _ = await request.result
+      try Task.checkCancellation()
+    }
+    lastPaginatedEventID = nil
+
+    let request = startRequest { try await self.searchService.setQuery(query: query) }
+    try await request.value
+    try Task.checkCancellation()
+    activeQuery = query
+  }
+
+  public func loadMore(after eventID: String, for query: String) async throws {
+    try Task.checkCancellation()
+    while let request {
+      _ = await request.result
+      try Task.checkCancellation()
+    }
+    guard activeQuery == query,
+      results.last?.id == eventID,
+      lastPaginatedEventID != eventID,
+      searchService.paginationState() == .idle(endReached: false)
+    else { return }
+
+    lastPaginatedEventID = eventID
+    let request = startRequest { try await self.searchService.paginate() }
+    try await request.value
+  }
+
+  private func startRequest(_ operation: @escaping @MainActor () async throws -> Void)
+    -> Task<Void, Error>
+  {
+    // Let the SDK finish updating its cursor even if SwiftUI cancels the row or query task.
+    let request = Task {
+      defer { self.request = nil }
+      try await operation()
+    }
+    self.request = request
+    return request
   }
 }
