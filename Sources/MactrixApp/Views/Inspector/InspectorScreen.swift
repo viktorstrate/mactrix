@@ -6,7 +6,6 @@ import OSLog
 import SwiftUI
 
 struct InspectorScreen: View {
-  @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
   func onSelectUser(user: MatrixRustSDK.RoomMember) {
@@ -38,7 +37,7 @@ struct InspectorScreen: View {
       case .joinedRoom(let timeline):
         MactrixUI.RoomInspectorView(
           room: timeline.room, members: timeline.room.members, roomInfo: timeline.room.roomInfo,
-          imageLoader: appState.matrixClient, onSelectUser: onSelectUser,
+          imageLoader: windowState.matrixClient, onSelectUser: onSelectUser,
           inspectorVisible: $windowState.inspectorVisible)
       case .none, .newRoom, .previewRoom, .loadMatrixUrl(_), .loadingRoom, .user(profile: _):
         Text("No room selected")

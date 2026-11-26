@@ -107,6 +107,9 @@ public final class WindowState {
   /// The account whose rooms `selectedRoomId` and `selectedSpaceId` refer to.
   public private(set) var accountID: String?
 
+  /// The client of the account this window shows. `AppState` owns the clients.
+  public private(set) weak var matrixClient: MatrixClient?
+
   public var selectedRoomId: String? {
     get {
       switch selectedScreen.content {
@@ -173,6 +176,12 @@ public final class WindowState {
         }
       }
     )
+  }
+
+  /// Shows `account`, remembering the current account's selection and restoring the new one's.
+  public func showAccount(_ account: MatrixClient?, knownAccountIDs: Set<String>) {
+    showAccount(account?.storeID, knownAccountIDs: knownAccountIDs)
+    matrixClient = account
   }
 
   /// Shows `newAccountID`, remembering the current account's selection and restoring the new one's.

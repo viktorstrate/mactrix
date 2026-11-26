@@ -5,7 +5,6 @@ import MatrixRustSDK
 import SwiftUI
 
 struct SidebarView: View {
-  @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
   @State private var members: [MatrixRustSDK.RoomMember] = []
@@ -14,8 +13,8 @@ struct SidebarView: View {
 
   var visibleRooms: [SidebarRoom] {
     // filter out rooms whose room info hasn't loaded yet, to avoid flickering
-    let joinedRooms = (appState.matrixClient?.rooms ?? []).filter { $0.roomInfo != nil }
-    let spaceService = appState.matrixClient?.spaceService
+    let joinedRooms = (windowState.matrixClient?.rooms ?? []).filter { $0.roomInfo != nil }
+    let spaceService = windowState.matrixClient?.spaceService
 
     if let selectedSpaceId = windowState.selectedSpaceId {
       let roomIDs = Set(
@@ -59,7 +58,7 @@ struct SidebarView: View {
   }
 
   var spaces: [SidebarSpaceRoom] {
-    appState.matrixClient?.spaceService.spaceRooms ?? []
+    windowState.matrixClient?.spaceService.spaceRooms ?? []
   }
 
   var content: some View {
@@ -122,7 +121,7 @@ struct SidebarView: View {
               title: title(for: room, fallback: String(localized: "Unknown room")),
               avatarUrl: room.room.avatarUrl(),
               roomInfo: room.roomInfo,
-              imageLoader: appState.matrixClient,
+              imageLoader: windowState.matrixClient,
               joinRoom: nil
             )
             .contextMenu {
@@ -138,7 +137,7 @@ struct SidebarView: View {
             title: title(for: room, fallback: String(localized: "Unknown user")),
             avatarUrl: room.room.avatarUrl(),
             roomInfo: room.roomInfo,
-            imageLoader: appState.matrixClient,
+            imageLoader: windowState.matrixClient,
             joinRoom: nil
           )
           .contextMenu {
@@ -153,7 +152,7 @@ struct SidebarView: View {
             title: room.room.displayName() ?? String(localized: "Unknown room"),
             avatarUrl: room.room.avatarUrl(),
             roomInfo: room.roomInfo,
-            imageLoader: appState.matrixClient,
+            imageLoader: windowState.matrixClient,
             joinRoom: nil
           )
           .contextMenu {

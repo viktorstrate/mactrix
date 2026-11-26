@@ -104,7 +104,6 @@ extension TimelineItemRowInfo: Identifiable {
 
 class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveTimelineDiffDelegate
 {
-  let appState: AppState
   let windowState: WindowState
   private var actionTasks: [UUID: Task<Void, Never>] = [:]
 
@@ -156,10 +155,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private(set) var timelineItems: [TimelineItemRowInfo] = []
 
   init(
-    appState: AppState, windowState: WindowState, timeline: LiveTimeline,
+    windowState: WindowState, timeline: LiveTimeline,
     composer: ChatComposerState
   ) {
-    self.appState = appState
     self.windowState = windowState
     self.timeline = timeline
     self.composer = composer
@@ -266,7 +264,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         } else {
           let view = MessageProfileRowView()
           view.initialize(
-            imageLoader: appState.matrixClient,
+            imageLoader: windowState.matrixClient,
             focusUser: { [weak self] in
               self?.windowState.focusUser(userId: $0)
             })
@@ -338,12 +336,12 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
           onThreadClick: { [weak self] in
             self?.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
           },
-          ownUserId: try? self.appState.matrixClient?.client.userId(),
+          ownUserId: try? self.windowState.matrixClient?.client.userId(),
           onReactionClick: { [weak self] key in
             self?.toggleReaction(key, for: event)
           },
           roomMembers: self.timeline.room.members,
-          matrixClient: self.appState.matrixClient,
+          matrixClient: self.windowState.matrixClient,
           handleMatrixUri: { [weak self] matrixUri in
             guard let self else { return false }
             self.handleMatrixUri(matrixUri)
@@ -412,7 +410,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     listenForRecentReactions()
     listenForRoomInfo()
     listenForTimelinePagination()
-    if let recentReactions = appState.matrixClient?.recentReactions {
+    if let recentReactions = windowState.matrixClient?.recentReactions {
       startActionTask {
         _ = await recentReactions.refresh()
       }
@@ -549,7 +547,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func listenForRecentReactions() {
-    guard let recentReactions = appState.matrixClient?.recentReactions else { return }
+    guard let recentReactions = windowState.matrixClient?.recentReactions else { return }
     let keys = withObservationTracking {
       recentReactions.isActive ? recentReactions.cachedKeys : []
     } onChange: { [weak self] in
@@ -701,7 +699,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   private func toggleReaction(_ key: String, for event: MatrixRustSDK.EventTimelineItem) {
     guard let sdkTimeline = timeline.timeline else { return }
-    let recents = appState.matrixClient?.recentReactions
+    let recents = windowState.matrixClient?.recentReactions
     startActionTask {
       do {
         if let recents {
@@ -767,7 +765,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     case .showSource:
       return true
     case .downloadToFile(let index):
-      return appState.matrixClient != nil
+      return windowState.matrixClient != nil
         && MessageDownloadAttachment.attachments(for: event).indices.contains(index)
     }
   }
@@ -806,7 +804,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       let attachments = MessageDownloadAttachment.attachments(for: event)
       guard attachments.indices.contains(index) else { return }
       startActionTask { [weak self] in
-        guard let self = self, let matrixClient = appState.matrixClient else { return }
+        guard let self = self, let matrixClient = windowState.matrixClient else { return }
         await MessageDownloadAttachment.downloadToFile(
           view: view, matrixClient: matrixClient, attachment: attachments[index])
       }
@@ -1375,7 +1373,7 @@ extension TimelineViewController: NSPopoverDelegate {
 
     let picker = ReactionPickerViewController(
       model: try ReactionPickerModel.loadBundled(),
-      recentReactions: appState.matrixClient?.recentReactions)
+      recentReactions: windowState.matrixClient?.recentReactions)
     let popover = NSPopover()
     popover.behavior = .transient
     popover.contentViewController = picker
@@ -1622,7 +1620,7 @@ extension TimelineViewController {
 
     let state = MessageEditState(id: event.eventOrTransactionId, text: text)
     state.mentionCandidateProvider = { [weak room = timeline.room] in room?.members ?? [] }
-    state.imageLoader = appState.matrixClient
+    state.imageLoader = windowState.matrixClient
     state.onChange = { [weak self, weak state] in
       guard let self, let state, self.messageEdit === state,
         let row = self.rowForEventId(id: state.id)

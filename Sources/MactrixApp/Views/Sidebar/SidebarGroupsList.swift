@@ -4,15 +4,15 @@ import MatrixRustSDK
 import SwiftUI
 
 struct SidebarGroupsList: View {
-  @Environment(AppState.self) var appState
+  @Environment(WindowState.self) var windowState
 
   var spaces: [SidebarSpaceRoom] {
-    appState.matrixClient?.spaceService.spaceRooms ?? []
+    windowState.matrixClient?.spaceService.spaceRooms ?? []
   }
 
   var unreadRoomIDs: Set<String> {
     Set(
-      (appState.matrixClient?.rooms ?? []).compactMap { room in
+      (windowState.matrixClient?.rooms ?? []).compactMap { room in
         guard !room.room.isSpace(), let info = room.roomInfo else { return nil }
         let isUnread =
           info.isMarkedUnread || info.numUnreadNotifications > 0 || info.numUnreadMentions > 0
@@ -23,7 +23,7 @@ struct SidebarGroupsList: View {
 
   var body: some View {
     let unreadIDs = unreadRoomIDs
-    let service = appState.matrixClient?.spaceService
+    let service = windowState.matrixClient?.spaceService
     let homeNotifications = unreadIDs.subtracting(service?.roomsWithJoinedSpaceParents ?? []).count
     let spaceNotifications = Dictionary(
       (service?.spaceFilters ?? [])
@@ -47,7 +47,7 @@ struct SidebarGroupsList: View {
           ) {
             AvatarImage(
               userID: space.id, kind: .room, displayName: space.spaceRoom.displayName,
-              avatarUrl: space.spaceRoom.avatarUrl, imageLoader: appState.matrixClient)
+              avatarUrl: space.spaceRoom.avatarUrl, imageLoader: windowState.matrixClient)
           }
           .contextMenu {
             SpaceContextMenu(space: space)

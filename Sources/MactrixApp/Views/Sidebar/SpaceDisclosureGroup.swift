@@ -5,7 +5,6 @@ import OSLog
 import SwiftUI
 
 struct SpaceDisclosureGroup: View {
-  @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
   @State var space: SidebarSpaceRoom
@@ -52,10 +51,10 @@ struct SpaceDisclosureGroup: View {
   }
 
   var joinRoom: (() async throws -> Void)? {
-    if appState.matrixClient?.rooms.contains(where: { $0.room.id() == space.id }) == false {
+    if windowState.matrixClient?.rooms.contains(where: { $0.room.id() == space.id }) == false {
       return {
         Logger.viewCycle.error("Joining room: \(space.id)")
-        guard let matrixClient = appState.matrixClient else { return }
+        guard let matrixClient = windowState.matrixClient else { return }
         let sourceScreen = windowState.selectedScreen
         let room = try await matrixClient.client.joinRoomById(roomId: space.id)
         try Task.checkCancellation()
@@ -69,7 +68,7 @@ struct SpaceDisclosureGroup: View {
   }
 
   var joinedRoom: SidebarRoom? {
-    return appState.matrixClient?.rooms.first(where: { $0.room.id() == space.id })
+    return windowState.matrixClient?.rooms.first(where: { $0.room.id() == space.id })
   }
 
   @ViewBuilder
@@ -79,7 +78,7 @@ struct SpaceDisclosureGroup: View {
         title: space.spaceRoom.displayName,
         avatarUrl: space.spaceRoom.avatarUrl,
         roomInfo: joinedRoom.roomInfo,
-        imageLoader: appState.matrixClient,
+        imageLoader: windowState.matrixClient,
         joinRoom: nil
       )
     } else {
@@ -87,7 +86,7 @@ struct SpaceDisclosureGroup: View {
         title: space.spaceRoom.displayName,
         avatarUrl: space.spaceRoom.avatarUrl,
         roomInfo: nil,
-        imageLoader: appState.matrixClient,
+        imageLoader: windowState.matrixClient,
         joinRoom: joinRoom
       )
     }

@@ -5,7 +5,6 @@ import OSLog
 import SwiftUI
 
 struct InspectorUserInfo: View {
-  @Environment(AppState.self) private var appState
   @Environment(WindowState.self) private var windowState
 
   let userId: String
@@ -13,7 +12,7 @@ struct InspectorUserInfo: View {
   @State private var profile: MatrixRustSDK.UserProfile?
 
   var isUserIgnored: Bool {
-    appState.matrixClient?.ignoredUserIds.contains(userId) == true
+    windowState.matrixClient?.ignoredUserIds.contains(userId) == true
   }
 
   @ViewBuilder
@@ -22,10 +21,10 @@ struct InspectorUserInfo: View {
       MactrixUI.UserProfileView(
         profile: profile,
         isUserIgnored: isUserIgnored,
-        actions: appState.matrixClient?.userProfileActions(
+        actions: windowState.matrixClient?.userProfileActions(
           forUserId: userId, windowState: windowState),
         timelineActions: nil,
-        imageLoader: appState.matrixClient
+        imageLoader: windowState.matrixClient
       )
     } else {
       MactrixUI.UserProfileView(
@@ -33,7 +32,7 @@ struct InspectorUserInfo: View {
         isUserIgnored: isUserIgnored,
         actions: nil,
         timelineActions: nil,
-        imageLoader: appState.matrixClient
+        imageLoader: windowState.matrixClient
       )
       .redacted(reason: .placeholder)
     }
@@ -42,7 +41,7 @@ struct InspectorUserInfo: View {
   var body: some View {
     content
       .task(id: userId) {
-        guard let matrixClient = appState.matrixClient else { return }
+        guard let matrixClient = windowState.matrixClient else { return }
 
         do {
           profile = try await matrixClient.client.getProfile(userId: userId)

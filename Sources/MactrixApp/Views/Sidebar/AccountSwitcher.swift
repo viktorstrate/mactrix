@@ -68,14 +68,14 @@ struct AccountSwitcher: View {
       isPresented.toggle()
     } label: {
       HStack(spacing: 6) {
-        if let active = appState.matrixClient {
+        if let active = windowState.matrixClient {
           AccountLabel(account: active)
         } else {
           Text("No Account")
             .font(.body.weight(.semibold))
         }
         Spacer(minLength: 0)
-        if appState.matrixClient?.needsAttention == true {
+        if windowState.matrixClient?.needsAttention == true {
           Image(systemName: "exclamationmark.circle.fill")
             .foregroundStyle(.orange)
         }
@@ -102,7 +102,7 @@ struct AccountSwitcher: View {
       popoverContent
     }
     // Verification requests time out, so don't leave one waiting behind a closed popover.
-    .onChange(of: appState.matrixClient?.sessionVerificationRequest?.flowId) { _, flowID in
+    .onChange(of: windowState.matrixClient?.sessionVerificationRequest?.flowId) { _, flowID in
       if flowID != nil { isPresented = true }
     }
     .confirmationDialog(
@@ -121,7 +121,7 @@ struct AccountSwitcher: View {
   }
 
   private var accessibilityLabel: String {
-    guard let active = appState.matrixClient else { return String(localized: "Switch account") }
+    guard let active = windowState.matrixClient else { return String(localized: "Switch account") }
     var label = String(localized: "Switch account, current: \(active.accountMenuTitle)")
     if active.syncState != .running {
       label = String(localized: "\(label), sync: \(active.syncState.label)")
@@ -136,7 +136,7 @@ struct AccountSwitcher: View {
 
   private var popoverContent: some View {
     VStack(alignment: .leading, spacing: 2) {
-      if let active = appState.matrixClient, active.hasStatus {
+      if let active = windowState.matrixClient, active.hasStatus {
         AccountStatusSection(account: active) { isPresented = false }
         Divider()
           .padding(.vertical, 4)
@@ -157,7 +157,7 @@ struct AccountSwitcher: View {
         windowState.loginSheet = .addAccount
       }
 
-      if let active = appState.matrixClient {
+      if let active = windowState.matrixClient {
         PopoverActionRow(
           title: String(localized: "Sign Out of \(active.accountName)…"),
           systemImage: "rectangle.portrait.and.arrow.right"

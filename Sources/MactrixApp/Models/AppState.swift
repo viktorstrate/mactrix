@@ -155,7 +155,7 @@ public final class AppState {
       }
       activate(account)
       // Switch the window now so the room below isn't treated as the previous account's.
-      windowState.showAccount(account.storeID, knownAccountIDs: Set(accounts.map(\.storeID)))
+      windowState.showAccount(account, knownAccountIDs: Set(accounts.map(\.storeID)))
     }
     windowState.selectedRoomId = target.roomId
   }

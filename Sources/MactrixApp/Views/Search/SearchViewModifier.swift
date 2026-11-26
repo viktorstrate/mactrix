@@ -4,7 +4,6 @@ import SwiftUI
 import Utils
 
 struct SearchViewModifier: ViewModifier {
-  @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
   func body(content: Content) -> some View {
@@ -129,7 +128,7 @@ struct SearchViewModifier: ViewModifier {
     }()
 
     do {
-      guard let matrixClient = appState.matrixClient else { return }
+      guard let matrixClient = windowState.matrixClient else { return }
       try await Task.sleep(for: .milliseconds(300))
 
       let roomAliasRegex = /\#[^:]+\:[^\s]*/

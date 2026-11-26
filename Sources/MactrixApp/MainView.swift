@@ -23,20 +23,21 @@ public struct MainView: View {
     case .previewRoom(let room, let eventId, let routingVia):
       MactrixUI.RoomPreviewView(
         preview: room.info(),
-        imageLoader: appState.matrixClient,
-        actions: appState.matrixClient?.roomPreviewActions(
+        imageLoader: windowState.matrixClient,
+        actions: windowState.matrixClient?.roomPreviewActions(
           forRoomWithId: room.info().roomId, windowState: windowState,
           eventId: eventId, routingVia: routingVia)
       )
       .id(screen.id)
     case .newRoom:
       MactrixUI.CreateRoomScreen(onSubmit: { params in
-        guard let matrixClient = appState.matrixClient else { return }
+        guard let matrixClient = windowState.matrixClient else { return }
         guard windowState.selectedScreen === screen else { return }
         let newRoom = try await matrixClient.client.createRoom(
           request: params.asMatrixRequest)
         try Task.checkCancellation()
-        guard windowState.selectedScreen === screen, appState.matrixClient === matrixClient else {
+        guard windowState.selectedScreen === screen, windowState.matrixClient === matrixClient
+        else {
           return
         }
         windowState.selectRoom(newRoom)
@@ -47,11 +48,11 @@ public struct MainView: View {
     case .user(let profile):
       UserProfileView(
         profile: profile,
-        isUserIgnored: appState.matrixClient?.isUserIgnored(profile.userId) ?? false,
-        actions: appState.matrixClient?.userProfileActions(
+        isUserIgnored: windowState.matrixClient?.isUserIgnored(profile.userId) ?? false,
+        actions: windowState.matrixClient?.userProfileActions(
           forUserId: profile.userId, windowState: windowState),
         timelineActions: nil,
-        imageLoader: appState.matrixClient
+        imageLoader: windowState.matrixClient
       )
     case .none:
       ContentUnavailableView("Select a room", systemImage: "message.fill")
@@ -60,16 +61,16 @@ public struct MainView: View {
 
   var verificationSheetPresented: Binding<Bool> {
     Binding(
-      get: { appState.matrixClient?.sessionVerificationData != nil },
+      get: { windowState.matrixClient?.sessionVerificationData != nil },
       set: { isPresented in
         if !isPresented {
           Task {
             do {
-              try await appState.matrixClient?.client
+              try await windowState.matrixClient?.client
                 .getSessionVerificationController().declineVerification()
             } catch {
               Logger.viewCycle.error("failed to decline verification: \(error)")
-              appState.matrixClient?.sessionVerificationData = nil
+              windowState.matrixClient?.sessionVerificationData = nil
             }
           }
         }
@@ -92,7 +93,7 @@ public struct MainView: View {
       }
     )
     .background {
-      let matrixClient = appState.matrixClient
+      let matrixClient = windowState.matrixClient
       QuickNavigationOverlayAttachment(
         coordinator: windowState.quickNavigation, matrixClient: matrixClient,
         onSelectRoom: { [weak windowState] roomID in
@@ -106,7 +107,7 @@ public struct MainView: View {
     .sheet(
       isPresented: verificationSheetPresented,
       content: {
-        if let verificationData = appState.matrixClient?.sessionVerificationData {
+        if let verificationData = windowState.matrixClient?.sessionVerificationData {
           MactrixUI.SessionVerificationModal(
             verificationData: verificationData.asModel,
             onComplete: { response in
@@ -114,23 +115,23 @@ public struct MainView: View {
                 switch response {
                 case .accept:
                   do {
-                    try await appState.matrixClient?.client
+                    try await windowState.matrixClient?.client
                       .getSessionVerificationController()
                       .approveVerification()
                   } catch {
                     Logger.viewCycle.error(
                       "failed to approve verification: \(error)")
-                    appState.matrixClient?.sessionVerificationData = nil
+                    windowState.matrixClient?.sessionVerificationData = nil
                   }
                 case .decline:
                   do {
-                    try await appState.matrixClient?.client
+                    try await windowState.matrixClient?.client
                       .getSessionVerificationController()
                       .declineVerification()
                   } catch {
                     Logger.viewCycle.error(
                       "failed to decline verification: \(error)")
-                    appState.matrixClient?.sessionVerificationData = nil
+                    windowState.matrixClient?.sessionVerificationData = nil
                   }
                 }
               }
@@ -141,7 +142,7 @@ public struct MainView: View {
     .onChange(of: appState.restoration, initial: true) { _, restoration in
       guard case .restored(let activeAccountID) = restoration else { return }
       windowState.showAccount(
-        activeAccountID, knownAccountIDs: Set(appState.accounts.map(\.storeID)))
+        appState.matrixClient, knownAccountIDs: Set(appState.accounts.map(\.storeID)))
       if activeAccountID == nil {
         Logger.viewCycle.info("No signed in accounts, present welcome sheet")
         windowState.loginSheet = .firstAccount

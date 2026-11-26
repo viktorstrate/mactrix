@@ -5,7 +5,6 @@ import OSLog
 import SwiftUI
 
 struct SearchRoomInspectorView: View {
-  @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
   @State var searching: Bool = true
@@ -46,7 +45,7 @@ struct SearchRoomInspectorView: View {
     }
     .task(id: windowState.searchQuery) {
       do {
-        guard let matrixClient = appState.matrixClient else { return }
+        guard let matrixClient = windowState.matrixClient else { return }
 
         let roomSearch: LiveRoomSearch
         if let rs = self.roomSearch {

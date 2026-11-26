@@ -72,7 +72,7 @@ struct WindowStateAccountTests {
     windowState.showAccount("A", knownAccountIDs: ["A"])
     windowState.selectedRoomId = "!a:example.org"
 
-    windowState.showAccount(nil, knownAccountIDs: [])
+    windowState.showAccount(nil as String?, knownAccountIDs: [])
     #expect(windowState.accountID == nil)
     #expect(windowState.selectedRoomId == nil)
 
