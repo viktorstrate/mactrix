@@ -48,7 +48,8 @@ public class MatrixClient {
     self.accountStore = accountStore
 
     client = try await Self.clientBuilder(
-      homeServer: userSession.homeserverURL, storeId: storeID, storePassphrase: storePassphrase
+      homeserver: .stored(url: userSession.homeserverURL), storeId: storeID,
+      storePassphrase: storePassphrase
     )
     // .enableOidcRefreshLock()
     .setSessionDelegate(sessionDelegate: self)
@@ -86,7 +87,18 @@ public class MatrixClient {
   /// process's file descriptors, failing database opens, network requests, and rendering.
   static let sqlitePoolMaxSize: UInt32 = 8
 
-  static func clientBuilder(homeServer: String, storeId: String, storePassphrase: String)
+  /// Where a client's homeserver comes from.
+  enum Homeserver {
+    /// A server name or URL entered at sign-in. Building the client looks up the homeserver and
+    /// checks that it supports native sliding sync, which takes network requests.
+    case discover(serverNameOrURL: String)
+    /// The homeserver of a stored session, which already uses native sliding sync. Building the
+    /// client takes no network requests, so restoring at launch doesn't wait for, or need, the
+    /// network.
+    case stored(url: String)
+  }
+
+  static func clientBuilder(homeserver: Homeserver, storeId: String, storePassphrase: String)
     -> ClientBuilder
   {
     let sqliteConfig = SqliteStoreBuilder(
@@ -96,18 +108,29 @@ public class MatrixClient {
     .passphrase(passphrase: storePassphrase)
     .poolMaxSize(poolMaxSize: sqlitePoolMaxSize)
 
-    return ClientBuilder()
-      .serverNameOrHomeserverUrl(serverNameOrUrl: homeServer)
+    let builder = ClientBuilder()
       .sqliteStore(config: sqliteConfig)
       .withSearchIndexStore(
         path: StoreDirectories.caches(for: storeId).appending(component: "SearchIndex")
           .path(percentEncoded: false),
         key: storePassphrase
       )
-      .slidingSyncVersionBuilder(versionBuilder: .discoverNative)
       .threadsEnabled(enabled: true, threadSubscriptions: true)
       .autoEnableCrossSigning(autoEnableCrossSigning: true)
       .userAgent(userAgent: "Mactrix macOS")
+
+    switch homeserver {
+    case .discover(let serverNameOrURL):
+      return
+        builder
+        .serverNameOrHomeserverUrl(serverNameOrUrl: serverNameOrURL)
+        .slidingSyncVersionBuilder(versionBuilder: .discoverNative)
+    case .stored(let url):
+      return
+        builder
+        .homeserverUrl(url: url)
+        .slidingSyncVersionBuilder(versionBuilder: .native)
+    }
   }
 
   struct SecureRandomBytesError: LocalizedError {
@@ -133,7 +156,8 @@ public class MatrixClient {
     let storePassphrase = try Self.generateStorePassphrase()
 
     let client = try await Self.clientBuilder(
-      homeServer: homeServer, storeId: storeID, storePassphrase: storePassphrase
+      homeserver: .discover(serverNameOrURL: homeServer), storeId: storeID,
+      storePassphrase: storePassphrase
     ).build()
 
     let details = await client.homeserverLoginDetails()
