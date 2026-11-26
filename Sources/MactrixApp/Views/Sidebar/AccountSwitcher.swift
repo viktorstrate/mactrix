@@ -70,6 +70,12 @@ struct AccountSwitcher: View {
       HStack(spacing: 6) {
         if let active = windowState.matrixClient {
           AccountLabel(account: active)
+        } else if isLoading {
+          ProgressView()
+            .controlSize(.small)
+          Text("Loading…")
+            .font(.body.weight(.semibold))
+            .foregroundStyle(.secondary)
         } else {
           Text("No Account")
             .font(.body.weight(.semibold))
@@ -95,6 +101,7 @@ struct AccountSwitcher: View {
         in: RoundedRectangle(cornerRadius: 6, style: .continuous))
     }
     .buttonStyle(.plain)
+    .disabled(isLoading)
     .onHover { isHovered = $0 }
     .help("Switch account")
     .accessibilityLabel(accessibilityLabel)
@@ -125,6 +132,11 @@ struct AccountSwitcher: View {
     }
   }
 
+  /// Whether stored accounts are still being restored at launch.
+  private var isLoading: Bool {
+    windowState.matrixClient == nil && appState.restoration == .pending
+  }
+
   /// Accounts with a verification request that no window shows, flagged in the frontmost window.
   private var unseenVerificationAccounts: [MatrixClient] {
     guard appState.openWindows.first === windowState else { return [] }
@@ -136,7 +148,9 @@ struct AccountSwitcher: View {
   }
 
   private var accessibilityLabel: String {
-    guard let active = windowState.matrixClient else { return String(localized: "Switch account") }
+    guard let active = windowState.matrixClient else {
+      return isLoading ? String(localized: "Loading…") : String(localized: "Switch account")
+    }
     var label = String(localized: "Switch account, current: \(active.accountMenuTitle)")
     if active.syncState != .running {
       label = String(localized: "\(label), sync: \(active.syncState.label)")
