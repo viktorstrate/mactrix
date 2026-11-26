@@ -154,10 +154,17 @@ public class MatrixClient {
       return []
     }
 
+    // Start every restore before awaiting any, so launch waits for the slowest account rather
+    // than all of them in turn. Awaiting in order keeps the stored account order.
+    let restores = sessions.map { session in
+      Task { @MainActor in
+        try await MatrixClient(userSession: session, accountStore: accountStore)
+      }
+    }
     var clients: [MatrixClient] = []
-    for session in sessions {
+    for (session, restore) in zip(sessions, restores) {
       do {
-        clients.append(try await MatrixClient(userSession: session, accountStore: accountStore))
+        clients.append(try await restore.value)
       } catch {
         Logger.matrixClient.error("Failed to restore store \(session.storeID): \(error)")
       }
