@@ -75,7 +75,7 @@ struct AccountSwitcher: View {
             .font(.body.weight(.semibold))
         }
         Spacer(minLength: 0)
-        if windowState.matrixClient?.needsAttention == true {
+        if windowState.matrixClient?.needsAttention == true || !unseenVerificationAccounts.isEmpty {
           Image(systemName: "exclamationmark.circle.fill")
             .foregroundStyle(.orange)
         }
@@ -101,9 +101,14 @@ struct AccountSwitcher: View {
     .popover(isPresented: $isPresented, arrowEdge: .top) {
       popoverContent
     }
-    // Verification requests time out, so don't leave one waiting behind a closed popover.
+    // Verification requests time out, so don't leave one waiting behind a closed popover. Only
+    // one window per account opens it.
     .onChange(of: windowState.matrixClient?.sessionVerificationRequest?.flowId) { _, flowID in
-      if flowID != nil { isPresented = true }
+      if flowID != nil,
+        appState.verificationWindow(forAccountID: windowState.accountID) === windowState
+      {
+        isPresented = true
+      }
     }
     .confirmationDialog(
       "Sign out of \(accountToSignOut?.userID ?? "")?",
@@ -120,6 +125,12 @@ struct AccountSwitcher: View {
     }
   }
 
+  /// Accounts with a verification request that no window shows, flagged in the frontmost window.
+  private var unseenVerificationAccounts: [MatrixClient] {
+    guard appState.openWindows.first === windowState else { return [] }
+    return appState.accountsWithUnseenVerificationRequests
+  }
+
   private var otherAccountsUnreadCount: Int {
     appState.unreadRoomCount(excludingAccountID: windowState.accountID)
   }
@@ -132,6 +143,9 @@ struct AccountSwitcher: View {
     }
     if active.needsAttention {
       label = String(localized: "\(label), needs attention")
+    }
+    if !unseenVerificationAccounts.isEmpty {
+      label = String(localized: "\(label), verification requested in another account")
     }
     let unread = otherAccountsUnreadCount
     return unread > 0
@@ -201,6 +215,10 @@ private struct AccountRow: View {
           Text("Signed Out")
             .font(.caption.weight(.medium))
             .foregroundStyle(.orange)
+        } else if !isActive, account.sessionVerificationRequest != nil {
+          Image(systemName: "exclamationmark.circle.fill")
+            .foregroundStyle(.orange)
+            .help("Verification requested")
         } else if account.unreadRoomCount > 0 {
           UnreadBadge(count: account.unreadRoomCount)
         }
@@ -221,6 +239,9 @@ private struct AccountRow: View {
   private var accessibilityValue: String {
     if account.authenticationFailed { return String(localized: "Signed out") }
     var values: [String] = []
+    if !isActive, account.sessionVerificationRequest != nil {
+      values.append(String(localized: "Verification requested"))
+    }
     if account.syncState != .running {
       values.append(String(localized: "Sync: \(account.syncState.label)"))
     }

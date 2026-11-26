@@ -35,7 +35,7 @@ public final class AppState {
   public private(set) var lastFocusedAccountID: String?
   private var hasRestored = false
   /// Open windows, most recently focused first.
-  @ObservationIgnored private var windows: [WeakWindowState] = []
+  private var windows: [WeakWindowState] = []
 
   @ObservationIgnored private let accountStore: AccountStore
   @ObservationIgnored private var restoreTask: Task<Void, Never>?
@@ -191,6 +191,22 @@ public final class AppState {
       return
     }
     windowState.showAccount(account, knownAccountIDs: Set(accounts.map(\.storeID)))
+  }
+
+  /// The window that handles `accountID`'s verification requests: the most recently focused
+  /// window showing that account.
+  func verificationWindow(forAccountID accountID: String?) -> WindowState? {
+    guard let accountID else { return nil }
+    return openWindows.first { $0.accountID == accountID }
+  }
+
+  /// Accounts with a verification request that no window shows, which the frontmost window's
+  /// switcher flags.
+  var accountsWithUnseenVerificationRequests: [MatrixClient] {
+    accounts.filter { account in
+      account.sessionVerificationRequest != nil
+        && !openWindows.contains { $0.accountID == account.storeID }
+    }
   }
 
   /// Which account a window shows, given the account it showed before.
