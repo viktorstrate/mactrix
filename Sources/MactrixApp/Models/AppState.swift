@@ -159,6 +159,11 @@ public final class AppState {
     }
   }
 
+  /// Records that `windowState`'s window closed, so nothing is routed to it.
+  public func unregister(_ windowState: WindowState) {
+    windows.removeAll { $0.value == nil || $0.value === windowState }
+  }
+
   /// Records that `windowState` is the focused window.
   public func focus(_ windowState: WindowState) {
     windows.removeAll { $0.value == nil || $0.value === windowState }
@@ -215,10 +220,16 @@ public final class AppState {
     }
   }
 
-  /// Opens the room of a clicked notification in `windowState`, switching to its account.
-  public func showNotificationTarget(in windowState: WindowState) {
-    // A click that launched the app arrives before accounts are restored; handle it afterwards.
-    guard hasRestored, let target = notificationRouter.pendingTarget else { return }
+  /// Opens the room of a clicked notification.
+  ///
+  /// The room opens in the most recently focused window already showing its account, brought to
+  /// the front. If no window shows the account, the frontmost window switches to it.
+  public func showNotificationTarget() {
+    // A click that launched the app arrives before accounts are restored or a window opens;
+    // handle it afterwards.
+    guard hasRestored, let target = notificationRouter.pendingTarget,
+      let windowState = Self.window(forAccountID: target.accountID, in: openWindows)
+    else { return }
     notificationRouter.pendingTarget = nil
 
     if let accountID = target.accountID {
@@ -230,6 +241,13 @@ public final class AppState {
       show(account, in: windowState)
     }
     windowState.selectedRoomId = target.roomId
+    windowState.bringToFront()
+  }
+
+  /// The window to show something of `accountID` in: the most recently focused window showing
+  /// that account, or else the frontmost window. `windows` is ordered most recently focused first.
+  static func window(forAccountID accountID: String?, in windows: [WindowState]) -> WindowState? {
+    windows.first { accountID != nil && $0.accountID == accountID } ?? windows.first
   }
 
   /// Names the receiving account in notifications once more than one account is signed in.

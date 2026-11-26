@@ -100,6 +100,15 @@ public struct MainView: View {
           windowState?.selectRoom(roomID)
         })
     }
+    .background {
+      WindowReader(
+        onChange: { [weak windowState] window in
+          windowState?.window = window
+        },
+        onClose: { [weak windowState] in
+          if let windowState { appState.unregister(windowState) }
+        })
+    }
     .task { await attemptLoadUserSession() }
     .sheet(item: $windowState.loginSheet, onDismiss: onLoginModalDismiss) { request in
       WelcomeSheetView(request: request)

@@ -110,6 +110,19 @@ public final class WindowState {
   /// The client of the account this window shows. `AppState` owns the clients.
   public private(set) weak var matrixClient: MatrixClient?
 
+  /// The window showing this state.
+  @ObservationIgnored weak var window: NSWindow?
+
+  /// Brings this window to the front, selecting its tab and restoring it from the Dock.
+  func bringToFront() {
+    guard let window else { return }
+    if window.isMiniaturized {
+      window.deminiaturize(nil)
+    }
+    window.tabGroup?.selectedWindow = window
+    window.makeKeyAndOrderFront(nil)
+  }
+
   public var selectedRoomId: String? {
     get {
       switch selectedScreen.content {

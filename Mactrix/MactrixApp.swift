@@ -31,7 +31,6 @@ struct MactrixApp: App {
   }
 
   func focusNotification() {
-    guard let windowState else { return }
-    appState.showNotificationTarget(in: windowState)
+    appState.showNotificationTarget()
   }
 }
