@@ -56,12 +56,10 @@ public final class AppState {
     accounts.first { $0.storeID == lastFocusedAccountID }
   }
 
-  /// The number of unread rooms across accounts other than the last focused window's.
-  public var inactiveUnreadRoomCount: Int {
+  /// The number of unread rooms across accounts other than `accountID`.
+  public func unreadRoomCount(excludingAccountID accountID: String?) -> Int {
     accounts.reduce(0) { count, account in
-      guard account.storeID != lastFocusedAccountID, !account.authenticationFailed else {
-        return count
-      }
+      guard account.storeID != accountID, !account.authenticationFailed else { return count }
       return count + account.unreadRoomCount
     }
   }

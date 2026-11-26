@@ -79,8 +79,8 @@ struct AccountSwitcher: View {
           Image(systemName: "exclamationmark.circle.fill")
             .foregroundStyle(.orange)
         }
-        if appState.inactiveUnreadRoomCount > 0 {
-          UnreadBadge(count: appState.inactiveUnreadRoomCount)
+        if otherAccountsUnreadCount > 0 {
+          UnreadBadge(count: otherAccountsUnreadCount)
             .help("Unread rooms in your other accounts")
         }
         Image(systemName: "chevron.up.chevron.down")
@@ -120,6 +120,10 @@ struct AccountSwitcher: View {
     }
   }
 
+  private var otherAccountsUnreadCount: Int {
+    appState.unreadRoomCount(excludingAccountID: windowState.accountID)
+  }
+
   private var accessibilityLabel: String {
     guard let active = windowState.matrixClient else { return String(localized: "Switch account") }
     var label = String(localized: "Switch account, current: \(active.accountMenuTitle)")
@@ -129,7 +133,7 @@ struct AccountSwitcher: View {
     if active.needsAttention {
       label = String(localized: "\(label), needs attention")
     }
-    let unread = appState.inactiveUnreadRoomCount
+    let unread = otherAccountsUnreadCount
     return unread > 0
       ? String(localized: "\(label), \(unread) unread in other accounts") : label
   }
