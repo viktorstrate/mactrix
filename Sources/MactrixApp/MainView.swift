@@ -103,6 +103,7 @@ public struct MainView: View {
     .task { await attemptLoadUserSession() }
     .sheet(item: $windowState.loginSheet, onDismiss: onLoginModalDismiss) { request in
       WelcomeSheetView(request: request)
+        .environment(windowState)
     }
     .sheet(
       isPresented: verificationSheetPresented,
@@ -139,14 +140,15 @@ public struct MainView: View {
         }
       }
     )
-    .onChange(of: appState.restoration, initial: true) { _, restoration in
-      guard case .restored(let activeAccountID) = restoration else { return }
-      windowState.showAccount(
-        appState.matrixClient, knownAccountIDs: Set(appState.accounts.map(\.storeID)))
-      if activeAccountID == nil {
-        Logger.viewCycle.info("No signed in accounts, present welcome sheet")
-        windowState.loginSheet = .firstAccount
-      }
+    // Scene storage may swap in the restored window state after the first render.
+    .onChange(of: ObjectIdentifier(windowState), initial: true) {
+      appState.register(windowState)
+    }
+    .onChange(of: appState.restoration == .restored && appState.accounts.isEmpty, initial: true) {
+      _, signedOut in
+      guard signedOut else { return }
+      Logger.viewCycle.info("No signed in accounts, present welcome sheet")
+      windowState.loginSheet = .firstAccount
     }
     .onOpenURL { url in
       Logger.viewCycle.debug("onOpenUrl \(url)")

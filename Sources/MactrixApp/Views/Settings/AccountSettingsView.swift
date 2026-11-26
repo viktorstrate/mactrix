@@ -48,7 +48,7 @@ struct AccountSettingsView: View {
   @State private var displayName: String? = nil
 
   var body: some View {
-    if let matrixClient = appState.matrixClient {
+    if let matrixClient = appState.lastFocusedAccount {
       Form {
         Section {
           AccountLabel(account: matrixClient)
@@ -115,7 +115,7 @@ struct AccountSettingsView: View {
         Button("Clear cache") {
           Task {
             do {
-              try await appState.matrixClient?.clearCache()
+              try await appState.lastFocusedAccount?.clearCache()
             } catch {
               Logger.viewCycle.error("Failed to clear cache: \(error)")
             }

@@ -17,7 +17,10 @@ struct MactrixApp: App {
     .commands {
       AppCommands(appState: appState)
     }
-    .onChange(of: windowState == nil, focusNotification)
+    .onChange(of: windowState.map(ObjectIdentifier.init)) {
+      if let windowState { appState.focus(windowState) }
+      focusNotification()
+    }
     .onChange(of: appState.notificationRouter.pendingTarget, focusNotification)
     .onChange(of: appState.restoration, focusNotification)
 

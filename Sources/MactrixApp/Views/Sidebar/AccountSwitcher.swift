@@ -143,8 +143,8 @@ struct AccountSwitcher: View {
       }
 
       ForEach(appState.accounts, id: \.storeID) { account in
-        AccountRow(account: account, isActive: appState.activeAccountID == account.storeID) {
-          appState.activate(account)
+        AccountRow(account: account, isActive: windowState.accountID == account.storeID) {
+          appState.show(account, in: windowState)
           isPresented = false
         }
       }

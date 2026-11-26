@@ -8,6 +8,7 @@ struct WelcomeSheetView: View {
   var request: LoginSheet = .firstAccount
 
   @Environment(AppState.self) private var appState
+  @Environment(WindowState.self) private var windowState
   @Environment(\.dismiss) private var dismiss
 
   @Environment(\.webAuthenticationSession) private var webAuthenticationSession
@@ -72,7 +73,7 @@ struct WelcomeSheetView: View {
       do {
         let client = try await homeserverLogin.loginPassword(
           homeServer: homeserverField, username: usernameField, password: passwordField)
-        try await appState.add(client)
+        try await appState.add(client, in: windowState)
         dismiss()
       } catch {
         showError = error
@@ -89,7 +90,7 @@ struct WelcomeSheetView: View {
 
       do {
         let client = try await homeserverLogin.loginOidc(webAuthSession: webAuthenticationSession)
-        try await appState.add(client)
+        try await appState.add(client, in: windowState)
         dismiss()
       } catch {
         showError = error

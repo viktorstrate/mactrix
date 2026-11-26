@@ -118,7 +118,7 @@ struct SessionsSettingsView: View {
   }
 
   var body: some View {
-    if let matrixClient = appState.matrixClient {
+    if let matrixClient = appState.lastFocusedAccount {
       Form {
         Section {
           AccountLabel(account: matrixClient)

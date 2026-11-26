@@ -36,14 +36,16 @@ public struct AppCommands: Commands {
       ForEach(Array(appState.accounts.enumerated()), id: \.element.storeID) { index, account in
         Toggle(
           isOn: Binding(
-            get: { appState.activeAccountID == account.storeID },
-            set: { if $0 { appState.activate(account) } })
+            get: { windowState?.accountID == account.storeID },
+            set: { if $0, let windowState { appState.show(account, in: windowState) } })
         ) {
           Text(account.accountMenuTitle)
         }
+        .disabled(windowState == nil)
         .keyboardShortcut(
           index < 9
-            ? KeyboardShortcut(KeyEquivalent(Character("\(index + 1)")), modifiers: [.command, .control])
+            ? KeyboardShortcut(
+              KeyEquivalent(Character("\(index + 1)")), modifiers: [.command, .control])
             : nil)
       }
 

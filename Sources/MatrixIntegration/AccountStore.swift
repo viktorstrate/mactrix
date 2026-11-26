@@ -14,7 +14,8 @@ public struct AccountStore: Sendable {
 
   enum DefaultsKey {
     static let order = "accounts.order"
-    static let active = "accounts.active"
+    // Named before each window had its own account; kept so the stored value carries over.
+    static let lastFocused = "accounts.active"
     static let schemaVersion = "accounts.schemaVersion"
   }
 
@@ -86,17 +87,17 @@ public struct AccountStore: Sendable {
   func remove(storeID: String) throws {
     try keychain.delete(forKey: Self.sessionKey(for: storeID))
     defaults.set(storedOrder.filter { $0 != storeID }, forKey: DefaultsKey.order)
-    if activeStoreID == storeID {
-      activeStoreID = nil
+    if lastFocusedStoreID == storeID {
+      lastFocusedStoreID = nil
     }
   }
 
   // MARK: Metadata
 
-  /// The account that was last active, if it still exists.
-  public var activeStoreID: String? {
-    get { defaults.string(forKey: DefaultsKey.active) }
-    nonmutating set { defaults.set(newValue, forKey: DefaultsKey.active) }
+  /// The account of the most recently focused window, if it still exists. New windows open on it.
+  public var lastFocusedStoreID: String? {
+    get { defaults.string(forKey: DefaultsKey.lastFocused) }
+    nonmutating set { defaults.set(newValue, forKey: DefaultsKey.lastFocused) }
   }
 
   /// Persists the display order of accounts.
@@ -152,8 +153,8 @@ public struct AccountStore: Sendable {
     guard try load(storeID: legacySession.storeID) == legacySession else {
       throw AccountStoreError.migrationVerificationFailed
     }
-    if activeStoreID == nil {
-      activeStoreID = legacySession.storeID
+    if lastFocusedStoreID == nil {
+      lastFocusedStoreID = legacySession.storeID
     }
     defaults.set(Self.currentSchemaVersion, forKey: DefaultsKey.schemaVersion)
     removeLegacySession()

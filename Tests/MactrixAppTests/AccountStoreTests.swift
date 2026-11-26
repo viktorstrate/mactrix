@@ -58,7 +58,7 @@ struct AccountStoreTests {
   @Test func freshInstallHasNoAccounts() throws {
     try store.migrateLegacyIfNeeded()
     #expect(try store.loadAll().isEmpty)
-    #expect(store.activeStoreID == nil)
+    #expect(store.lastFocusedStoreID == nil)
     #expect(defaults.integer(forKey: AccountStore.DefaultsKey.schemaVersion) == 1)
   }
 
@@ -69,7 +69,7 @@ struct AccountStoreTests {
     try store.migrateLegacyIfNeeded()
 
     #expect(try store.loadAll() == [legacy])
-    #expect(store.activeStoreID == "A")
+    #expect(store.lastFocusedStoreID == "A")
     #expect(try keychain.load(forKey: AccountStore.legacySessionKey) == nil)
   }
 
@@ -141,9 +141,9 @@ struct AccountStoreTests {
 
   @Test func removingActiveAccountClearsActive() throws {
     try store.save(makeUserSession(storeID: "A"))
-    store.activeStoreID = "A"
+    store.lastFocusedStoreID = "A"
     try store.remove(storeID: "A")
-    #expect(store.activeStoreID == nil)
+    #expect(store.lastFocusedStoreID == nil)
   }
 
   @Test func skipsUnreadableSessions() throws {
