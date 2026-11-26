@@ -65,6 +65,8 @@ extension MatrixClient {
 extension MatrixClient: SyncServiceStateObserver {
   nonisolated public func onUpdate(state: MatrixRustSDK.SyncServiceState) {
     Task { @MainActor in
+      Logger.matrixClient.info(
+        "Sync state \(String(describing: state), privacy: .public), store \(self.storeID)")
       syncState = state
       if state == .running {
         // Setup that failed while offline can succeed now that the homeserver answers.

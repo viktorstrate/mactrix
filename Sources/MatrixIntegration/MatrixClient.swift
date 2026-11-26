@@ -343,6 +343,9 @@ public class MatrixClient {
     // Once built, the sync service is only restarted, keeping its listeners. Its `start()` does
     // nothing while running, and reconnects straight away when offline.
     if let syncService {
+      Logger.matrixClient.info(
+        "Restarting sync from \(String(describing: self.syncState), privacy: .public), store \(self.storeID)"
+      )
       await syncService.start()
       retryPendingSetupSteps()
       return
