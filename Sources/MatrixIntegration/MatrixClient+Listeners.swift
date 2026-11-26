@@ -66,9 +66,12 @@ extension MatrixClient: SyncServiceStateObserver {
   nonisolated public func onUpdate(state: MatrixRustSDK.SyncServiceState) {
     Task { @MainActor in
       syncState = state
-      // Setup that failed while offline can succeed now that the homeserver answers.
       if state == .running {
+        // Setup that failed while offline can succeed now that the homeserver answers.
         retryPendingSetupSteps()
+        // A send that fails on a network error turns its room's send queue off, holding the
+        // message until the queue is turned back on. Resend those now.
+        await client.enableAllSendQueues(enable: true)
       }
     }
   }
