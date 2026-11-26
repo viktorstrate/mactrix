@@ -617,7 +617,7 @@ extension MatrixRustSDK.RoomPreview: @retroactive Hashable {
 extension SearchServiceResult: @retroactive Identifiable {
   public var id: String {
     switch self {
-    case .message(let roomId, let result):
+    case .message(_, let result):
       return result.eventId
     }
   }

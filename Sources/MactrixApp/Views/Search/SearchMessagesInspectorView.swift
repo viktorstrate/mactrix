@@ -1,26 +1,7 @@
-import MactrixUI
 import MatrixIntegration
 import MatrixRustSDK
 import OSLog
 import SwiftUI
-
-struct SearchMessageRow: View {
-  let result: SearchServiceResult
-
-  var body: some View {
-    VStack(alignment: .leading) {
-      Text(result.message.sender)
-        .help(result.message.sender)
-        .lineLimit(1)
-        .truncationMode(.tail)
-      Text(result.message.content.userInterfaceText)
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .lineLimit(1...3)
-        .truncationMode(.tail)
-    }
-  }
-}
 
 struct SearchMessagesInspectorView: View {
   @Environment(AppState.self) var appState
@@ -38,7 +19,7 @@ struct SearchMessagesInspectorView: View {
       let paginationQuery =
         searchResult.id == results.last?.id && searchService?.activeQuery == query ? query : nil
 
-      SearchMessageRow(result: searchResult)
+      SearchMessageRowView(result: searchResult, query: query, matrixClient: appState.matrixClient)
         .task(id: paginationQuery) {
           guard let paginationQuery, paginationQuery == windowState.searchQuery else { return }
           do {
