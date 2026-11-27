@@ -339,9 +339,9 @@ public class MatrixClient {
     isStartingSync = false
   }
 
-  /// Whether the Mac has a network connection. While it doesn't, an offline account isn't
-  /// restarted until it comes back.
-  @ObservationIgnored public var isNetworkAvailable = true
+  /// The Mac's network connection. Without one, an offline account isn't restarted until it
+  /// comes back, and on a connection that saves data it's restarted fewer times.
+  @ObservationIgnored public var networkConditions = NetworkConditions()
 
   @ObservationIgnored private var offlineRestartTask: Task<Void, Never>?
 
@@ -349,8 +349,19 @@ public class MatrixClient {
   /// half at random, so clients of a homeserver that went down don't all retry at once.
   static let offlineRestartDelays: [Duration] = [2, 4, 8, 16, 30].map { .seconds($0) }
 
-  /// Restarts sync a few times while the account stays offline, at `offlineRestartDelays`, then
-  /// leaves reconnecting to the sync service's offline mode.
+  /// The waits used instead of `offlineRestartDelays` in Low Power Mode or on a connection that
+  /// saves data, where each restart's new connection and full sync request cost more.
+  static let savingOfflineRestartDelays: [Duration] = [5, 20].map { .seconds($0) }
+
+  /// The waits before each restart of an offline account, given the current power and network.
+  private var currentOfflineRestartDelays: [Duration] {
+    ProcessInfo.processInfo.isLowPowerModeEnabled || networkConditions.isSavingData
+      ? Self.savingOfflineRestartDelays : Self.offlineRestartDelays
+  }
+
+  /// Restarts sync a few times while the account stays offline, at `currentOfflineRestartDelays`,
+  /// then leaves reconnecting to the sync service's offline mode. Turning on Low Power Mode or
+  /// moving to a connection that saves data partway through cuts the round short.
   ///
   /// The sync service's offline mode only reconnects once a reachability check succeeds, and a
   /// check on a connection that went dead when the network changed hangs until it times out,
@@ -361,16 +372,18 @@ public class MatrixClient {
   func scheduleOfflineRestarts() {
     guard offlineRestartTask == nil, !isResettingSession else { return }
     offlineRestartTask = Task { [weak self] in
-      for delay in Self.offlineRestartDelays {
-        try? await Task.sleep(for: delay * Double.random(in: 0.5...1))
+      var restarts = 0
+      while let delays = self?.currentOfflineRestartDelays, restarts < delays.count {
+        try? await Task.sleep(for: delays[restarts] * Double.random(in: 0.5...1))
         // A restart briefly reports running before it can fail again, so only a later check
         // that finds the account online ends the restarts. Errors other than being offline
         // aren't the network's, so restarting wouldn't help them. Without a network, the
         // restart when it comes back takes over.
         guard let self, !Task.isCancelled, [.offline, .idle].contains(self.syncState),
-          !self.isResettingSession, !self.authenticationFailed, self.isNetworkAvailable
+          !self.isResettingSession, !self.authenticationFailed, self.networkConditions.isAvailable
         else { break }
         await self.startSync()
+        restarts += 1
       }
       if !Task.isCancelled {
         self?.offlineRestartTask = nil

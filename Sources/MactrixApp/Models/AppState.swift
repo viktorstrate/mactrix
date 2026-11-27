@@ -41,11 +41,11 @@ public final class AppState {
   @ObservationIgnored private var restoreTask: Task<Void, Never>?
   @ObservationIgnored private var lastAppliedDockUnreadCount: Int?
   @ObservationIgnored private var networkMonitor: NetworkMonitor?
-  /// Whether the Mac has a network connection, passed on to every account.
-  @ObservationIgnored private var isNetworkAvailable = true {
+  /// The Mac's network connection, passed on to every account.
+  @ObservationIgnored private var networkConditions = NetworkConditions() {
     didSet {
       for client in accounts {
-        client.isNetworkAvailable = isNetworkAvailable
+        client.networkConditions = networkConditions
       }
     }
   }
@@ -100,8 +100,8 @@ public final class AppState {
       startSync(client)
     }
     networkMonitor = NetworkMonitor(
-      onAvailabilityChange: { [weak self] isAvailable in
-        self?.isNetworkAvailable = isAvailable
+      onConditionsChange: { [weak self] conditions in
+        self?.networkConditions = conditions
       },
       onReconnect: { [weak self] in self?.reconnectAccounts() })
   }
@@ -312,7 +312,7 @@ public final class AppState {
   }
 
   private func startSync(_ client: MatrixClient) {
-    client.isNetworkAvailable = isNetworkAvailable
+    client.networkConditions = networkConditions
     Task { await client.startSync() }
   }
 }

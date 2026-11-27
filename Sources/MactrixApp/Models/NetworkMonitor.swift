@@ -1,9 +1,10 @@
 import Foundation
+import MatrixIntegration
 import Network
 import OSLog
 
-/// Reports whether the Mac has a network connection, and when it comes back or switches to
-/// another interface.
+/// Reports the Mac's network connection: whether there is one and what it allows, and when it
+/// comes back or switches to another interface.
 ///
 /// The sync service's offline mode only notices the network is back on its next scheduled check,
 /// which backs off to several seconds apart. Restarting sync on a reconnect reconnects at once.
@@ -15,10 +16,10 @@ final class NetworkMonitor {
   /// Starts reporting network changes.
   ///
   /// - Parameters:
-  ///   - onAvailabilityChange: Called with whether there is a connection, whenever that changes.
+  ///   - onConditionsChange: Called with the connection's conditions, whenever they change.
   ///   - onReconnect: Called each time the network comes back or switches interface.
   init(
-    onAvailabilityChange: @escaping @MainActor (Bool) -> Void,
+    onConditionsChange: @escaping @MainActor (NetworkConditions) -> Void,
     onReconnect: @escaping @MainActor () -> Void
   ) {
     monitor.pathUpdateHandler = { [weak self] path in
@@ -26,8 +27,9 @@ final class NetworkMonitor {
         guard let self else { return }
         let previous = self.lastPath
         self.lastPath = path
-        if previous?.status != path.status {
-          onAvailabilityChange(path.status == .satisfied)
+        let conditions = Self.conditions(of: path)
+        if previous.map(Self.conditions(of:)) != conditions {
+          onConditionsChange(conditions)
         }
         guard let previous, Self.isReconnect(from: previous, to: path) else { return }
         Logger.matrixClient.info(
@@ -40,6 +42,12 @@ final class NetworkMonitor {
 
   deinit {
     monitor.cancel()
+  }
+
+  nonisolated static func conditions(of path: NWPath) -> NetworkConditions {
+    NetworkConditions(
+      isAvailable: path.status == .satisfied, isExpensive: path.isExpensive,
+      isConstrained: path.isConstrained)
   }
 
   /// Whether going from `previous` to `path` means requests that failed may work now: the
