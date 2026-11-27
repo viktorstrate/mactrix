@@ -68,6 +68,9 @@ extension MatrixClient: SyncServiceStateObserver {
       Logger.matrixClient.info(
         "Sync state \(String(describing: state), privacy: .public), store \(self.storeID)")
       syncState = state
+      if state == .offline {
+        scheduleOfflineRestarts()
+      }
       if state == .running {
         // Setup that failed while offline can succeed now that the homeserver answers.
         retryPendingSetupSteps()

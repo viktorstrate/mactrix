@@ -41,6 +41,14 @@ public final class AppState {
   @ObservationIgnored private var restoreTask: Task<Void, Never>?
   @ObservationIgnored private var lastAppliedDockUnreadCount: Int?
   @ObservationIgnored private var networkMonitor: NetworkMonitor?
+  /// Whether the Mac has a network connection, passed on to every account.
+  @ObservationIgnored private var isNetworkAvailable = true {
+    didSet {
+      for client in accounts {
+        client.isNetworkAvailable = isNetworkAvailable
+      }
+    }
+  }
 
   /// Routes clicked notifications from every account.
   public let notificationRouter = NotificationRouter()
@@ -91,7 +99,11 @@ public final class AppState {
     for client in clients {
       startSync(client)
     }
-    networkMonitor = NetworkMonitor { [weak self] in self?.reconnectAccounts() }
+    networkMonitor = NetworkMonitor(
+      onAvailabilityChange: { [weak self] isAvailable in
+        self?.isNetworkAvailable = isAvailable
+      },
+      onReconnect: { [weak self] in self?.reconnectAccounts() })
   }
 
   /// Restarts every account's sync, so accounts that went offline reconnect now that the network
@@ -300,6 +312,7 @@ public final class AppState {
   }
 
   private func startSync(_ client: MatrixClient) {
+    client.isNetworkAvailable = isNetworkAvailable
     Task { await client.startSync() }
   }
 }

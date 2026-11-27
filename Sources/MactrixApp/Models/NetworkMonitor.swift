@@ -2,22 +2,33 @@ import Foundation
 import Network
 import OSLog
 
-/// Reports when the Mac's network comes back, or switches to another interface.
+/// Reports whether the Mac has a network connection, and when it comes back or switches to
+/// another interface.
 ///
 /// The sync service's offline mode only notices the network is back on its next scheduled check,
-/// which backs off to several seconds apart. Restarting sync when this fires reconnects at once.
+/// which backs off to several seconds apart. Restarting sync on a reconnect reconnects at once.
 @MainActor
 final class NetworkMonitor {
   private let monitor = NWPathMonitor()
   private var lastPath: NWPath?
 
-  /// Starts calling `onReconnect` each time the network comes back or switches interface.
-  init(onReconnect: @escaping @MainActor () -> Void) {
+  /// Starts reporting network changes.
+  ///
+  /// - Parameters:
+  ///   - onAvailabilityChange: Called with whether there is a connection, whenever that changes.
+  ///   - onReconnect: Called each time the network comes back or switches interface.
+  init(
+    onAvailabilityChange: @escaping @MainActor (Bool) -> Void,
+    onReconnect: @escaping @MainActor () -> Void
+  ) {
     monitor.pathUpdateHandler = { [weak self] path in
       Task { @MainActor in
         guard let self else { return }
         let previous = self.lastPath
         self.lastPath = path
+        if previous?.status != path.status {
+          onAvailabilityChange(path.status == .satisfied)
+        }
         guard let previous, Self.isReconnect(from: previous, to: path) else { return }
         Logger.matrixClient.info(
           "Network came back on \(path.availableInterfaces.map(\.name), privacy: .public)")
