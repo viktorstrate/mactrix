@@ -213,7 +213,7 @@ public class MatrixClient {
   public func reset() async throws {
     recentReactions.invalidate()
     isResettingSession = true
-    offlineRestartTask?.cancel()
+    offlineRestarter.cancel()
     await roomSubscriptions.invalidate()
     // A start in flight stops at its next step; wait so it can't start syncing a signed-out
     // session after the stop below.
@@ -343,52 +343,28 @@ public class MatrixClient {
   /// comes back, and on a connection that saves data it's restarted fewer times.
   @ObservationIgnored public var networkConditions = NetworkConditions()
 
-  @ObservationIgnored private var offlineRestartTask: Task<Void, Never>?
+  @ObservationIgnored private lazy var offlineRestarter = OfflineRestarter(
+    canRestart: { [weak self] in
+      // A restart briefly reports running before it can fail again, so only a later check that
+      // finds the account online ends the restarts. Errors other than being offline aren't the
+      // network's, so restarting wouldn't help them. Without a network, the restart when it
+      // comes back takes over.
+      guard let self else { return false }
+      return [.offline, .idle].contains(syncState) && !isResettingSession
+        && !authenticationFailed && networkConditions.isAvailable
+    },
+    isSavingPower: { [weak self] in
+      ProcessInfo.processInfo.isLowPowerModeEnabled
+        || self?.networkConditions.isSavingData == true
+    },
+    restart: { [weak self] in await self?.startSync() })
 
-  /// How long to wait before each restart of an offline account. Each wait is shortened by up to
-  /// half at random, so clients of a homeserver that went down don't all retry at once.
-  static let offlineRestartDelays: [Duration] = [2, 4, 8, 16, 30].map { .seconds($0) }
-
-  /// The waits used instead of `offlineRestartDelays` in Low Power Mode or on a connection that
-  /// saves data, where each restart's new connection and full sync request cost more.
-  static let savingOfflineRestartDelays: [Duration] = [5, 20].map { .seconds($0) }
-
-  /// The waits before each restart of an offline account, given the current power and network.
-  private var currentOfflineRestartDelays: [Duration] {
-    ProcessInfo.processInfo.isLowPowerModeEnabled || networkConditions.isSavingData
-      ? Self.savingOfflineRestartDelays : Self.offlineRestartDelays
-  }
-
-  /// Restarts sync a few times while the account stays offline, at `currentOfflineRestartDelays`,
-  /// then leaves reconnecting to the sync service's offline mode. Turning on Low Power Mode or
-  /// moving to a connection that saves data partway through cuts the round short.
-  ///
-  /// The sync service's offline mode only reconnects once a reachability check succeeds, and a
-  /// check on a connection that went dead when the network changed hangs until it times out,
-  /// keeping the account offline for a minute or more. A restart cancels that check and tries
-  /// again at once. A homeserver that's down or unreachable can stay that way for a long time,
-  /// though, and offline mode keeps checking on its own, so restarting for longer would only
-  /// spend battery. Going offline again, or the network coming back, starts another round.
+  /// Restarts sync a few times while the account stays offline, fewer in Low Power Mode or on a
+  /// connection that saves data. Going offline again, or the network coming back, starts another
+  /// round. See `OfflineRestarter`.
   func scheduleOfflineRestarts() {
-    guard offlineRestartTask == nil, !isResettingSession else { return }
-    offlineRestartTask = Task { [weak self] in
-      var restarts = 0
-      while let delays = self?.currentOfflineRestartDelays, restarts < delays.count {
-        try? await Task.sleep(for: delays[restarts] * Double.random(in: 0.5...1))
-        // A restart briefly reports running before it can fail again, so only a later check
-        // that finds the account online ends the restarts. Errors other than being offline
-        // aren't the network's, so restarting wouldn't help them. Without a network, the
-        // restart when it comes back takes over.
-        guard let self, !Task.isCancelled, [.offline, .idle].contains(self.syncState),
-          !self.isResettingSession, !self.authenticationFailed, self.networkConditions.isAvailable
-        else { break }
-        await self.startSync()
-        restarts += 1
-      }
-      if !Task.isCancelled {
-        self?.offlineRestartTask = nil
-      }
-    }
+    guard !isResettingSession else { return }
+    offlineRestarter.start()
   }
 
   private func performStartSync() async {
