@@ -4,6 +4,9 @@ import MatrixRustSDK
 import OSLog
 import SwiftUI
 
+/// Login details and the client that signs in with them.
+///
+/// Single use: after a login attempt, request new login details.
 public struct HomeserverLogin {
   public let storeID: String
   private let storePassphrase: String
@@ -60,15 +63,12 @@ public struct HomeserverLogin {
 
   @MainActor
   fileprivate func onSuccessfullLogin() async throws -> MatrixClient {
-    let matrixClient = await MatrixClient(
-      storeID: storeID, storePassphrase: storePassphrase, client: unauthenticatedClient)
+    let accountStore = AccountStore()
+    let matrixClient = try await MatrixClient(
+      storeID: storeID, storePassphrase: storePassphrase, client: unauthenticatedClient,
+      accountStore: accountStore)
 
-    let userSession = try matrixClient.userSession()
-    do {
-      try userSession.saveUserToKeychain()
-    } catch {
-      print(error.localizedDescription)
-    }
+    try accountStore.save(matrixClient.userSession())
 
     return matrixClient
   }

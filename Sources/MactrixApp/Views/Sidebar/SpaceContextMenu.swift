@@ -4,7 +4,6 @@ import OSLog
 import SwiftUI
 
 struct SpaceContextMenu: View {
-  @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
   let space: SidebarSpaceRoom
@@ -14,7 +13,8 @@ struct SpaceContextMenu: View {
     Button {
       Task {
         do {
-          guard let room = try appState.matrixClient?.client.getRoom(roomId: space.spaceRoom.roomId)
+          guard
+            let room = try windowState.matrixClient?.client.getRoom(roomId: space.spaceRoom.roomId)
           else {
             Logger.viewCycle.error("unable to copy space room link: could not get room")
             return
@@ -35,7 +35,8 @@ struct SpaceContextMenu: View {
     Button {
       Task {
         do {
-          guard let room = try appState.matrixClient?.client.getRoom(roomId: space.spaceRoom.roomId)
+          guard
+            let room = try windowState.matrixClient?.client.getRoom(roomId: space.spaceRoom.roomId)
           else {
             Logger.viewCycle.error("unable to leave space: could not get room")
             return

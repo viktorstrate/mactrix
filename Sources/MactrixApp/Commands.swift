@@ -1,23 +1,63 @@
 import SwiftUI
 
 public struct AppCommands: Commands {
+  let appState: AppState
   @FocusedValue(WindowState.self) private var windowState: WindowState?
   @AppStorage("fontSize") var fontSize: Int = 13
 
-  public init() {}
+  public init(appState: AppState) {
+    self.appState = appState
+  }
 
   public var body: some Commands {
-    SidebarCommands()
-    InspectorCommands()
-    TextEditingCommands()
-    ToolbarCommands()
+    // Older SDKs' CommandsBuilder accepts at most 10 children, so the
+    // built-in command sets are grouped into one property.
+    builtInCommands
 
     about
     newTab
     createRoom
     quickNavigation
     fontSizeCommands
+    accountCommands
     conversationCommands
+  }
+
+  @CommandsBuilder
+  var builtInCommands: some Commands {
+    SidebarCommands()
+    InspectorCommands()
+    TextEditingCommands()
+    ToolbarCommands()
+  }
+
+  var accountCommands: some Commands {
+    CommandMenu("Account") {
+      ForEach(Array(appState.accounts.enumerated()), id: \.element.storeID) { index, account in
+        Toggle(
+          isOn: Binding(
+            get: { windowState?.accountID == account.storeID },
+            set: { if $0, let windowState { appState.show(account, in: windowState) } })
+        ) {
+          Text(account.accountMenuTitle)
+        }
+        .disabled(windowState == nil)
+        .keyboardShortcut(
+          index < 9
+            ? KeyboardShortcut(
+              KeyEquivalent(Character("\(index + 1)")), modifiers: [.command, .control])
+            : nil)
+      }
+
+      if !appState.accounts.isEmpty {
+        Divider()
+      }
+
+      Button("Add Account…") {
+        windowState?.loginSheet = .addAccount
+      }
+      .disabled(windowState == nil)
+    }
   }
 
   var about: some Commands {

@@ -1,10 +1,14 @@
 import AuthenticationServices
 import MatrixIntegration
 import MatrixRustSDK
+import OSLog
 import SwiftUI
 
 struct WelcomeSheetView: View {
+  var request: LoginSheet = .firstAccount
+
   @Environment(AppState.self) private var appState
+  @Environment(WindowState.self) private var windowState
   @Environment(\.dismiss) private var dismiss
 
   @Environment(\.webAuthenticationSession) private var webAuthenticationSession
@@ -49,6 +53,17 @@ struct WelcomeSheetView: View {
     }
   }
 
+  /// Replaces the spent login with a fresh one, since a client can't sign in a second time.
+  ///
+  /// Failures are ignored so the sign-in error stays on screen.
+  private func renewHomeserverLogin() async {
+    do {
+      homeserverLogin = try await MatrixClient.loginDetails(homeServer: homeserverField)
+    } catch {
+      Logger.viewCycle.error("Failed to renew homeserver login: \(error)")
+    }
+  }
+
   func signInPassword() {
     Task {
       guard let homeserverLogin = homeserverLogin else { return }
@@ -58,10 +73,11 @@ struct WelcomeSheetView: View {
       do {
         let client = try await homeserverLogin.loginPassword(
           homeServer: homeserverField, username: usernameField, password: passwordField)
-        appState.matrixClient = client
+        try await appState.add(client, in: windowState)
         dismiss()
       } catch {
         showError = error
+        await renewHomeserverLogin()
       }
     }
   }
@@ -74,10 +90,11 @@ struct WelcomeSheetView: View {
 
       do {
         let client = try await homeserverLogin.loginOidc(webAuthSession: webAuthenticationSession)
-        appState.matrixClient = client
+        try await appState.add(client, in: windowState)
         dismiss()
       } catch {
         showError = error
+        await renewHomeserverLogin()
       }
     }
   }
@@ -113,7 +130,7 @@ struct WelcomeSheetView: View {
   @ViewBuilder
   var content: some View {
     VStack {
-      Text("Welcome to Mactrix")
+      Text(title)
         .font(.headline)
         .padding(.bottom)
 
@@ -159,8 +176,29 @@ struct WelcomeSheetView: View {
           .foregroundStyle(Color.red)
           .textSelection(.enabled)
       }
+
+      if request != .firstAccount {
+        Button("Cancel", role: .cancel) { dismiss() }
+          .keyboardShortcut(.cancelAction)
+          .padding(.top)
+      }
     }
     .padding()
+    .onAppear {
+      // Look up the homeserver straight away when signing in to a known account again.
+      if case .signInAgain(let userID) = request, homeserverField.isEmpty {
+        homeserverField = userID
+        loadHomeserver()
+      }
+    }
+  }
+
+  private var title: LocalizedStringKey {
+    switch request {
+    case .firstAccount: "Welcome to Mactrix"
+    case .addAccount: "Add Account"
+    case .signInAgain(let userID): "Sign In Again as \(userID)"
+    }
   }
 
   var body: some View {

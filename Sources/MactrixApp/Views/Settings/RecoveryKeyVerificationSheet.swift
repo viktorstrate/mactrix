@@ -114,7 +114,7 @@ struct RecoveryKeyVerificationSheet: View {
     .frame(width: 440)
     .interactiveDismissDisabled(state.isVerifying)
     .onAppear { keyFieldFocused = true }
-    .onChange(of: appState.matrixClient.map { ObjectIdentifier($0) }) {
+    .onChange(of: appState.lastFocusedAccount.map { ObjectIdentifier($0) }) {
       dismiss()
     }
     .onDisappear { verificationTask?.cancel() }
@@ -129,7 +129,7 @@ struct RecoveryKeyVerificationSheet: View {
   }
 
   private func verify() {
-    guard appState.matrixClient === matrixClient,
+    guard appState.lastFocusedAccount === matrixClient,
       verificationTask == nil, canVerify, !matrixClient.isRecoveringWithRecoveryKey
     else { return }
 

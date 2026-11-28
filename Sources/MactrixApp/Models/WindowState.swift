@@ -70,6 +70,23 @@ public final class SelectedScreen: Identifiable {
   public static var none: SelectedScreen { SelectedScreen(.none) }
 }
 
+/// Why the sign-in sheet is shown.
+public enum LoginSheet: Identifiable, Equatable {
+  /// No account is signed in.
+  case firstAccount
+  case addAccount
+  /// The server ended this account's session.
+  case signInAgain(userID: String)
+
+  public var id: String {
+    switch self {
+    case .firstAccount: "first"
+    case .addAccount: "add"
+    case .signInAgain(let userID): "again:\(userID)"
+    }
+  }
+}
+
 @MainActor @Observable
 public final class WindowState {
   public var selectedScreen: SelectedScreen = .none {
@@ -86,6 +103,25 @@ public final class WindowState {
   @ObservationIgnored let quickNavigation = QuickNavigationCoordinator()
 
   var conversationSelection: ConversationMessageSelection?
+
+  /// The account whose rooms `selectedRoomId` and `selectedSpaceId` refer to.
+  public private(set) var accountID: String?
+
+  /// The client of the account this window shows. `AppState` owns the clients.
+  public private(set) weak var matrixClient: MatrixClient?
+
+  /// The window showing this state.
+  @ObservationIgnored weak var window: NSWindow?
+
+  /// Brings this window to the front, selecting its tab and restoring it from the Dock.
+  func bringToFront() {
+    guard let window else { return }
+    if window.isMiniaturized {
+      window.deminiaturize(nil)
+    }
+    window.tabGroup?.selectedWindow = window
+    window.makeKeyAndOrderFront(nil)
+  }
 
   public var selectedRoomId: String? {
     get {
@@ -122,11 +158,15 @@ public final class WindowState {
   }
 
   public var selectedSpaceId: String?
+  /// The last selection of accounts other than `accountID`, restored when switching back.
+  var accountSelections: [String: AccountSelection] = [:]
   public var inspectorVisible: Bool = false
 
   public var inspectorContent: InspectorContent = .roomInfo
 
   public var requestedVerification = false
+
+  public var loginSheet: LoginSheet?
 
   public var searchQuery: String = ""
   public var searchTokens: [SearchToken] = []
@@ -149,6 +189,41 @@ public final class WindowState {
         }
       }
     )
+  }
+
+  /// Shows `account`, remembering the current account's selection and restoring the new one's.
+  public func showAccount(_ account: MatrixClient?, knownAccountIDs: Set<String>) {
+    showAccount(account?.storeID, knownAccountIDs: knownAccountIDs)
+    matrixClient = account
+  }
+
+  /// Shows `newAccountID`, remembering the current account's selection and restoring the new one's.
+  ///
+  /// `knownAccountIDs` lists the accounts that still exist; selections of others are dropped.
+  public func showAccount(_ newAccountID: String?, knownAccountIDs: Set<String>) {
+    accountSelections = accountSelections.filter { knownAccountIDs.contains($0.key) }
+    guard newAccountID != accountID else { return }
+
+    // State saved before multi-account support has no account; it belongs to the first one shown.
+    if accountID == nil, newAccountID != nil, accountSelections.isEmpty {
+      accountID = newAccountID
+      return
+    }
+
+    if let accountID, knownAccountIDs.contains(accountID) {
+      accountSelections[accountID] = AccountSelection(
+        roomId: selectedRoomId, spaceId: selectedSpaceId)
+    }
+    let restored = newAccountID.flatMap { accountSelections.removeValue(forKey: $0) }
+    accountID = newAccountID
+    selectedScreen = .none
+    selectedRoomId = restored?.roomId
+    selectedSpaceId = restored?.spaceId
+    inspectorContent = .roomInfo
+    searchQuery = ""
+    searchTokens = []
+    searchDirectResult = nil
+    requestedVerification = false
   }
 
   public func toggleInspector() {
@@ -235,18 +310,28 @@ public final class WindowState {
   }
 }
 
+struct AccountSelection: Codable, Equatable {
+  var roomId: String?
+  var spaceId: String?
+}
+
 extension WindowState: @MainActor RawRepresentable {
   public struct SceneStorageRepresentation: Codable {
     let selectedRoomId: String?
     let selectedSpaceId: String?
     let inspectorVisible: Bool
     let sidebarSections: SidebarSectionCollapsibility
+    // Absent in state saved before multi-account support.
+    let accountID: String?
+    let accountSelections: [String: AccountSelection]?
 
     @MainActor init(windowState: WindowState) {
       self.selectedRoomId = windowState.selectedRoomId
       self.selectedSpaceId = windowState.selectedSpaceId
       self.inspectorVisible = windowState.inspectorVisible
       self.sidebarSections = windowState.sidebarSections
+      self.accountID = windowState.accountID
+      self.accountSelections = windowState.accountSelections
     }
 
     @MainActor func restore(windowState: WindowState) {
@@ -254,6 +339,8 @@ extension WindowState: @MainActor RawRepresentable {
       windowState.selectedSpaceId = selectedSpaceId
       windowState.inspectorVisible = inspectorVisible
       windowState.sidebarSections = sidebarSections
+      windowState.accountID = accountID
+      windowState.accountSelections = accountSelections ?? [:]
     }
   }
 

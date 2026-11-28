@@ -51,7 +51,8 @@ extension MatrixClient {
     }
   }
 
-  var unreadRoomCount: Int {
+  /// The number of rooms with unread messages, notifications, or mentions.
+  public var unreadRoomCount: Int {
     rooms.reduce(0) { count, room in
       guard let info = room.roomInfo else { return count }
       let isUnread =
@@ -59,26 +60,24 @@ extension MatrixClient {
       return count + (isUnread ? 1 : 0)
     }
   }
-
-  func observeDockIconUnreadCount() {
-    let count = withObservationTracking {
-      unreadRoomCount
-    } onChange: { [weak self] in
-      Task { @MainActor [weak self] in
-        self?.observeDockIconUnreadCount()
-      }
-    }
-
-    guard count != lastAppliedDockUnreadCount else { return }
-    NSApp.dockTile.badgeLabel = count > 0 ? "\(count)" : nil
-    lastAppliedDockUnreadCount = count
-  }
 }
 
 extension MatrixClient: SyncServiceStateObserver {
   nonisolated public func onUpdate(state: MatrixRustSDK.SyncServiceState) {
     Task { @MainActor in
+      Logger.matrixClient.info(
+        "Sync state \(String(describing: state), privacy: .public), store \(self.storeID)")
       syncState = state
+      if state == .offline {
+        scheduleOfflineRestarts()
+      }
+      if state == .running {
+        // Setup that failed while offline can succeed now that the homeserver answers.
+        retryPendingSetupSteps()
+        // A send that fails on a network error turns its room's send queue off, holding the
+        // message until the queue is turned back on. Resend those now.
+        await client.enableAllSendQueues(enable: true)
+      }
     }
   }
 }
@@ -133,9 +132,11 @@ extension MatrixClient: MatrixRustSDK.ClientDelegate {
   nonisolated public func didReceiveAuthError(isSoftLogout: Bool) {
     Task { @MainActor in
       Logger.matrixClient.debug(
-        "did receive auth error: soft logout \(isSoftLogout, privacy: .public)")
+        "did receive auth error: soft logout \(isSoftLogout, privacy: .public), store \(self.storeID)")
       if !isSoftLogout {
         authenticationFailed = true
+        // The session is gone; keep the account listed but stop using it.
+        await syncService?.stop()
       }
     }
   }

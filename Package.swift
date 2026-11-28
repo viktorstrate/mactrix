@@ -41,6 +41,7 @@ let package = Package(
         .product(name: "MatrixRustSDK", package: "matrix-rust-components-swift"),
       ]
     ),
+    .testTarget(name: "MatrixIntegrationTests", dependencies: ["MatrixIntegration"]),
     .target(
       name: "MactrixApp",
       dependencies: [

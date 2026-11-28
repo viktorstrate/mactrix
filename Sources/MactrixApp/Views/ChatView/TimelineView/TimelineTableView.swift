@@ -104,7 +104,6 @@ extension TimelineItemRowInfo: Identifiable {
 
 class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveTimelineDiffDelegate
 {
-  let appState: AppState
   let windowState: WindowState
   private var actionTasks: [UUID: Task<Void, Never>] = [:]
 
@@ -156,10 +155,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   private(set) var timelineItems: [TimelineItemRowInfo] = []
 
   init(
-    appState: AppState, windowState: WindowState, timeline: LiveTimeline,
+    windowState: WindowState, timeline: LiveTimeline,
     composer: ChatComposerState
   ) {
-    self.appState = appState
     self.windowState = windowState
     self.timeline = timeline
     self.composer = composer
@@ -266,7 +264,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         } else {
           let view = MessageProfileRowView()
           view.initialize(
-            imageLoader: appState.matrixClient,
+            imageLoader: windowState.matrixClient,
             focusUser: { [weak self] in
               self?.windowState.focusUser(userId: $0)
             })
@@ -329,6 +327,9 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
           self.showMediaPreview(
             url: url, handle: handle, eventIdentifier: event.eventOrTransactionId.id)
         }
+        view.onSendStatusClick = { [weak self] anchor in
+          self?.showSendStatusMenu(for: event, from: anchor)
+        }
         view.configureEditing(messageEdit?.id == event.eventOrTransactionId ? messageEdit : nil)
         view.configure(
           event: event,
@@ -338,12 +339,12 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
           onThreadClick: { [weak self] in
             self?.windowState.focusThread(rootEventId: event.eventOrTransactionId.id)
           },
-          ownUserId: try? self.appState.matrixClient?.client.userId(),
+          ownUserId: try? self.windowState.matrixClient?.client.userId(),
           onReactionClick: { [weak self] key in
             self?.toggleReaction(key, for: event)
           },
           roomMembers: self.timeline.room.members,
-          matrixClient: self.appState.matrixClient,
+          matrixClient: self.windowState.matrixClient,
           handleMatrixUri: { [weak self] matrixUri in
             guard let self else { return false }
             self.handleMatrixUri(matrixUri)
@@ -412,7 +413,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
     listenForRecentReactions()
     listenForRoomInfo()
     listenForTimelinePagination()
-    if let recentReactions = appState.matrixClient?.recentReactions {
+    if let recentReactions = windowState.matrixClient?.recentReactions {
       startActionTask {
         _ = await recentReactions.refresh()
       }
@@ -549,7 +550,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
   }
 
   private func listenForRecentReactions() {
-    guard let recentReactions = appState.matrixClient?.recentReactions else { return }
+    guard let recentReactions = windowState.matrixClient?.recentReactions else { return }
     let keys = withObservationTracking {
       recentReactions.isActive ? recentReactions.cachedKeys : []
     } onChange: { [weak self] in
@@ -597,6 +598,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
       canPin: canPerformMessageAction(.pin, for: event),
       isPinned: isMessagePinned(event),
       canCopyLink: canPerformMessageAction(.copyMessageLink, for: event),
+      canRetrySend: canPerformMessageAction(.retrySend, for: event),
       downloadFilenames: MessageDownloadAttachment.attachments(for: event).map(\.suggestedFilename))
   }
 
@@ -701,7 +703,7 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
 
   private func toggleReaction(_ key: String, for event: MatrixRustSDK.EventTimelineItem) {
     guard let sdkTimeline = timeline.timeline else { return }
-    let recents = appState.matrixClient?.recentReactions
+    let recents = windowState.matrixClient?.recentReactions
     startActionTask {
       do {
         if let recents {
@@ -716,6 +718,35 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         Logger.timelineTableView.error("Failed to toggle reaction: \(error)")
       }
     }
+  }
+
+  /// Shows what can be done with a message that hasn't been sent, below its send status icon.
+  private func showSendStatusMenu(for event: MatrixRustSDK.EventTimelineItem, from anchor: NSView) {
+    let menu = NSMenu()
+    menu.autoenablesItems = false
+    for (action, title, symbol) in [
+      (
+        MessageHoverOverlayView.Action.retrySend, String(localized: "Retry Sending"),
+        "arrow.clockwise"
+      ),
+      (.delete, String(localized: "Delete message"), "trash"),
+    ] where canPerformMessageAction(action, for: event) {
+      let item = NSMenuItem(
+        title: title, action: #selector(performSendStatusMenuItem(_:)), keyEquivalent: "")
+      item.target = self
+      item.image = NSImage(systemSymbolName: symbol, accessibilityDescription: title)
+      item.representedObject = PendingMessageAction(action: action, event: event)
+      menu.addItem(item)
+    }
+    guard !menu.items.isEmpty else { return }
+    let origin = NSPoint(
+      x: anchor.bounds.minX, y: anchor.isFlipped ? anchor.bounds.maxY + 4 : anchor.bounds.minY - 4)
+    menu.popUp(positioning: nil, at: origin, in: anchor)
+  }
+
+  @objc private func performSendStatusMenuItem(_ sender: NSMenuItem) {
+    guard let pending = sender.representedObject as? PendingMessageAction else { return }
+    performMessageAction(pending.action, for: pending.event)
   }
 
   private func canDeleteMessage(_ event: MatrixRustSDK.EventTimelineItem) -> Bool {
@@ -761,13 +792,16 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
         && timeline.room.roomInfo?.powerLevels?.canOwnUserPinUnpin() == true
     case .delete:
       return timeline.timeline != nil && canDeleteMessage(event)
+    case .retrySend:
+      guard case .sendingFailed = event.localSendState else { return false }
+      return event.lazyProvider.getSendHandle() != nil
     case .copyMessageLink:
       if case .eventId = event.eventOrTransactionId { return true }
       return false
     case .showSource:
       return true
     case .downloadToFile(let index):
-      return appState.matrixClient != nil
+      return windowState.matrixClient != nil
         && MessageDownloadAttachment.attachments(for: event).indices.contains(index)
     }
   }
@@ -800,13 +834,29 @@ class TimelineViewController: NSViewController, LiveTimelineFocusDelegate, LiveT
           Logger.timelineTableView.error("Failed to copy message link: \(error)")
         }
       }
+    case .retrySend:
+      guard case .sendingFailed = event.localSendState,
+        let sendHandle = event.lazyProvider.getSendHandle()
+      else { return }
+      let room = timeline.room.room
+      startActionTask {
+        // A network failure turned the room's send queue off; an unrecoverable one parked the
+        // message. Undo both, so the message goes out whichever it was.
+        room.enableSendQueue(enable: true)
+        do {
+          try await sendHandle.tryResend()
+        } catch {
+          guard !Task.isCancelled else { return }
+          Logger.timelineTableView.error("Failed to retry sending message: \(error)")
+        }
+      }
     case .showSource:
       MessageSourceWindowController.show(source: event.lazyProvider.latestJson())
     case .downloadToFile(let index):
       let attachments = MessageDownloadAttachment.attachments(for: event)
       guard attachments.indices.contains(index) else { return }
       startActionTask { [weak self] in
-        guard let self = self, let matrixClient = appState.matrixClient else { return }
+        guard let self = self, let matrixClient = windowState.matrixClient else { return }
         await MessageDownloadAttachment.downloadToFile(
           view: view, matrixClient: matrixClient, attachment: attachments[index])
       }
@@ -1375,7 +1425,7 @@ extension TimelineViewController: NSPopoverDelegate {
 
     let picker = ReactionPickerViewController(
       model: try ReactionPickerModel.loadBundled(),
-      recentReactions: appState.matrixClient?.recentReactions)
+      recentReactions: windowState.matrixClient?.recentReactions)
     let popover = NSPopover()
     popover.behavior = .transient
     popover.contentViewController = picker
@@ -1622,7 +1672,7 @@ extension TimelineViewController {
 
     let state = MessageEditState(id: event.eventOrTransactionId, text: text)
     state.mentionCandidateProvider = { [weak room = timeline.room] in room?.members ?? [] }
-    state.imageLoader = appState.matrixClient
+    state.imageLoader = windowState.matrixClient
     state.onChange = { [weak self, weak state] in
       guard let self, let state, self.messageEdit === state,
         let row = self.rowForEventId(id: state.id)
@@ -1881,5 +1931,16 @@ final class TimelineDocumentView: NSView {
       clipView.scroll(to: clipView.constrainBoundsRect(bounds).origin)
     }
     scrollView.reflectScrolledClipView(clipView)
+  }
+}
+
+/// A message action waiting on a menu item, which can only hold an object.
+private final class PendingMessageAction: NSObject {
+  let action: MessageHoverOverlayView.Action
+  let event: MatrixRustSDK.EventTimelineItem
+
+  init(action: MessageHoverOverlayView.Action, event: MatrixRustSDK.EventTimelineItem) {
+    self.action = action
+    self.event = event
   }
 }

@@ -1,13 +1,7 @@
-import AsyncAlgorithms
 import Foundation
 import MatrixRustSDK
-import OSLog
-import Observation
-import Security
-import UniformTypeIdentifiers
-import Utils
 
-struct UserSession: Codable {
+struct UserSession: Codable, Equatable {
   let accessToken: String
   let refreshToken: String?
   let userID: String
@@ -37,20 +31,5 @@ struct UserSession: Codable {
       homeserverUrl: homeserverURL,
       oauthData: oauthData,
       slidingSyncVersion: .native)
-  }
-
-  fileprivate static var keychainKey: String { "UserSession" }
-
-  func saveUserToKeychain() throws {
-    let keychainData = try JSONEncoder().encode(self)
-    try AppKeychain().save(keychainData, forKey: Self.keychainKey)
-  }
-
-  static func loadUserFromKeychain() throws -> Self? {
-    Logger.matrixClient.debug("Load user from keychain")
-    if let keychainData = try AppKeychain().load(forKey: keychainKey) {
-      return try JSONDecoder().decode(Self.self, from: keychainData)
-    }
-    return nil
   }
 }

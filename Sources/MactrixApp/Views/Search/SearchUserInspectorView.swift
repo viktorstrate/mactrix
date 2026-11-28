@@ -4,7 +4,6 @@ import OSLog
 import SwiftUI
 
 struct SearchUserInspectorView: View {
-  @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
   @State var searchedUsers: [UserProfile] = []
@@ -22,7 +21,7 @@ struct SearchUserInspectorView: View {
           }.redacted(reason: .placeholder)
         } else {
           ForEach(searchedUsers) { user in
-            MactrixUI.UserProfileRow(profile: user, imageLoader: appState.matrixClient)
+            MactrixUI.UserProfileRow(profile: user, imageLoader: windowState.matrixClient)
           }
         }
       }
@@ -34,7 +33,7 @@ struct SearchUserInspectorView: View {
     }
     .task(id: windowState.searchQuery) {
       do {
-        guard let matrixClient = appState.matrixClient else { return }
+        guard let matrixClient = windowState.matrixClient else { return }
         guard !windowState.searchQuery.isEmpty else {
           searchedUsers = []
           return

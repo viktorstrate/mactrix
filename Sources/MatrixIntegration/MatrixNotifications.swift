@@ -5,7 +5,15 @@ import UserNotifications
 
 // This class is Sendable because MatrixRustSDK.SyncNotificationListener requires it to be so
 @MainActor @Observable public final class MatrixNotifications: NSObject, Sendable {
-  public var selectedRoomId: String?
+  enum UserInfoKey {
+    static let roomId = "roomId"
+    static let accountID = "accountID"
+  }
+
+  /// The `storeID` of the account these notifications belong to.
+  let accountID: String
+  /// Names the account in notifications; set when more than one account is signed in.
+  public var accountLabel: String?
 
   typealias NotificationEvent = (item: MatrixRustSDK.NotificationItem, roomId: String)
 
@@ -13,12 +21,12 @@ import UserNotifications
     AsyncStream<NotificationEvent>.Continuation
   @ObservationIgnored private var streamTask: Task<Void, Never>?
 
-  public override init() {
+  init(accountID: String) {
+    self.accountID = accountID
     let (stream, continuation) = AsyncStream<NotificationEvent>.makeStream()
     notificationContinuation = continuation
 
     super.init()
-    UNUserNotificationCenter.current().delegate = self
 
     streamTask = Task { [weak self] in
       for await (notification, roomId) in stream {
@@ -26,16 +34,6 @@ import UserNotifications
         await self.sendNotification(notification: notification, roomId: roomId)
       }
     }
-  }
-}
-
-extension MatrixNotifications: @MainActor UNUserNotificationCenterDelegate {
-  public func userNotificationCenter(
-    _ center: UNUserNotificationCenter, didReceive response: UNNotificationResponse
-  ) async {
-    let roomId = response.notification.request.content.userInfo["roomId"] as? String
-    Logger.notification.info("Notification delegate didReceive: \(roomId ?? "<no room id>")")
-    selectedRoomId = roomId
   }
 }
 
@@ -65,10 +63,16 @@ extension MatrixNotifications {
 
     let content = UNMutableNotificationContent()
     content.title = notificationTitle(for: notification)
-    content.subtitle = notificationBody(for: notification)
+    if let accountLabel {
+      content.subtitle = accountLabel
+      content.body = notificationBody(for: notification)
+    } else {
+      content.subtitle = notificationBody(for: notification)
+    }
     content.sound = UNNotificationSound.default
     content.interruptionLevel = .timeSensitive
-    content.userInfo = ["roomId": roomId]
+    content.threadIdentifier = accountID
+    content.userInfo = [UserInfoKey.roomId: roomId, UserInfoKey.accountID: accountID]
 
     let trigger = UNTimeIntervalNotificationTrigger(timeInterval: 0.01, repeats: false)
     let request = UNNotificationRequest(

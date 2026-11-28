@@ -48,20 +48,32 @@ struct AccountSettingsView: View {
   @State private var displayName: String? = nil
 
   var body: some View {
-    if let matrixClient = appState.matrixClient {
+    if let matrixClient = appState.lastFocusedAccount {
       Form {
+        Section {
+          AccountLabel(account: matrixClient)
+        } header: {
+          Text("Active Account")
+        } footer: {
+          if appState.accounts.count > 1 {
+            Text("Switch accounts from the sidebar or the Account menu.")
+          }
+        }
+
         ChangableField(
           name: "Display name", value: displayName ?? String(localized: "Loading…"),
           onSave: { newDisplayName in
             do {
               try await matrixClient.client.setDisplayName(name: newDisplayName)
               displayName = newDisplayName
+              await matrixClient.refreshOwnProfile()
             } catch {
               Logger.viewCycle.error("Failed to update display name: \(error)")
             }
           }
         )
-        .task {
+        .task(id: matrixClient.storeID) {
+          displayName = nil
           do {
             displayName = try await matrixClient.client.displayName()
           } catch {
@@ -80,7 +92,11 @@ struct AccountSettingsView: View {
         }
 
         HStack {
-          Button("Sign out", role: .destructive) {
+          Button(
+            appState.accounts.count > 1
+              ? String(localized: "Sign Out of This Account") : String(localized: "Sign out"),
+            role: .destructive
+          ) {
             Task {
               do {
                 try await appState.reset()
@@ -99,7 +115,7 @@ struct AccountSettingsView: View {
         Button("Clear cache") {
           Task {
             do {
-              try await appState.matrixClient?.clearCache()
+              try await appState.lastFocusedAccount?.clearCache()
             } catch {
               Logger.viewCycle.error("Failed to clear cache: \(error)")
             }

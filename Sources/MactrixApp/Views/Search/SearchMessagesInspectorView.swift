@@ -4,22 +4,24 @@ import OSLog
 import SwiftUI
 
 struct SearchMessagesInspectorView: View {
-  @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
   @State var selectedMessage: String? = nil
 
   @State var searchService: LiveSearchService? = nil
+  /// The account `searchService` searches.
+  @State private var searchServiceStoreID: String? = nil
 
   @ViewBuilder
   var content: some View {
     let results = searchService?.results ?? []
     let query = windowState.searchQuery
+    let matrixClient = windowState.matrixClient
     ForEach(results) { searchResult in
       let paginationQuery =
         searchResult.id == results.last?.id && searchService?.activeQuery == query ? query : nil
 
-      SearchMessageRowView(result: searchResult, query: query, matrixClient: appState.matrixClient)
+      SearchMessageRowView(result: searchResult, query: query, matrixClient: matrixClient)
         .task(id: paginationQuery) {
           guard let paginationQuery, paginationQuery == windowState.searchQuery else { return }
           do {
@@ -59,16 +61,18 @@ struct SearchMessagesInspectorView: View {
     .task(id: query) {
       do {
         try await Task.sleep(for: .milliseconds(500))
-        guard let matrixClient = appState.matrixClient else { return }
+        guard let matrixClient = windowState.matrixClient else { return }
 
+        // The window may have switched accounts since the service was made.
         let searchService: LiveSearchService
-        if let s = self.searchService {
+        if let s = self.searchService, searchServiceStoreID == matrixClient.storeID {
           searchService = s
         } else {
           searchService = await LiveSearchService(
             searchService: matrixClient.client.searchService())
           try Task.checkCancellation()
           self.searchService = searchService
+          searchServiceStoreID = matrixClient.storeID
         }
 
         try await searchService.search(query: query)

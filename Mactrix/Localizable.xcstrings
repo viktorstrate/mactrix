@@ -4,6 +4,28 @@
     "" : {
       "shouldTranslate" : false
     },
+    "%@, %lld unread in other accounts" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, %2$lld unread in other accounts"
+          }
+        }
+      }
+    },
+    "%@, needs attention" : {},
+    "%@, sync: %@" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "%1$@, sync: %2$@"
+          }
+        }
+      }
+    },
+    "%lld unread" : {},
     "(edited)" : {
       "localizations" : {
         "da" : {
@@ -124,6 +146,7 @@
         }
       }
     },
+    "%@, verification requested in another account" : {},
     "%lld other events" : {
       "localizations" : {
         "da" : {
@@ -458,6 +481,7 @@
         }
       }
     },
+    "Active Account" : {},
     "Activities" : {
       "localizations" : {
         "da" : {
@@ -474,6 +498,8 @@
         }
       }
     },
+    "Add Account" : {},
+    "Add Account…" : {},
     "Add Reaction" : {
       "localizations" : {
         "da" : {
@@ -3546,6 +3572,7 @@
       }
     },
     "logged out" : {
+      "extractionState" : "stale",
       "localizations" : {
         "da" : {
           "stringUnit" : {
@@ -3955,6 +3982,7 @@
         }
       }
     },
+    "No Account" : {},
     "No backup found" : {
       "localizations" : {
         "da" : {
@@ -4131,6 +4159,8 @@
         }
       }
     },
+    "Not sent yet" : {},
+    "Not sent. %@ Click to retry or delete." : {},
     "Not signed in" : {
       "localizations" : {
         "da" : {
@@ -4896,6 +4926,7 @@
         }
       }
     },
+    "Remove Account" : {},
     "Reply" : {
       "localizations" : {
         "da" : {
@@ -5088,6 +5119,7 @@
         }
       }
     },
+    "Restarting…" : {},
     "Restoring encryption secrets…" : {
       "localizations" : {
         "da" : {
@@ -5136,6 +5168,7 @@
         }
       }
     },
+    "Retry Sending" : {},
     "revoked invitation for %@ to join the room" : {
       "localizations" : {
         "da" : {
@@ -5773,6 +5806,8 @@
         }
       }
     },
+    "Sign In Again as %@" : {},
+    "Sign In Again…" : {},
     "Sign in to continue." : {
       "localizations" : {
         "da" : {
@@ -5815,6 +5850,12 @@
         }
       }
     },
+    "Sign Out" : {},
+    "Sign out of %@?" : {},
+    "Sign Out of %@…" : {},
+    "Sign Out of This Account" : {},
+    "Signed Out" : {},
+    "Signed out" : {},
     "Smileys & Emotion" : {
       "localizations" : {
         "da" : {
@@ -5831,6 +5872,8 @@
         }
       }
     },
+    "Some devices in this room aren't verified." : {},
+    "Someone in this room changed their identity." : {},
     "Space" : {
       "localizations" : {
         "da" : {
@@ -7415,6 +7458,9 @@
         }
       }
     },
+    "Switch account" : {},
+    "Switch account, current: %@" : {},
+    "Switch accounts from the sidebar or the Account menu." : {},
     "Symbols" : {
       "localizations" : {
         "da" : {
@@ -7463,6 +7509,8 @@
         }
       }
     },
+    "The attachment is no longer available." : {},
+    "The attachment's file type isn't recognized." : {},
     "The original message isn't loaded." : {
       "localizations" : {
         "da" : {
@@ -7505,6 +7553,7 @@
         }
       }
     },
+    "The server couldn't be reached." : {},
     "They don't match" : {
       "localizations" : {
         "da" : {
@@ -7537,6 +7586,7 @@
         }
       }
     },
+    "This account will be signed out on this Mac. Your other accounts stay signed in." : {},
     "This device is verified" : {
       "localizations" : {
         "da" : {
@@ -7601,6 +7651,7 @@
         }
       }
     },
+    "This session was ended by the server or another device." : {},
     "This will remove the message for everyone in the room. This action cannot be undone." : {
       "localizations" : {
         "da" : {
@@ -8095,6 +8146,7 @@
         }
       }
     },
+    "Unread rooms in your other accounts" : {},
     "Unsupported attachment (%@): %@" : {
       "localizations" : {
         "da" : {
@@ -8309,6 +8361,7 @@
         }
       }
     },
+    "Verification requested" : {},
     "Verification status unknown" : {
       "localizations" : {
         "da" : {
@@ -8389,6 +8442,7 @@
         }
       }
     },
+    "Verify this session to send messages." : {},
     "Verify with Recovery Key" : {
       "localizations" : {
         "da" : {
@@ -8725,6 +8779,8 @@
         }
       }
     },
+    "You were signed out." : {},
+    "You're already signed in as %@." : {},
     "Your account recognizes this device as trusted." : {
       "localizations" : {
         "da" : {
@@ -8756,7 +8812,8 @@
           }
         }
       }
-    }
+    },
+    "Your session expired." : {}
   },
   "version" : "1.0"
 }

@@ -10,6 +10,7 @@ final class MessageHoverOverlayView: NSView {
     case pin
     case edit
     case delete
+    case retrySend
     case copyMessageLink
     case showSource
     case downloadToFile(Int)
@@ -44,6 +45,8 @@ final class MessageHoverOverlayView: NSView {
   private let copyLinkMenuItem = NSMenuItem(
     title: String(localized: "Copy Message Link"), action: #selector(copyMessageLink),
     keyEquivalent: "")
+  private let retrySendMenuItem = NSMenuItem(
+    title: String(localized: "Retry Sending"), action: #selector(retrySend), keyEquivalent: "")
   private let deleteMenuItem = NSMenuItem(
     title: String(localized: "Delete message"), action: #selector(deleteMessage), keyEquivalent: "")
   private let editButton = HoverActionButton(
@@ -119,6 +122,11 @@ final class MessageHoverOverlayView: NSView {
     let sourceMenuItem = NSMenuItem(
       title: String(localized: "Show Source"), action: #selector(showSource), keyEquivalent: "")
 
+    retrySendMenuItem.target = self
+    retrySendMenuItem.image = NSImage(
+      systemSymbolName: "arrow.clockwise", accessibilityDescription: retrySendMenuItem.title)
+    menu.addItem(retrySendMenuItem)
+
     pinMenuItem.target = self
 
     menu.addItem(pinMenuItem)
@@ -165,8 +173,9 @@ final class MessageHoverOverlayView: NSView {
   func configure(
     canReply: Bool, canEdit: Bool = false, canDelete: Bool = false,
     canReact: Bool = true, canPin: Bool = false, isPinned: Bool = false,
-    canCopyLink: Bool = false, downloadFilenames: [String] = []
+    canCopyLink: Bool = false, canRetrySend: Bool = false, downloadFilenames: [String] = []
   ) {
+    retrySendMenuItem.isHidden = !canRetrySend
     reactionPickerButton.isEnabled = canReact
     for button in quickReactionButtons {
       button.isEnabled = canReact
@@ -248,6 +257,10 @@ final class MessageHoverOverlayView: NSView {
 
   @objc private func pinMessage() {
     onAction?(.pin)
+  }
+
+  @objc private func retrySend() {
+    onAction?(.retrySend)
   }
 
   @objc private func deleteMessage() {

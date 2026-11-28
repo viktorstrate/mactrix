@@ -41,6 +41,13 @@
         "identifier" : "ContactLinkingTests",
         "name" : "ContactLinkingTests"
       }
+    },
+    {
+      "target" : {
+        "containerPath" : "container:",
+        "identifier" : "MatrixIntegrationTests",
+        "name" : "MatrixIntegrationTests"
+      }
     }
   ],
   "version" : 1

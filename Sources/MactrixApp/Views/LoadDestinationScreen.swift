@@ -5,7 +5,6 @@ import SwiftUI
 import Utils
 
 struct LoadDestinationScreen: View {
-  @Environment(AppState.self) var appState
   @Environment(WindowState.self) var windowState
 
   let screen: SelectedScreen
@@ -51,7 +50,7 @@ struct LoadDestinationScreen: View {
     }
     .task(
       id: LoadRequest(
-        attempt: retryAttempt, client: appState.matrixClient.map { ObjectIdentifier($0) })
+        attempt: retryAttempt, client: windowState.matrixClient.map { ObjectIdentifier($0) })
     ) {
       await load()
     }
@@ -61,7 +60,7 @@ struct LoadDestinationScreen: View {
   private func load() async {
     guard windowState.selectedScreen === screen, !Task.isCancelled else { return }
     errorMessage = nil
-    guard let matrixClient = appState.matrixClient else {
+    guard let matrixClient = windowState.matrixClient else {
       errorMessage = String(localized: "Sign in to continue.")
       return
     }
@@ -69,13 +68,13 @@ struct LoadDestinationScreen: View {
     do {
       let destination = try await resolve(using: matrixClient)
       try Task.checkCancellation()
-      guard windowState.selectedScreen === screen, appState.matrixClient === matrixClient else {
+      guard windowState.selectedScreen === screen, windowState.matrixClient === matrixClient else {
         return
       }
       windowState.selectedScreen = destination
     } catch {
       guard !Task.isCancelled, windowState.selectedScreen === screen,
-        appState.matrixClient === matrixClient
+        windowState.matrixClient === matrixClient
       else { return }
       Logger.viewCycle.error("Failed to open destination: \(error)")
       errorMessage = error.localizedDescription
@@ -112,7 +111,7 @@ struct LoadDestinationScreen: View {
       }
 
       try Task.checkCancellation()
-      guard windowState.selectedScreen === screen, appState.matrixClient === matrixClient else {
+      guard windowState.selectedScreen === screen, windowState.matrixClient === matrixClient else {
         throw CancellationError()
       }
 

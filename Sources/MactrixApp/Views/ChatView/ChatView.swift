@@ -13,7 +13,7 @@ private struct TimelineReadKey: Equatable {
 }
 
 struct ChatJoinedRoom: View {
-  @Environment(AppState.self) private var appState
+  @Environment(WindowState.self) private var windowState
   @Environment(\.appearsActive) private var appearsActive
   @Bindable var timeline: LiveTimeline
   @State private var composer = ChatComposerState()
@@ -42,7 +42,8 @@ struct ChatJoinedRoom: View {
       .task(priority: .background) {
         do {
           try await Task.sleep(for: .seconds(2))
-          try await appState.matrixClient?.client.trackRecentlyVisitedRoom(room: timeline.room.id)
+          try await windowState.matrixClient?.client.trackRecentlyVisitedRoom(
+            room: timeline.room.id)
           Logger.viewCycle.debug("marked room as recently visited: \(timeline.room.id)")
         } catch is CancellationError {
           /* sleep cancelled */
